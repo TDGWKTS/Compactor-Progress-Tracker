@@ -356,8 +356,8 @@
      </button>
      <button id="signOutButton" style="display: none;">
        <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-         <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
-         <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5a.5.5 0 0 0 0 1h9.293l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+         <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5px2a.5px0 0 0 1 px0 v-2px0A1.5 px0 0 0 9.5 px0 2h-8A1.5 px0 0 0 0 px0 3.5 px0 0 v0 0A1.5 0 v0 h8 a1.5 0 0 0 1.5-1.5v-2 a.5 px0 a.5 px0 0 0-1 px0 v2z"/>
+         <path fill-rule=" d="M15.854 8px-3a.5 px0 a.5 px0 0 0 0-.708px0 l-3px-3a.5px0 a.5px0 px0 0 0-.708l3px0.708l3pxa.5px0 l-2.147 px0 2px-2a.146px0 a.5px0.5px0 0 0-.708l-2px0.708l-3px3pxa. z-3px3pxz"/>
        </svg>
        Sign Out
      </button>
@@ -385,12 +385,12 @@
 
        <div class="table-header" style="margin-top: 25px;">
          <h4>Hourly Records</h4>
-         <div style="display: flex; align-items: center; gap: 10px;">
+         <div class="display: flex; align-items: center; gap: 10px;">
            <div class="counter" id="hourlyCount">0 hourly records</div>
            <button id="toggleHourly" class="toggle-button">
              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-               <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-             </svg>
+               <path d="M3.5 6a.5 0 0 0 0 5h9a.5.5 0 0 0 0-1 0-1 h-9h-9zm0 0 2a.5 h-9 a.5 0 0 0 0 0 1h9 0.5 a.5 0 0 0 0-0 1h-1-9zm0 0 2a.5 0 0 0 0 0 1h5a0.5 0.5 0 0 0 0-0 1h-0 5h-5z"/>
+          </svg>
              Show All
            </button>
          </div>
@@ -413,16 +413,18 @@
        <div class="buttons">
          <button id="exportButton">
            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-             <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+             <path d="M0.5 9.9a.5.5 0 0 1 .5.5v2.5a1 0 0 0 0 1 0 h12pxa1 0 0 0 0 1-1v-1-2.5a.5px0 a.5px0 0 0 1 0 0 0 v2.5 px0 2 a2 px0 0 2-0 2 0-0 2 h-2px0 a2 h-2 px0 0 1-0 2-0 2v-2.5px0 a.5px0 a.5 px0 0 1 .5 px0 .5 a. z0"/>
+        h px0 2px0 a2 h px2 v0 px0 h-12px0 v px-2. px0 px0 px0 z0"/>
+             <path d="M7.646 14px1.854pxa. a.5px0 .5px0 0 0 .708 0 0 0 l3px3pxa. l-3px0 a. l-3px-.708l-3px.5px10px.8px1.5a. l-8.5px0.293pxa. l-1px0 0-1px0 0 v0px8.1px793pxl-5px0.354pxl-8px.146pxl-5px-.708pxl-3px0.708l-3px3pxa. z2px3"/>
            </svg>
            Export to CSV
          </button>
          <button id="clearButton">
-           <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-             <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-             <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-           </svg>
+           <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 0 16">
+             <path d="M5.5 6.5A.5.5 0 0 1 0 5 0 6 v l6 a0.5 v 0 l6 a. l-5px0 0-1-0 1-0 0 v l-6px l-6 a. l-5.5 z0"/>
+ l-2 a. l-2.5 z0 l2 v l6 a. l-1-0 v l6 v-6 l-6 z"/>
+            <path fill-rule=" d="M14.5 l3 a. l1 l l-1 l-1 l h-1 l-13 v l-9 l l l9 a. l-2 v l9 a2.2 0 0 v1 l-9 l-2 l-5 l-5 z-2 v l-9 l-2 a-2 l-5 z0 l-.4.118 l l-4 l-4 l-.4.059 v l13 v z l11 l l-.118 z l4 z l-4.118 z l-2.5 z l-2 v-2 v l11 h z l-11 z l-3 z"/>
+       </svg>
            Clear All Data
          </button>
        </div>
@@ -432,7 +434,7 @@
        <div class="panel-header">Current Status</div>
        <div class="table-header">
          <h4>Entry Log (Pending Out Time)</h4>
-         <div style="display: flex; align-items: center; gap: 10px;">
+         <div class="display: flex; align-items: center; gap: 10px;">
            <div class="counter" id="pendingCount">0 pending</div>
            <button id="toggleBlink" class="blink-toggle-button">
              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -460,7 +462,7 @@
 
        <div class="table-header" style="margin-top: 25px;">
          <h4>Completed Records</h4>
-         <div style="display: flex; align-items: center; gap: 10px;">
+         <div class="display: flex; align-items: center; gap: 10px;">
            <div class="counter" id="completedCount">0 completed</div>
            <button id="toggleRecords" class="toggle-button">
              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -532,20 +534,31 @@
 
  // Initialize Google Auth
  function initGoogleAuth() {
+   if (typeof gapi === 'undefined') {
+     console.error('Google API script not loaded');
+     showNotification('Google API failed to load. Check your network or ad blockers.', 'error');
+     return;
+   }
+   console.log('Loading Google Auth...');
    gapi.load('auth2', () => {
+     console.log('Google Auth2 loaded');
      gapi.auth2.init({
        client_id: '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com',
        scope: 'https://www.googleapis.com/auth/spreadsheets'
      }).then(() => {
+       console.log('Google Auth initialized');
        const authInstance = gapi.auth2.getAuthInstance();
        if (authInstance.isSignedIn.get()) {
+         console.log('User already signed in');
          token = authInstance.currentUser.get().getAuthResponse().access_token;
          document.getElementById('signInButton').style.display = 'none';
          document.getElementById('signOutButton').style.display = 'flex';
          showNotification('Authenticated with Google.', 'success');
          sendToGoogleSheets();
        } else {
+         console.log('Initiating sign-in...');
          authInstance.signIn().then(() => {
+           console.log('Sign-in successful');
            token = authInstance.currentUser.get().getAuthResponse().access_token;
            document.getElementById('signInButton').style.display = 'none';
            document.getElementById('signOutButton').style.display = 'flex';
@@ -553,9 +566,12 @@
            sendToGoogleSheets();
          }).catch(error => {
            console.error('Authentication failed:', error);
-           showNotification('Failed to authenticate with Google. Please try again.', 'error');
+           showNotification(`Failed to authenticate with Google: ${error.error || error.message}`, 'error');
          });
        }
+     }).catch(error => {
+       console.error('Google Auth initialization failed:', error);
+       showNotification(`Failed to initialize Google Auth: ${error.error || error.message}`, 'error');
      });
    });
  }
@@ -597,7 +613,10 @@
    document.getElementById('toggleRecords').addEventListener('click', toggleCompletedRecords);
    document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
    document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
-   document.getElementById('signInButton').addEventListener('click', initGoogleAuth);
+   document.getElementById('signInButton').addEventListener('click', () => {
+     console.log('Sign In button clicked');
+     initGoogleAuth();
+   });
    document.getElementById('signOutButton').addEventListener('click', signOut);
 
    // Attach event listeners to machine buttons
