@@ -4,13 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Compactor Progress Tracker</title>
-  <meta http-equiv="Content-Security-Policy" content="
-  default-src 'self' https://apis.google.com https://www.gstatic.com;
-  script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com;
+ <meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   img-src 'self' data: https://*.googleusercontent.com;
-  frame-src 'self' https://accounts.google.com;
-  connect-src 'self' https://*.googleapis.com;
+  frame-src 'self' https://accounts.google.com https://*.google.com;
+  connect-src 'self' https://*.googleapis.com https://*.google.com;
+  font-src 'self' https://fonts.gstatic.com;
 ">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>??</text></svg>">
   <script src="https://apis.google.com/js/api.js"></script>
@@ -541,71 +542,73 @@
   // Initialize Google Auth
   function initGoogleAuth() {
   if (typeof gapi === 'undefined') {
-    console.error('Google API script not loaded');
-    showNotification('Google API failed to load. Please refresh the page.', 'error');
+    console.error('Google API not loaded');
+    showNotification('Failed to load Google services. Please refresh the page.', 'error');
     return;
   }
 
-  console.log('Loading Google Auth...');
-  gapi.load('auth2', () => {
-    console.log('Google Auth2 loaded');
-    
-    // First check if auth2 is already initialized
-    if (gapi.auth2.getAuthInstance()) {
-      console.log('Auth already initialized');
-      handleAuthStatus();
-      return;
-    }
+  // First try to get existing auth instance
+  const authInstance = gapi.auth2.getAuthInstance();
+  if (authInstance) {
+    handleAuthChange(authInstance.isSignedIn.get());
+    return;
+  }
 
+  // Initialize auth2
+  gapi.load('auth2', () => {
     gapi.auth2.init({
       client_id: '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com',
       scope: 'https://www.googleapis.com/auth/spreadsheets',
-      prompt: 'select_account'
+      ux_mode: 'popup',
+      fetch_basic_profile: true
     }).then(
-      () => {
+      (auth2) => {
         console.log('Google Auth initialized');
-        handleAuthStatus();
+        // Listen for sign-in state changes
+        auth2.isSignedIn.listen(handleAuthChange);
+        // Handle current state
+        handleAuthChange(auth2.isSignedIn.get());
       },
-      error => {
-        console.error('Google Auth initialization failed:', error);
+      (error) => {
+        console.error('Auth init error:', error);
         if (error.error === 'idpiframe_initialization_failed') {
-          showNotification('Google Sign-In requires third-party cookies to be enabled in your browser settings.', 'error');
+          showNotification('Please enable third-party cookies to sign in with Google', 'error');
         } else {
-          showNotification('Failed to initialize Google Sign-In. Please try again.', 'error');
+          showNotification('Authentication service unavailable', 'error');
         }
       }
     );
   });
 }
 
-function handleAuthStatus() {
-  const authInstance = gapi.auth2.getAuthInstance();
-  if (authInstance.isSignedIn.get()) {
-    console.log('User already signed in');
-    token = authInstance.currentUser.get().getAuthResponse().access_token;
+function handleAuthChange(isSignedIn) {
+  if (isSignedIn) {
+    const user = gapi.auth2.getAuthInstance().currentUser.get();
+    token = user.getAuthResponse().access_token;
     document.getElementById('signInButton').style.display = 'none';
     document.getElementById('signOutButton').style.display = 'flex';
-    showNotification('Authenticated with Google.', 'success');
+    showNotification(`Signed in as ${user.getBasicProfile().getName()}`, 'success');
     sendToGoogleSheets();
   } else {
-    console.log('User not signed in - showing sign-in UI');
-    authInstance.signIn().then(() => {
-      console.log('Sign-in successful');
-      token = authInstance.currentUser.get().getAuthResponse().access_token;
-      document.getElementById('signInButton').style.display = 'none';
-      document.getElementById('signOutButton').style.display = 'flex';
-      showNotification('Authenticated with Google.', 'success');
-      sendToGoogleSheets();
-    }).catch(error => {
-      console.error('Sign-in failed:', error);
-      if (error.error === 'popup_closed_by_user') {
-        showNotification('Sign-in was canceled.', 'info');
-      } else {
-        showNotification('Sign-in failed. Please try again.', 'error');
-      }
-    });
+    document.getElementById('signInButton').style.display = 'flex';
+    document.getElementById('signOutButton').style.display = 'none';
   }
 }
+
+// Update your sign-in button click handler
+document.getElementById('signInButton').addEventListener('click', () => {
+  if (gapi.auth2.getAuthInstance()) {
+    gapi.auth2.getAuthInstance().signIn({
+      prompt: 'select_account'
+    }).catch(error => {
+      if (error.error !== 'popup_closed_by_user') {
+        showNotification('Sign-in failed: ' + error.error, 'error');
+      }
+    });
+  } else {
+    initGoogleAuth();
+  }
+});
 
   // Sign out
   function signOut() {
