@@ -428,22 +428,54 @@
  </div>
 
  <script>
- // In-memory log to track entries
+ // In-memory log to track entries and deletions
  let log = [];
+ let deletedEntries = []; // Track deleted entry IDs
  let showAllRecords = false;
  let showAllHourly = false;
  let isBlinkingEnabled = true;
  let updateInterval = null;
  
+ // Generate unique ID for entries
+ function generateEntryId() {
+   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+     const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+     return v.toString(16);
+   });
+ }
+ 
+ // Save log and deleted entries to localStorage
+ function saveToStorage() {
+   localStorage.setItem('compactorLog', JSON.stringify(log));
+   localStorage.setItem('deletedEntries', JSON.stringify(deletedEntries));
+ }
+ 
+ // Load log and deleted entries from localStorage
+ function loadFromStorage() {
+   const savedLog = localStorage.getItem('compactorLog');
+   if (savedLog) {
+     log = JSON.parse(savedLog);
+   }
+   const savedDeleted = localStorage.getItem('deletedEntries');
+   if (savedDeleted) {
+     deletedEntries = JSON.parse(savedDeleted);
+   }
+ }
+ 
  // Initialize with no sample data
  function initializeSampleData() {
-   log = [];
+   loadFromStorage();
    updateLogTable();
    updateCompletedTable();
    updateHourlyTable();
    updateMachineButtonStates();
    // Start dynamic updates every 60 seconds
-   updateInterval = setInterval(updateLogTable, 60000);
+   updateInterval = setInterval(() => {
+     updateLogTable();
+     sendToGoogleSheets();
+   }, 60000);
+   // Send data immediately on load
+   sendToGoogleSheets();
  }
  
  // Initialize sample data and attach event listeners when page loads
@@ -508,17 +540,20 @@
        existingEntry.outTime = currentTime;
        existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
  
-       // Update UI
+       // Update UI and storage
        updateLogTable();
        updateCompletedTable();
        updateHourlyTable();
        updateMachineButtonStates();
+       saveToStorage();
+       sendToGoogleSheets();
  
        // Show success message
-       //showNotification(`Out Time ${currentTime} recorded for Machine ${machineNum}`, 'success');
+       showNotification(`Out Time ${currentTime} recorded for Machine ${machineNum}`, 'success');
      } else {
        // First click: Record In Time
        const entry = {
+         entryId: generateEntryId(),
          machineNumber: machineNum,
          inTime: currentTime,
          outTime: '',
@@ -528,14 +563,16 @@
        // Add to log
        log.push(entry);
  
-       // Update UI
+       // Update UI and storage
        updateLogTable();
        updateCompletedTable();
        updateHourlyTable();
        updateMachineButtonStates();
+       saveToStorage();
+       sendToGoogleSheets();
  
        // Show success message
-       //showNotification(`In Time recorded for Machine ${machineNum} at ${currentTime}`, 'success');
+       showNotification(`In Time recorded for Machine ${machineNum} at ${currentTime}`, 'success');
      }
  
      // Clear error
@@ -735,11 +772,11 @@
  
      row.innerHTML = `
        <td>${entry.machineNumber}</td>
-       <td class="time-cell" onclick="editCompletedEntry(${entry.machineNumber}, '${entry.entryTimestamp}', 'inTime')">${entry.inTime}</td>
-       <td class="time-cell" onclick="editCompletedEntry(${entry.machineNumber}, '${entry.entryTimestamp}', 'outTime')">${entry.outTime}</td>
+       <td class="time-cell" onclick="editCompletedEntry('${entry.entryId}', 'inTime')">${entry.inTime}</td>
+       <td class="time-cell" onclick="editCompletedEntry('${entry.entryId}', 'outTime')">${entry.outTime}</td>
        <td>${display}</td>
        <td>
-         <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteCompletedEntry(${entry.machineNumber}, '${entry.entryTimestamp}')">
+         <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteCompletedEntry('${entry.entryId}')">
            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
          </svg>
@@ -755,22 +792,28 @@
    updateCompletedTable();
  }
  
- function deleteCompletedEntry(machineNumber, entryTimestamp) {
+ function deleteCompletedEntry(entryId) {
    try {
-     if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
+     const entry = log.find(entry => entry.entryId === entryId);
+     if (!entry) return;
+ 
+     if (!confirm(`Are you sure you want to delete the record for Machine ${entry.machineNumber} at ${entry.entryTimestamp}?`)) {
        return;
      }
  
-     // Remove the entry from the log
-     log = log.filter(entry => 
-       !(entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp)
-     );
+     // Add to deletedEntries
+     deletedEntries.push(entryId);
  
-     // Update UI
+     // Remove from log
+     log = log.filter(entry => entry.entryId !== entryId);
+ 
+     // Update UI and storage
      updateLogTable();
      updateCompletedTable();
      updateHourlyTable();
      updateMachineButtonStates();
+     saveToStorage();
+     sendToGoogleSheets();
  
      showNotification('Record deleted successfully.', 'success');
    } catch (error) {
@@ -837,14 +880,15 @@
      entry.outTime = outTimeInput;
      entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
  
-     // Update UI
+     // Update UI and storage
      updateLogTable();
      updateCompletedTable();
      updateHourlyTable();
      updateMachineButtonStates();
+     saveToStorage();
+     sendToGoogleSheets();
  
-     // Show success message
-     //showNotification(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`, 'success');
+     showNotification(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`, 'success');
  
    } catch (error) {
      console.error('Error in promptOutTime:', error);
@@ -852,11 +896,9 @@
    }
  }
  
- function editCompletedEntry(machineNumber, entryTimestamp, field) {
+ function editCompletedEntry(entryId, field) {
    try {
-     const entry = log.find(entry => 
-       entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
-     );
+     const entry = log.find(entry => entry.entryId === entryId);
      if (!entry || !entry.outTime) return;
  
      const timeLabel = field === 'inTime' ? 'In Time' : 'Out Time';
@@ -889,17 +931,134 @@
  
      entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
  
-     // Update UI
+     // Update UI and storage
      updateCompletedTable();
      updateHourlyTable();
      updateMachineButtonStates();
+     saveToStorage();
+     sendToGoogleSheets();
  
-     // Show success message
      showNotification(`${timeLabel} updated to ${newTime} for Machine ${entry.machineNumber}`, 'success');
  
    } catch (error) {
      console.error('Error in editCompletedEntry:', error);
      document.getElementById('error').textContent = 'An error occurred. Please try again.';
+   }
+ }
+ 
+ function sendToGoogleSheets() {
+   try {
+     // Prepare completed records (only those with outTime)
+     const completedRecords = log.filter(entry => entry.outTime).map(entry => ({
+       entryId: entry.entryId,
+       machineNumber: entry.machineNumber,
+       inTime: entry.inTime,
+       outTime: entry.outTime,
+       entryTimestamp: entry.entryTimestamp
+     }));
+ 
+     // Prepare hourly records
+     const timeSlots = [
+       { start: '07:30', end: '08:29' },
+       { start: '08:30', end: '09:29' },
+       { start: '09:30', end: '10:29' },
+       { start: '10:30', end: '11:29' },
+       { start: '11:30', end: '12:29' },
+       { start: '12:30', end: '13:29' },
+       { start: '13:30', end: '14:29' },
+       { start: '14:30', end: '15:29' },
+       { start: '15:30', end: '16:29' },
+       { start: '16:30', end: '17:29' },
+       { start: '17:30', end: '18:29' },
+       { start: '18:30', end: '19:29' },
+       { start: '19:30', end: '20:29' },
+       { start: '20:30', end: '21:29' },
+       { start: '21:30', end: '22:29' },
+       { start: '22:30', end: '23:29' },
+       { start: '23:30', end: '00:29' },
+       { start: '00:30', end: '01:29' },
+       { start: '01:30', end: '02:29' },
+       { start: '02:30', end: '03:29' },
+       { start: '03:30', end: '04:29' },
+       { start: '04:30', end: '05:29' },
+       { start: '05:30', end: '06:29' }
+     ];
+ 
+     const parseTime = (timeStr, referenceDate = new Date()) => {
+       const [hours, minutes] = timeStr.split(':').map(Number);
+       const date = new Date(referenceDate);
+       date.setHours(hours, minutes, 0, 0);
+       if (hours < 7) date.setDate(date.getDate() + 1);
+       return date;
+     };
+ 
+     const hourlyRecords = [];
+     completedRecords.forEach(entry => {
+       const inTime = parseTime(entry.inTime);
+       const outTime = parseTime(entry.outTime, inTime);
+ 
+       timeSlots.forEach(slot => {
+         const slotStart = parseTime(slot.start);
+         const slotEnd = parseTime(slot.end, slotStart);
+ 
+         if (inTime >= slotStart && outTime <= slotEnd) {
+           const existingRecord = hourlyRecords.find(record => record.timeSlot === `${slot.start}-${slot.end}`);
+           if (existingRecord) {
+             existingRecord.machineCount += 1;
+           } else {
+             hourlyRecords.push({
+               timeSlot: `${slot.start}-${slot.end}`,
+               machineCount: 1
+             });
+           }
+         }
+       });
+     });
+ 
+     // Include all time slots, even those with zero counts
+     const allHourlyRecords = timeSlots.map(slot => {
+       const record = hourlyRecords.find(r => r.timeSlot === `${slot.start}-${slot.end}`) || {
+         timeSlot: `${slot.start}-${slot.end}`,
+         machineCount: 0
+       };
+       return record;
+     });
+ 
+     // Prepare data to send
+     const dataToSend = {
+       completedRecords: completedRecords,
+       deletedEntries: deletedEntries,
+       hourlyRecords: allHourlyRecords
+     };
+ 
+     // Send data to Google Sheets
+     fetch('https://script.google.com/macros/s/AKfycbwwkPioOsnjvSDdIq9t7TU-9OHyC7Z0TlbvwsP1HLaXTHY7OkoPRrU6fRCwRlTvjJMETw/exec', {
+       method: 'POST',
+       headers: {
+         'Content-Type': 'application/json'
+       },
+       body: JSON.stringify(dataToSend),
+       mode: 'cors'
+     })
+     .then(response => response.json())
+     .then(data => {
+       if (data.status === 'success') {
+         console.log('Data successfully sent to Google Sheets');
+         // Clear deletedEntries after successful sync
+         deletedEntries = [];
+         saveToStorage();
+       } else {
+         console.error('Error from Google Sheets:', data.message);
+         showNotification('Failed to update Google Sheets.', 'error');
+       }
+     })
+     .catch(error => {
+       console.error('Error sending data to Google Sheets:', error);
+       showNotification('Error connecting to Google Sheets.', 'error');
+     });
+   } catch (error) {
+     console.error('Error in sendToGoogleSheets:', error);
+     showNotification('An error occurred while sending data to Google Sheets.', 'error');
    }
  }
  
@@ -928,7 +1087,7 @@
          });
  
        // Create and trigger download for completed records
-       const completedBlob = new Blob([completedCsv], { type: 'text/csv;charset=utf-8;' });
+       const completedBlob = new Blob([completedCsvbeyond, { type: 'text/csv;charset=utf-8;' });
        const completedLink = document.createElement('a');
        const completedUrl = URL.createObjectURL(completedBlob);
  
@@ -974,7 +1133,7 @@
        const [hours, minutes] = timeStr.split(':').map(Number);
        const date = new Date(referenceDate);
        date.setHours(hours, minutes, 0, 0);
-       if (hours < 7) date.setDate(date.getDate() + 1); // Handle post-midnight slots
+       if (hours < 7) date.setDate(date.getDate() + 1);
        return date;
      };
  
@@ -988,7 +1147,6 @@
          const slotStart = parseTime(slot.start);
          const slotEnd = parseTime(slot.end, slotStart);
  
-         // Check if both inTime and outTime are within the time slot
          if (inTime >= slotStart && outTime <= slotEnd) {
            const existingRecord = hourlyRecords.find(record => record.timeSlot === `${slot.start}-${slot.end}`);
            if (existingRecord) {
@@ -996,8 +1154,7 @@
            } else {
              hourlyRecords.push({
                timeSlot: `${slot.start}-${slot.end}`,
-               machineCount: 1,
-               startTime: slotStart
+               machineCount: 1
              });
            }
          }
@@ -1008,14 +1165,10 @@
      const allHourlyRecords = timeSlots.map(slot => {
        const record = hourlyRecords.find(r => r.timeSlot === `${slot.start}-${slot.end}`) || {
          timeSlot: `${slot.start}-${slot.end}`,
-         machineCount: 0,
-         startTime: parseTime(slot.start)
+         machineCount: 0
        };
        return record;
      });
- 
-     // Sort by start time in chronological order
-     allHourlyRecords.sort((a, b) => a.startTime - b.startTime);
  
      // Create CSV content for hourly records
      let hourlyCsv = 'Time Slot,No. of Compactors Completed\n';
@@ -1055,7 +1208,8 @@
      }
  
      console.log('Clearing all data...');
-     // Reset the log array
+     // Collect all entryIds for deletion
+     deletedEntries = log.map(entry => entry.entryId);
      log = [];
  
      // Clear error message
@@ -1105,7 +1259,10 @@
        Show All
      `;
  
-     // Show success message
+     // Update storage and sync with Google Sheets
+     saveToStorage();
+     sendToGoogleSheets();
+ 
      showNotification('All data has been cleared.', 'success');
      console.log('Data cleared successfully');
  
@@ -1116,7 +1273,6 @@
  }
  
  function showNotification(message, type) {
-   // In a real app, this would show a nice notification
    alert(message);
  }
  </script>
