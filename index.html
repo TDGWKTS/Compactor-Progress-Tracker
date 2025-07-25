@@ -533,54 +533,72 @@
 
   // Initialize Google Auth
   function initGoogleAuth() {
-    if (typeof gapi === 'undefined') {
-      console.error('Google API script not loaded');
-      showNotification('Google API failed to load. Check your network or ad blockers.', 'error');
+  if (typeof gapi === 'undefined') {
+    console.error('Google API script not loaded');
+    showNotification('Google API failed to load. Please refresh the page.', 'error');
+    return;
+  }
+
+  console.log('Loading Google Auth...');
+  gapi.load('auth2', () => {
+    console.log('Google Auth2 loaded');
+    
+    // First check if auth2 is already initialized
+    if (gapi.auth2.getAuthInstance()) {
+      console.log('Auth already initialized');
+      handleAuthStatus();
       return;
     }
-    console.log('Loading Google Auth...');
-    gapi.load('auth2', () => {
-      console.log('Google Auth2 loaded');
-      gapi.auth2.init({
-        client_id: '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com',
-        scope: 'https://www.googleapis.com/auth/spreadsheets'
-      }).then(
-        () => {
-          console.log('Google Auth initialized');
-          const authInstance = gapi.auth2.getAuthInstance();
-          if (authInstance.isSignedIn.get()) {
-            console.log('User already signed in');
-            token = authInstance.currentUser.get().getAuthResponse().access_token;
-            document.getElementById('signInButton').style.display = 'none';
-            document.getElementById('signOutButton').style.display = 'flex';
-            showNotification('Authenticated with Google.', 'success');
-            sendToGoogleSheets();
-          } else {
-            console.log('Initiating sign-in...');
-            authInstance.signIn().then(() => {
-              console.log('Sign-in successful');
-              token = authInstance.currentUser.get().getAuthResponse().access_token;
-              document.getElementById('signInButton').style.display = 'none';
-              document.getElementById('signOutButton').style.display = 'flex';
-              showNotification('Authenticated with Google.', 'success');
-              sendToGoogleSheets();
-            }).catch(error => {
-              console.error('Authentication failed:', error);
-              showNotification(`Failed to authenticate with Google: ${error.error || error.message}`, 'error');
-            });
-          }
-        },
-        error => {
-          console.error('Google Auth initialization failed:', error);
-          if (error.error === 'idpiframe_initialization_failed') {
-            showNotification('Google authentication requires third-party cookies to be enabled.', 'error');
-          } else {
-            showNotification(`Failed to initialize Google Auth: ${error.details || error.error || error.message}`, 'error');
-          }
+
+    gapi.auth2.init({
+      client_id: '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com',
+      scope: 'https://www.googleapis.com/auth/spreadsheets',
+      prompt: 'select_account'
+    }).then(
+      () => {
+        console.log('Google Auth initialized');
+        handleAuthStatus();
+      },
+      error => {
+        console.error('Google Auth initialization failed:', error);
+        if (error.error === 'idpiframe_initialization_failed') {
+          showNotification('Google Sign-In requires third-party cookies to be enabled in your browser settings.', 'error');
+        } else {
+          showNotification('Failed to initialize Google Sign-In. Please try again.', 'error');
         }
-      );
+      }
+    );
+  });
+}
+
+function handleAuthStatus() {
+  const authInstance = gapi.auth2.getAuthInstance();
+  if (authInstance.isSignedIn.get()) {
+    console.log('User already signed in');
+    token = authInstance.currentUser.get().getAuthResponse().access_token;
+    document.getElementById('signInButton').style.display = 'none';
+    document.getElementById('signOutButton').style.display = 'flex';
+    showNotification('Authenticated with Google.', 'success');
+    sendToGoogleSheets();
+  } else {
+    console.log('User not signed in - showing sign-in UI');
+    authInstance.signIn().then(() => {
+      console.log('Sign-in successful');
+      token = authInstance.currentUser.get().getAuthResponse().access_token;
+      document.getElementById('signInButton').style.display = 'none';
+      document.getElementById('signOutButton').style.display = 'flex';
+      showNotification('Authenticated with Google.', 'success');
+      sendToGoogleSheets();
+    }).catch(error => {
+      console.error('Sign-in failed:', error);
+      if (error.error === 'popup_closed_by_user') {
+        showNotification('Sign-in was canceled.', 'info');
+      } else {
+        showNotification('Sign-in failed. Please try again.', 'error');
+      }
     });
   }
+}
 
   // Sign out
   function signOut() {
