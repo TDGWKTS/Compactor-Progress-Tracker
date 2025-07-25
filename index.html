@@ -4,188 +4,197 @@
  <meta charset="UTF-8">
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
  <title>Compactor Progress Tracker</title>
+ <script src="https://apis.google.com/js/api.js"></script>
  <style>
  body {
- font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
- margin: 0;
- padding: 20px;
- background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
- min-height: 100vh;
- color: #333;
+   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+   margin: 0;
+   padding: 20px;
+   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+   min-height: 100vh;
+   color: #333;
  }
  .container {
- max-width: 900px;
- margin: 0 auto;
- background-color: white;
- border-radius: 12px;
- box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
- padding: 25px;
- position: relative;
- overflow: hidden;
+   max-width: 900px;
+   margin: 0 auto;
+   background-color: white;
+   border-radius: 12px;
+   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+   padding: 25px;
+   position: relative;
+   overflow: hidden;
  }
  .container::before {
- content: '';
- position: absolute;
- top: 0;
- left: 0;
- right: 0;
- height: 6px;
- background: linear-gradient(90deg, #4CAF50, #2196F3, #FF9800);
+   content: '';
+   position: absolute;
+   top: 0;
+   left: 0;
+   right: 0;
+   height: 6px;
+   background: linear-gradient(90deg, #4CAF50, #2196F3, #FF9800);
  }
  h1 {
- text-align: center;
- color: #2c3e50;
- margin-top: 10px;
- margin-bottom: 30px;
- font-weight: 600;
- position: relative;
- padding-bottom: 15px;
+   text-align: center;
+   color: #2c3e50;
+   margin-top: 10px;
+   margin-bottom: 30px;
+   font-weight: 600;
+   position: relative;
+   padding-bottom: 15px;
  }
  h1::after {
- content: '';
- position: absolute;
- bottom: 0;
- left: 50%;
- transform: translateX(-50%);
- width: 100px;
- height: 4px;
- background: linear-gradient(90deg, #4CAF50, #2196F3);
- border-radius: 2px;
+   content: '';
+   position: absolute;
+   bottom: 0;
+   left: 50%;
+   transform: translateX(-50%);
+   width: 100px;
+   height: 4px;
+   background: linear-gradient(90deg, #4CAF50, #2196F3);
+   border-radius: 2px;
  }
  .panels {
- display: flex;
- gap: 25px;
- margin-bottom: 25px;
+   display: flex;
+   gap: 25px;
+   margin-bottom: 25px;
  }
  .panel {
- flex: 1;
- background: #f8f9fa;
- border-radius: 10px;
- padding: 20px;
- box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+   flex: 1;
+   background: #f8f9fa;
+   border-radius: 10px;
+   padding: 20px;
+   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
  }
  .panel-header {
- font-size: 1.2em;
- font-weight: 600;
- margin-bottom: 15px;
- color: #2c3e50;
- padding-bottom: 10px;
- border-bottom: 2px solid #e9ecef;
+   font-size: 1.2em;
+   font-weight: 600;
+   margin-bottom: 15px;
+   color: #2c3e50;
+   padding-bottom: 10px;
+   border-bottom: 2px solid #e9ecef;
  }
  .form-group {
- margin-bottom: 20px;
+   margin-bottom: 20px;
  }
  label {
- display: block;
- margin-bottom: 8px;
- font-weight: 500;
- color: #495057;
+   display: block;
+   margin-bottom: 8px;
+   font-weight: 500;
+   color: #495057;
  }
  .machine-buttons {
- display: grid;
- grid-template-columns: repeat(5, 1fr);
- gap: 12px;
- margin-bottom: 20px;
+   display: grid;
+   grid-template-columns: repeat(5, 1fr);
+   gap: 12px;
+   margin-bottom: 20px;
  }
  .machine-button {
- padding: 16px;
- border: none;
- border-radius: 8px;
- font-size: 20px;
- font-weight: 600;
- cursor: pointer;
- transition: all 0.2s ease;
- background-color: #4CAF50;
- color: white;
+   padding: 16px;
+   border: none;
+   border-radius: 8px;
+   font-size: 20px;
+   font-weight: 600;
+   cursor: pointer;
+   transition: all 0.2s ease;
+   background-color: #4CAF50;
+   color: white;
  }
  .machine-button.active {
- background-color: #6c757d;
+   background-color: #6c757d;
  }
  .machine-button:hover {
- transform: translateY(-2px);
+   transform: translateY(-2px);
  }
  .machine-button.active:hover {
- background-color: #5a6268;
+   background-color: #5a6268;
  }
  .buttons {
- display: flex;
- gap: 15px;
- margin-top: 25px;
+   display: flex;
+   gap: 15px;
+   margin-top: 25px;
  }
  button {
- flex: 1;
- padding: 14px;
- border: none;
- border-radius: 6px;
- font-size: 16px;
- font-weight: 600;
- cursor: pointer;
- transition: all 0.2s ease;
- display: flex;
- align-items: center;
- justify-content: center;
- gap: 8px;
+   flex: 1;
+   padding: 14px;
+   border: none;
+   border-radius: 6px;
+   font-size: 16px;
+   font-weight: 600;
+   cursor: pointer;
+   transition: all 0.2s ease;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   gap: 8px;
  }
  #exportButton {
- background-color: #2196F3;
- color: white;
+   background-color: #2196F3;
+   color: white;
  }
  #exportButton:hover {
- background-color: #0b7dda;
- transform: translateY(-2px);
+   background-color: #0b7dda;
+   transform: translateY(-2px);
  }
  #clearButton {
- background-color: #e74c3c;
- color: white;
+   background-color: #e74c3c;
+   color: white;
  }
  #clearButton:hover {
- background-color: #c0392b;
- transform: translateY(-2px);
+   background-color: #c0392b;
+   transform: translateY(-2px);
+ }
+ #signInButton, #signOutButton {
+   background-color: #4285F4;
+   color: white;
+ }
+ #signInButton:hover, #signOutButton:hover {
+   background-color: #3267d6;
+   transform: translateY(-2px);
  }
  .error {
- color: #e74c3c;
- font-size: 0.95em;
- margin-top: 10px;
- min-height: 24px;
- font-weight: 500;
+   color: #e74c3c;
+   font-size: 0.95em;
+   margin-top: 10px;
+   min-height: 24px;
+   font-weight: 500;
  }
  table {
- width: 100%; 
- border-collapse: collapse;
- margin-top: 15px;
- background: white;
- border-radius: 8px;
- overflow: hidden;
- box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+   width: 100%;
+   border-collapse: collapse;
+   margin-top: 15px;
+   background: white;
+   border-radius: 8px;
+   overflow: hidden;
+   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
  }
  th {
- background-color: #f1f5f9;
- padding: 14px 12px;
- text-align: left;
- font-weight: 600;
- color: #2c3e50;
- border-bottom: 2px solid #e2e8f0;
+   background-color: #f1f5f9;
+   padding: 14px 12px;
+   text-align: left;
+   font-weight: 600;
+   color: #2c3e50;
+   border-bottom: 2px solid #e2e8f0;
  }
  td {
- padding: 12px;
- border-bottom: 1px solid #eee;
- color: #4a5568;
+   padding: 12px;
+   border-bottom: 1px solid #eee;
+   color: #4a5568;
  }
  tr:hover {
- background-color: #f8fafc;
+   background-color: #f8fafc;
  }
  .clickable-row {
- cursor: pointer;
- transition: background-color 0.2s;
+   cursor: pointer;
+   transition: background-color 0.2s;
  }
  .clickable-row:hover {
- background-color: #ebf8ff;
+   background-color: #ebf8ff;
  }
  .time-cell {
- cursor: pointer;
+   cursor: pointer;
  }
  .time-cell:hover {
- background-color: #e3f2fd;
+   background-color: #e3f2fd;
  }
  .blink {
    animation: blink-animation 1s ease-in-out infinite;
@@ -195,247 +204,306 @@
    50% { background-color: #ffcccb; }
  }
  .table-header {
- display: flex;
- justify-content: space-between;
- align-items: center;
- margin-bottom: 10px;
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   margin-bottom: 10px;
  }
  .counter {
- background-color: #e3f2fd;
- color: #1976d2;
- padding: 5px 12px;
- border-radius: 20px;
- font-size: 0.9em;
- font-weight: 600;
+   background-color: #e3f2fd;
+   color: #1976d2;
+   padding: 5px 12px;
+   border-radius: 20px;
+   font-size: 0.9em;
+   font-weight: 600;
  }
  .toggle-button {
- background: none;
- border: none;
- cursor: pointer;
- color: #1976d2;
- font-size: 0.9em;
- font-weight: 600;
- display: flex;
- align-items: center;
- gap: 5px;
- padding: 5px;
+   background: none;
+   border: none;
+   cursor: pointer;
+   color: #1976d2;
+   font-size: 0.9em;
+   font-weight: 600;
+   display: flex;
+   align-items: center;
+   gap: 5px;
+   padding: 5px;
  }
  .toggle-button:hover {
- color: #0b5ed7;
+   color: #0b5ed7;
  }
  .blink-toggle-button {
- background: none;
- border: none;
- cursor: pointer;
- color: #e74c3c;
- font-size: 0.9em;
- font-weight: 600;
- display: flex;
- align-items: center;
- gap: 5px;
- padding: 5px;
+   background: none;
+   border: none;
+   cursor: pointer;
+   color: #e74c3c;
+   font-size: 0.9em;
+   font-weight: 600;
+   display: flex;
+   align-items: center;
+   gap: 5px;
+   padding: 5px;
  }
  .blink-toggle-button:hover {
- color: #c0392b;
+   color: #c0392b;
  }
  .delete-icon {
- cursor: pointer;
- color: #e74c3c;
+   cursor: pointer;
+   color: #e74c3c;
  }
  .delete-icon:hover {
- color: #c0392b;
+   color: #c0392b;
  }
  .instructions {
- background: #e3f2fd;
- border-left: 4px solid #2196F3;
- padding: 15px;
- border-radius: 0 8px 8px 0;
- margin: 25px 0;
- font-size: 0.95em;
+   background: #e3f2fd;
+   border-left: 4px solid #2196F3;
+   padding: 15px;
+   border-radius: 0 8px 8px 0;
+   margin: 25px 0;
+   font-size: 0.95em;
  }
  .instructions h4 {
- margin-top: 0;
- color: #1976d2;
+   margin-top: 0;
+   color: #1976d2;
  }
  .instructions ul {
- padding-left: 20px;
- margin-bottom: 0;
+   padding-left: 20px;
+   margin-bottom: 0;
  }
  .instructions li {
- margin-bottom: 8px;
+   margin-bottom: 8px;
  }
  .highlight {
- background-color: #fff9c4;
- padding: 2px 5px;
- border-radius: 3px;
- font-weight: 500;
+   background-color: #fff9c4;
+   padding: 2px 5px;
+   border-radius: 3px;
+   font-weight: 500;
  }
  .footer {
- text-align: center;
- margin-top: 30px;
- color: #6c757d;
- font-size: 0.9em;
- padding-top: 15px;
- border-top: 1px solid #e9ecef;
+   text-align: center;
+   margin-top: 30px;
+   color: #6c757d;
+   font-size: 0.9em;
+   padding-top: 15px;
+   border-top: 1px solid #e9ecef;
+ }
+ .notification {
+   position: fixed;
+   top: 20px;
+   right: 20px;
+   padding: 15px 20px;
+   border-radius: 8px;
+   color: white;
+   font-weight: 500;
+   z-index: 1000;
+   opacity: 0;
+   transition: opacity 0.3s ease;
+ }
+ .notification.success {
+   background-color: #4CAF50;
+ }
+ .notification.error {
+   background-color: #e74c3c;
+ }
+ .notification.info {
+   background-color: #2196F3;
+ }
+ .notification.show {
+   opacity: 1;
  }
  @media (max-width: 768px) {
- .panels {
- flex-direction: column;
- }
- .machine-buttons {
- grid-template-columns: repeat(2, 1fr);
- }
- .machine-button {
- font-size: 18px;
- padding: 14px;
- }
+   .panels {
+     flex-direction: column;
+   }
+   .machine-buttons {
+     grid-template-columns: repeat(2, 1fr);
+   }
+   .machine-button {
+     font-size: 18px;
+     padding: 14px;
+   }
+   .notification {
+     top: 10px;
+     right: 10px;
+     left: 10px;
+   }
  }
  </style>
 </head>
 <body>
  <div class="container">
- <h1>Compactor Progress Tracker</h1>
- 
- <div class="panels">
- <div class="panel">
- <div class="panel-header">Compactor Entry</div>
- <div class="form-group">
- <label>Select Compactor:</label>
- <div class="machine-buttons">
- <button id="machineButton1" class="machine-button">1</button>
- <button id="machineButton2" class="machine-button">2</button>
- <button id="machineButton3" class="machine-button">3</button>
- <button id="machineButton4" class="machine-button">4</button>
- <button id="machineButton5" class="machine-button">5</button>
- <button id="machineButton6" class="machine-button">6</button>
- <button id="machineButton7" class="machine-button">7</button>
- <button id="machineButton8" class="machine-button">8</button>
- <button id="machineButton9" class="machine-button">9</button>
- <button id="machineButton10" class="machine-button">10</button>
- </div>
- </div>
- <div class="error" id="error"></div>
- 
- <div class="table-header" style="margin-top: 25px;">
- <h4>Hourly Records</h4>
- <div style="display: flex; align-items: center; gap: 10px;">
- <div class="counter" id="hourlyCount">0 hourly records</div>
- <button id="toggleHourly" class="toggle-button">
- <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
- <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
- </svg>
- Show All
- </button>
- </div>
- </div>
- <table id="hourlyTable">
- <thead>
- <tr>
- <th>Time Slot</th>
- <th>Container Count</th>
- <th>Compactors</th>
- </tr>
- </thead>
- <tbody id="hourlyBody">
- <tr>
- <td colspan="3" style="text-align: center; color: #6c757d;">No hourly records</td>
- </tr>
- </tbody>
- </table>
- 
- <div class="buttons">
- <button id="exportButton">
- <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
- <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
- <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
- </svg>
- Export to CSV
- </button>
- <button id="clearButton">
- <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
- <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
- <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
- </svg>
- Clear All Data
- </button>
- </div>
- </div>
- 
- <div class="panel">
- <div class="panel-header">Current Status</div>
- <div class="table-header">
- <h4>Entry Log (Pending Out Time)</h4>
- <div style="display: flex; align-items: center; gap: 10px;">
- <div class="counter" id="pendingCount">0 pending</div>
- <button id="toggleBlink" class="blink-toggle-button">
- <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
- <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
- <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
- </svg>
- Stop Blinking
- </button>
- </div>
- </div>
- <table id="logTable">
- <thead>
- <tr>
- <th>Compactor</th>
- <th>In Time</th>
- <th>Duration</th>
- </tr>
- </thead>
- <tbody id="logBody">
- <tr>
- <td colspan="3" style="text-align: center; color: #6c757d;">No pending entries</td>
- </tr>
- </tbody>
- </table>
- 
- <div class="table-header" style="margin-top: 25px;">
- <h4>Completed Records</h4>
- <div style="display: flex; align-items: center; gap: 10px;">
- <div class="counter" id="completedCount">0 completed</div>
- <button id="toggleRecords" class="toggle-button">
- <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
- <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
- </svg>
- Show All
- </button>
- </div>
- </div>
- <table id="completedTable">
- <thead>
- <tr>
- <th>Compactor</th>
- <th>In Time</th>
- <th>Out Time</th>
- <th>Duration</th>
- <th>Action</th>
- </tr>
- </thead>
- <tbody id="completedBody">
- <tr>
- <td colspan="5" style="text-align: center; color: #6c757d;">No completed entries</td>
- </tr>
- </tbody>
- </table>
- </div>
- </div>
- 
- <div class="footer">
- Compactor Progress Tracker v2.0 | Data is stored locally in your browser
- </div>
+   <h1>Compactor Progress Tracker</h1>
+
+   <div class="instructions">
+     <h4>Instructions</h4>
+     <ul>
+       <li><span class="highlight">Sign In</span>: Click the "Sign In with Google" button to authenticate and access the tracker.</li>
+       <li><span class="highlight">Select Compactor</span>: Click a compactor number to record <span class="highlight">In Time</span>. Click again to record <span class="highlight">Out Time</span>.</li>
+       <li><span class="highlight">Edit Times</span>: Click on <span class="highlight">In Time</span> or <span class="highlight">Out Time</span> in the Completed Records table to edit.</li>
+       <li><span class="highlight">Delete Records</span>: Click the delete icon in the Completed Records table to remove an entry.</li>
+       <li><span class="highlight">Export Data</span>: Click "Export to CSV" to download completed and hourly records.</li>
+       <li><span class="highlight">Clear Data</span>: Click "Clear All Data" to reset all records (irreversible).</li>
+       <li>Data syncs to Google Sheets every minute. Ensure you are signed in with an authorized Google account.</li>
+     </ul>
+   </div>
+
+   <div class="buttons">
+     <button id="signInButton">
+       <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+         <path d="M15.545 6.558a9.42 9.42 0 0 1 .139 1.626c0 2.434-.87 4.492-2.384 5.885h.002C11.978 15.292 10.158 16 8 16A8 8 0 1 1 8 0c1.072 0 2.1.24 3.03.672l-1.94 1.94a5.5 5.5 0 0 0-7.59 7.59l2.828-2.829a.5.5 0 0 1 .707 0l1.415 1.414a.5.5 0 0 1 0 .707l-2.828 2.828a5.5 5.5 0 0 0 7.59 7.59l1.94-1.94a8.46 8.46 0 0 0 2.384-5.885 9.42 9.42 0 0 0-.139-1.626l-1.94 1.94z"/>
+       </svg>
+       Sign In with Google
+     </button>
+     <button id="signOutButton" style="display: none;">
+       <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+         <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+         <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5a.5.5 0 0 0 0 1h9.293l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+       </svg>
+       Sign Out
+     </button>
+   </div>
+
+   <div class="panels">
+     <div class="panel">
+       <div class="panel-header">Compactor Entry</div>
+       <div class="form-group">
+         <label>Select Compactor:</label>
+         <div class="machine-buttons">
+           <button id="machineButton1" class="machine-button">1</button>
+           <button id="machineButton2" class="machine-button">2</button>
+           <button id="machineButton3" class="machine-button">3</button>
+           <button id="machineButton4" class="machine-button">4</button>
+           <button id="machineButton5" class="machine-button">5</button>
+           <button id="machineButton6" class="machine-button">6</button>
+           <button id="machineButton7" class="machine-button">7</button>
+           <button id="machineButton8" class="machine-button">8</button>
+           <button id="machineButton9" class="machine-button">9</button>
+           <button id="machineButton10" class="machine-button">10</button>
+         </div>
+       </div>
+       <div class="error" id="error"></div>
+
+       <div class="table-header" style="margin-top: 25px;">
+         <h4>Hourly Records</h4>
+         <div style="display: flex; align-items: center; gap: 10px;">
+           <div class="counter" id="hourlyCount">0 hourly records</div>
+           <button id="toggleHourly" class="toggle-button">
+             <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+               <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+             </svg>
+             Show All
+           </button>
+         </div>
+       </div>
+       <table id="hourlyTable">
+         <thead>
+           <tr>
+             <th>Time Slot</th>
+             <th>Container Count</th>
+             <th>Compactors</th>
+           </tr>
+         </thead>
+         <tbody id="hourlyBody">
+           <tr>
+             <td colspan="3" style="text-align: center; color: #6c757d;">No hourly records</td>
+           </tr>
+         </tbody>
+       </table>
+
+       <div class="buttons">
+         <button id="exportButton">
+           <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+             <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+           </svg>
+           Export to CSV
+         </button>
+         <button id="clearButton">
+           <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+             <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+             <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+           </svg>
+           Clear All Data
+         </button>
+       </div>
+     </div>
+
+     <div class="panel">
+       <div class="panel-header">Current Status</div>
+       <div class="table-header">
+         <h4>Entry Log (Pending Out Time)</h4>
+         <div style="display: flex; align-items: center; gap: 10px;">
+           <div class="counter" id="pendingCount">0 pending</div>
+           <button id="toggleBlink" class="blink-toggle-button">
+             <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+               <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+               <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+             </svg>
+             Stop Blinking
+           </button>
+         </div>
+       </div>
+       <table id="logTable">
+         <thead>
+           <tr>
+             <th>Compactor</th>
+             <th>In Time</th>
+             <th>Duration</th>
+           </tr>
+         </thead>
+         <tbody id="logBody">
+           <tr>
+             <td colspan="3" style="text-align: center; color: #6c757d;">No pending entries</td>
+           </tr>
+         </tbody>
+       </table>
+
+       <div class="table-header" style="margin-top: 25px;">
+         <h4>Completed Records</h4>
+         <div style="display: flex; align-items: center; gap: 10px;">
+           <div class="counter" id="completedCount">0 completed</div>
+           <button id="toggleRecords" class="toggle-button">
+             <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+               <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+             </svg>
+             Show All
+           </button>
+         </div>
+       </div>
+       <table id="completedTable">
+         <thead>
+           <tr>
+             <th>Compactor</th>
+             <th>In Time</th>
+             <th>Out Time</th>
+             <th>Duration</th>
+             <th>Action</th>
+           </tr>
+         </thead>
+         <tbody id="completedBody">
+           <tr>
+             <td colspan="5" style="text-align: center; color: #6c757d;">No completed entries</td>
+           </tr>
+         </tbody>
+       </table>
+     </div>
+   </div>
+
+   <div class="footer">
+     Compactor Progress Tracker v2.0 | Data is stored locally in your browser
+   </div>
  </div>
 
  <script>
  // In-memory log to track entries and deletions
  let log = [];
- let deletedEntries = []; // Track deleted entry IDs
+ let deletedEntries = [];
  let showAllRecords = false;
  let showAllHourly = false;
  let isBlinkingEnabled = true;
  let updateInterval = null;
- 
+ let token = null;
+
  // Generate unique ID for entries
  function generateEntryId() {
    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -443,13 +511,13 @@
      return v.toString(16);
    });
  }
- 
+
  // Save log and deleted entries to localStorage
  function saveToStorage() {
    localStorage.setItem('compactorLog', JSON.stringify(log));
    localStorage.setItem('deletedEntries', JSON.stringify(deletedEntries));
  }
- 
+
  // Load log and deleted entries from localStorage
  function loadFromStorage() {
    const savedLog = localStorage.getItem('compactorLog');
@@ -461,7 +529,50 @@
      deletedEntries = JSON.parse(savedDeleted);
    }
  }
- 
+
+ // Initialize Google Auth
+ function initGoogleAuth() {
+   gapi.load('auth2', () => {
+     gapi.auth2.init({
+       client_id: 'YOUR_GOOGLE_OAUTH_CLIENT_ID',
+       scope: 'https://www.googleapis.com/auth/spreadsheets'
+     }).then(() => {
+       const authInstance = gapi.auth2.getAuthInstance();
+       if (authInstance.isSignedIn.get()) {
+         token = authInstance.currentUser.get().getAuthResponse().access_token;
+         document.getElementById('signInButton').style.display = 'none';
+         document.getElementById('signOutButton').style.display = 'flex';
+         showNotification('Authenticated with Google.', 'success');
+         sendToGoogleSheets();
+       } else {
+         authInstance.signIn().then(() => {
+           token = authInstance.currentUser.get().getAuthResponse().access_token;
+           document.getElementById('signInButton').style.display = 'none';
+           document.getElementById('signOutButton').style.display = 'flex';
+           showNotification('Authenticated with Google.', 'success');
+           sendToGoogleSheets();
+         }).catch(error => {
+           console.error('Authentication failed:', error);
+           showNotification('Failed to authenticate with Google. Please try again.', 'error');
+         });
+       }
+     });
+   });
+ }
+
+ // Sign out
+ function signOut() {
+   gapi.auth2.getAuthInstance().signOut().then(() => {
+     token = null;
+     document.getElementById('signInButton').style.display = 'flex';
+     document.getElementById('signOutButton').style.display = 'none';
+     showNotification('Signed out successfully.', 'success');
+   }).catch(error => {
+     console.error('Sign out failed:', error);
+     showNotification('Failed to sign out. Please try again.', 'error');
+   });
+ }
+
  // Initialize with no sample data
  function initializeSampleData() {
    loadFromStorage();
@@ -474,26 +585,26 @@
      updateLogTable();
      sendToGoogleSheets();
    }, 60000);
-   // Send data immediately on load
-   sendToGoogleSheets();
  }
- 
+
  // Initialize sample data and attach event listeners when page loads
  document.addEventListener('DOMContentLoaded', () => {
    initializeSampleData();
- 
+
    // Attach event listeners to buttons
    document.getElementById('exportButton').addEventListener('click', exportToCSV);
    document.getElementById('clearButton').addEventListener('click', clearAllData);
    document.getElementById('toggleRecords').addEventListener('click', toggleCompletedRecords);
    document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
    document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
- 
+   document.getElementById('signInButton').addEventListener('click', initGoogleAuth);
+   document.getElementById('signOutButton').addEventListener('click', signOut);
+
    // Attach event listeners to machine buttons
    for (let i = 1; i <= 10; i++) {
      document.getElementById(`machineButton${i}`).addEventListener('click', () => handleMachineButtonClick(i));
    }
- 
+
    // Clean up interval on page unload
    window.addEventListener('unload', () => {
      if (updateInterval) {
@@ -501,7 +612,7 @@
      }
    });
  });
- 
+
  function toggleBlinking() {
    isBlinkingEnabled = !isBlinkingEnabled;
    const toggleButton = document.getElementById('toggleBlink');
@@ -514,44 +625,41 @@
    `;
    updateLogTable();
  }
- 
+
  function toggleHourlyRecords() {
    showAllHourly = !showAllHourly;
    updateHourlyTable();
  }
- 
+
  function handleMachineButtonClick(machineNum) {
    try {
+     if (!token) {
+       showNotification('Please sign in with Google to record data.', 'error');
+       return;
+     }
      const errorDiv = document.getElementById('error');
-     const currentTime = new Date().toLocaleTimeString('en-US', { 
-       hour: '2-digit', 
+     const currentTime = new Date().toLocaleTimeString('en-US', {
+       hour: '2-digit',
        minute: '2-digit',
        hour12: false,
        timeZone: 'Asia/Hong_Kong'
-     }).replace("24:", "00:"); // Handle midnight
- 
-     // Check for existing In Time without Out Time
-     const existingEntry = log.find(entry => 
+     }).replace("24:", "00:");
+
+     const existingEntry = log.find(entry =>
        entry.machineNumber === machineNum && !entry.outTime
      );
- 
+
      if (existingEntry) {
-       // Second click: Record Out Time
        existingEntry.outTime = currentTime;
        existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
- 
-       // Update UI and storage
        updateLogTable();
        updateCompletedTable();
        updateHourlyTable();
        updateMachineButtonStates();
        saveToStorage();
        sendToGoogleSheets();
- 
-       // Show success message
        showNotification(`Out Time ${currentTime} recorded for Machine ${machineNum}`, 'success');
      } else {
-       // First click: Record In Time
        const entry = {
          entryId: generateEntryId(),
          machineNumber: machineNum,
@@ -559,84 +667,63 @@
          outTime: '',
          entryTimestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' })
        };
- 
-       // Add to log
        log.push(entry);
- 
-       // Update UI and storage
        updateLogTable();
        updateCompletedTable();
        updateHourlyTable();
        updateMachineButtonStates();
        saveToStorage();
        sendToGoogleSheets();
- 
-       // Show success message
        showNotification(`In Time recorded for Machine ${machineNum} at ${currentTime}`, 'success');
      }
- 
-     // Clear error
      errorDiv.textContent = '';
- 
    } catch (error) {
      console.error('Error in handleMachineButtonClick:', error);
      document.getElementById('error').textContent = 'An error occurred. Please try again.';
    }
  }
- 
+
  function updateMachineButtonStates() {
    for (let i = 1; i <= 10; i++) {
      const button = document.getElementById(`machineButton${i}`);
-     const hasActiveSession = log.some(entry => 
+     const hasActiveSession = log.some(entry =>
        entry.machineNumber === i && !entry.outTime
      );
      button.classList.toggle('active', hasActiveSession);
    }
  }
- 
+
  function updateLogTable() {
    const logBody = document.getElementById('logBody');
    const pendingEntries = log.filter(entry => !entry.outTime);
    const pendingCount = document.getElementById('pendingCount');
- 
    pendingCount.textContent = `${pendingEntries.length} pending`;
- 
    if (pendingEntries.length === 0) {
      logBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #6c757d;">No pending entries</td></tr>`;
      return;
    }
- 
    logBody.innerHTML = '';
- 
    pendingEntries.forEach(entry => {
      const row = document.createElement('tr');
      row.className = 'clickable-row';
- 
-     // Calculate duration
      const { display, minutes } = calculateDuration(entry.inTime);
- 
-     // Add blink class if duration exceeds 40 minutes and blinking is enabled
      if (isBlinkingEnabled && minutes > 39) {
        row.classList.add('blink');
      }
- 
      row.innerHTML = `
        <td>${entry.machineNumber}</td>
        <td>${entry.inTime}</td>
        <td>${display}</td>
      `;
- 
      row.onclick = () => promptOutTime(entry);
      logBody.appendChild(row);
    });
  }
- 
+
  function updateHourlyTable() {
    const hourlyBody = document.getElementById('hourlyBody');
    const hourlyCount = document.getElementById('hourlyCount');
    const toggleButton = document.getElementById('toggleHourly');
- 
-   // Define time slots from 07:30 to 06:29 next day
    const timeSlots = [
      { start: '07:30', end: '08:29' },
      { start: '08:30', end: '09:29' },
@@ -662,35 +749,26 @@
      { start: '04:30', end: '05:29' },
      { start: '05:30', end: '06:29' }
    ];
- 
-   // Parse time string to Date object for comparison
    const parseTime = (timeStr, referenceDate = new Date()) => {
      const [hours, minutes] = timeStr.split(':').map(Number);
      const date = new Date(referenceDate);
      date.setHours(hours, minutes, 0, 0);
-     if (hours < 7) date.setDate(date.getDate() + 1); // Handle post-midnight slots
+     if (hours < 7) date.setDate(date.getDate() + 1);
      return date;
    };
- 
-   // Aggregate completed entries into time slots
    const hourlyRecords = [];
    const completedEntries = log.filter(entry => entry.outTime);
- 
    timeSlots.forEach(slot => {
      const slotStart = parseTime(slot.start);
      const slotEnd = parseTime(slot.end, slotStart);
      const machines = [];
- 
      completedEntries.forEach(entry => {
        const inTime = parseTime(entry.inTime);
        const outTime = parseTime(entry.outTime, inTime);
- 
-       // Check if both inTime and outTime are within the time slot
        if (inTime >= slotStart && outTime <= slotEnd) {
          machines.push(entry.machineNumber);
        }
      });
- 
      if (machines.length > 0) {
        hourlyRecords.push({
          timeSlot: `${slot.start}-${slot.end}`,
@@ -700,8 +778,6 @@
        });
      }
    });
- 
-   // Update counter and toggle button
    hourlyCount.textContent = `${hourlyRecords.length} hourly records`;
    toggleButton.style.display = hourlyRecords.length > 1 ? 'flex' : 'none';
    toggleButton.innerHTML = `
@@ -710,19 +786,12 @@
      </svg>
      ${showAllHourly ? 'Show Less' : 'Show All'}
    `;
- 
-   // Display records
    if (hourlyRecords.length === 0) {
      hourlyBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
      return;
    }
- 
-   // Sort by start time in descending order
    hourlyRecords.sort((a, b) => b.startTime - a.startTime);
- 
-   // Limit to 5 entries unless showAllHourly is true
    const displayRecords = showAllHourly ? hourlyRecords : hourlyRecords.slice(0, 5);
- 
    hourlyBody.innerHTML = '';
    displayRecords.forEach(record => {
      const row = document.createElement('tr');
@@ -734,13 +803,12 @@
      hourlyBody.appendChild(row);
    });
  }
- 
+
  function updateCompletedTable() {
    const completedBody = document.getElementById('completedBody');
    const completedEntries = log.filter(entry => entry.outTime);
    const completedCount = document.getElementById('completedCount');
    const toggleButton = document.getElementById('toggleRecords');
- 
    completedCount.textContent = `${completedEntries.length} completed`;
    toggleButton.style.display = completedEntries.length > 5 ? 'flex' : 'none';
    toggleButton.innerHTML = `
@@ -749,27 +817,17 @@
      </svg>
      ${showAllRecords ? 'Show Less' : 'Show All'}
    `;
- 
    if (completedEntries.length === 0) {
      completedBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #6c757d;">No completed entries</td></tr>`;
      return;
    }
- 
-   // Sort completed entries by entryTimestamp in descending order
    completedEntries.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
- 
-   // Limit to 5 entries unless showAllRecords is true
    const displayEntries = showAllRecords ? completedEntries : completedEntries.slice(0, 5);
- 
    completedBody.innerHTML = '';
- 
    displayEntries.forEach(entry => {
      const row = document.createElement('tr');
      row.className = 'clickable-row';
- 
-     // Calculate duration
      const { display } = calculateDuration(entry.inTime, entry.outTime);
- 
      row.innerHTML = `
        <td>${entry.machineNumber}</td>
        <td class="time-cell" onclick="editCompletedEntry('${entry.entryId}', 'inTime')">${entry.inTime}</td>
@@ -782,46 +840,41 @@
          </svg>
        </td>
      `;
- 
      completedBody.appendChild(row);
    });
  }
- 
+
  function toggleCompletedRecords() {
    showAllRecords = !showAllRecords;
    updateCompletedTable();
  }
- 
+
  function deleteCompletedEntry(entryId) {
    try {
+     if (!token) {
+       showNotification('Please sign in with Google to delete records.', 'error');
+       return;
+     }
      const entry = log.find(entry => entry.entryId === entryId);
      if (!entry) return;
- 
      if (!confirm(`Are you sure you want to delete the record for Machine ${entry.machineNumber} at ${entry.entryTimestamp}?`)) {
        return;
      }
- 
-     // Add to deletedEntries
      deletedEntries.push(entryId);
- 
-     // Remove from log
      log = log.filter(entry => entry.entryId !== entryId);
- 
-     // Update UI and storage
      updateLogTable();
      updateCompletedTable();
      updateHourlyTable();
      updateMachineButtonStates();
      saveToStorage();
      sendToGoogleSheets();
- 
      showNotification('Record deleted successfully.', 'success');
    } catch (error) {
      console.error('Error in deleteCompletedEntry:', error);
      document.getElementById('error').textContent = 'An error occurred while deleting the record. Please try again.';
    }
  }
- 
+
  function calculateDuration(inTime, outTime = null) {
    const parseTime = timeStr => {
      const [hours, minutes] = timeStr.split(':').map(Number);
@@ -829,21 +882,16 @@
      date.setHours(hours, minutes, 0, 0);
      return date;
    };
- 
    try {
      const start = parseTime(inTime);
      const end = outTime ? parseTime(outTime) : new Date();
- 
-     // If session crosses midnight
      if (end < start) {
        end.setDate(end.getDate() + 1);
      }
- 
      const diffMs = end - start;
      const diffMins = Math.floor(diffMs / 60000);
      const hours = Math.floor(diffMins / 60);
      const minutes = diffMins % 60;
- 
      return {
        display: `${hours}h ${minutes}m`,
        minutes: diffMins
@@ -852,103 +900,85 @@
      return { display: 'N/A', minutes: 0 };
    }
  }
- 
+
  function promptOutTime(entry) {
    try {
+     if (!token) {
+       showNotification('Please sign in with Google to record times.', 'error');
+       return;
+     }
      if (!entry || entry.outTime) return;
- 
-     // Prompt for Out Time
      let outTimeInput = prompt(`Enter Out Time for Machine ${entry.machineNumber} (e.g., 1456 for 14:56):`, "");
- 
-     if (outTimeInput === null) return; // User cancelled
- 
-     // Normalize input
+     if (outTimeInput === null) return;
      outTimeInput = outTimeInput.trim().replace(/[^0-9]/g, '');
- 
      if (outTimeInput.length === 4) {
        outTimeInput = `${outTimeInput.slice(0, 2)}:${outTimeInput.slice(2)}`;
      }
- 
-     // Validate Out Time
      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
      if (!timeRegex.test(outTimeInput)) {
        showNotification('Out Time must be in HH:MM format (e.g., 14:56 or 1456).', 'error');
        return;
      }
- 
-     // Update entry
      entry.outTime = outTimeInput;
      entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
- 
-     // Update UI and storage
      updateLogTable();
      updateCompletedTable();
      updateHourlyTable();
      updateMachineButtonStates();
      saveToStorage();
      sendToGoogleSheets();
- 
      showNotification(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`, 'success');
- 
    } catch (error) {
      console.error('Error in promptOutTime:', error);
      document.getElementById('error').textContent = 'An error occurred. Please try again.';
    }
  }
- 
+
  function editCompletedEntry(entryId, field) {
    try {
+     if (!token) {
+       showNotification('Please sign in with Google to edit records.', 'error');
+       return;
+     }
      const entry = log.find(entry => entry.entryId === entryId);
      if (!entry || !entry.outTime) return;
- 
      const timeLabel = field === 'inTime' ? 'In Time' : 'Out Time';
      const currentValue = field === 'inTime' ? entry.inTime : entry.outTime;
- 
      let newTime = prompt(`Enter new ${timeLabel} for Machine ${entry.machineNumber} (e.g., 1456 for 14:56):`, currentValue.replace(':', ''));
- 
-     if (newTime === null) return; // User cancelled
- 
-     // Normalize input
+     if (newTime === null) return;
      newTime = newTime.trim().replace(/[^0-9]/g, '');
- 
      if (newTime.length === 4) {
        newTime = `${newTime.slice(0, 2)}:${newTime.slice(2)}`;
      }
- 
-     // Validate time
      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
      if (!timeRegex.test(newTime)) {
        showNotification(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456).`, 'error');
        return;
      }
- 
-     // Update entry
      if (field === 'inTime') {
        entry.inTime = newTime;
      } else {
        entry.outTime = newTime;
      }
- 
      entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
- 
-     // Update UI and storage
      updateCompletedTable();
      updateHourlyTable();
      updateMachineButtonStates();
      saveToStorage();
      sendToGoogleSheets();
- 
      showNotification(`${timeLabel} updated to ${newTime} for Machine ${entry.machineNumber}`, 'success');
- 
    } catch (error) {
      console.error('Error in editCompletedEntry:', error);
      document.getElementById('error').textContent = 'An error occurred. Please try again.';
    }
  }
- 
+
  function sendToGoogleSheets() {
    try {
-     // Prepare completed records (only those with outTime)
+     if (!token) {
+       console.log('Not authenticated. Skipping Google Sheets sync.');
+       return;
+     }
      const completedRecords = log.filter(entry => entry.outTime).map(entry => ({
        entryId: entry.entryId,
        machineNumber: entry.machineNumber,
@@ -956,8 +986,6 @@
        outTime: entry.outTime,
        entryTimestamp: entry.entryTimestamp
      }));
- 
-     // Prepare hourly records
      const timeSlots = [
        { start: '07:30', end: '08:29' },
        { start: '08:30', end: '09:29' },
@@ -983,7 +1011,6 @@
        { start: '04:30', end: '05:29' },
        { start: '05:30', end: '06:29' }
      ];
- 
      const parseTime = (timeStr, referenceDate = new Date()) => {
        const [hours, minutes] = timeStr.split(':').map(Number);
        const date = new Date(referenceDate);
@@ -991,16 +1018,13 @@
        if (hours < 7) date.setDate(date.getDate() + 1);
        return date;
      };
- 
      const hourlyRecords = [];
      completedRecords.forEach(entry => {
        const inTime = parseTime(entry.inTime);
        const outTime = parseTime(entry.outTime, inTime);
- 
        timeSlots.forEach(slot => {
          const slotStart = parseTime(slot.start);
          const slotEnd = parseTime(slot.end, slotStart);
- 
          if (inTime >= slotStart && outTime <= slotEnd) {
            const existingRecord = hourlyRecords.find(record => record.timeSlot === `${slot.start}-${slot.end}`);
            if (existingRecord) {
@@ -1014,8 +1038,6 @@
          }
        });
      });
- 
-     // Include all time slots, even those with zero counts
      const allHourlyRecords = timeSlots.map(slot => {
        const record = hourlyRecords.find(r => r.timeSlot === `${slot.start}-${slot.end}`) || {
          timeSlot: `${slot.start}-${slot.end}`,
@@ -1023,19 +1045,16 @@
        };
        return record;
      });
- 
-     // Prepare data to send
      const dataToSend = {
        completedRecords: completedRecords,
        deletedEntries: deletedEntries,
        hourlyRecords: allHourlyRecords
      };
- 
-     // Send data to Google Sheets
      fetch('https://script.google.com/macros/s/AKfycbwwkPioOsnjvSDdIq9t7TU-9OHyC7Z0TlbvwsP1HLaXTHY7OkoPRrU6fRCwRlTvjJMETw/exec', {
        method: 'POST',
        headers: {
-         'Content-Type': 'application/json'
+         'Content-Type': 'application/json',
+         'Authorization': `Bearer ${token}`
        },
        body: JSON.stringify(dataToSend),
        mode: 'cors'
@@ -1044,12 +1063,12 @@
      .then(data => {
        if (data.status === 'success') {
          console.log('Data successfully sent to Google Sheets');
-         // Clear deletedEntries after successful sync
          deletedEntries = [];
          saveToStorage();
+         showNotification('Data synced to Google Sheets.', 'success');
        } else {
          console.error('Error from Google Sheets:', data.message);
-         showNotification('Failed to update Google Sheets.', 'error');
+         showNotification('Failed to update Google Sheets: ' + data.message, 'error');
        }
      })
      .catch(error => {
@@ -1061,20 +1080,15 @@
      showNotification('An error occurred while sending data to Google Sheets.', 'error');
    }
  }
- 
+
  function exportToCSV() {
    try {
-     // Get current date for file naming
      const dateStr = new Date().toISOString().slice(0, 10);
- 
-     // 1. Export Completed Records CSV
      const completedEntries = log.filter(entry => entry.outTime);
      if (completedEntries.length === 0) {
        showNotification('No completed records to export.', 'info');
      } else {
-       // Create CSV content for completed records
        let completedCsv = 'Number,Compactor Number,In Time,Out Time\n';
- 
        completedEntries.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
          .forEach((entry, index) => {
            const row = [
@@ -1085,23 +1099,17 @@
            ];
            completedCsv += row.join(',') + '\n';
          });
- 
-       // Create and trigger download for completed records
-       const completedBlob = new Blob([completedCsvbeyond, { type: 'text/csv;charset=utf-8;' });
+       const completedBlob = new Blob([completedCsv], { type: 'text/csv;charset=utf-8;' });
        const completedLink = document.createElement('a');
        const completedUrl = URL.createObjectURL(completedBlob);
- 
        completedLink.href = completedUrl;
        completedLink.download = `completed_records_${dateStr}.csv`;
        completedLink.style.visibility = 'hidden';
- 
        document.body.appendChild(completedLink);
        completedLink.click();
        document.body.removeChild(completedLink);
        URL.revokeObjectURL(completedUrl);
      }
- 
-     // 2. Export Hourly Records CSV
      const timeSlots = [
        { start: '07:30', end: '08:29' },
        { start: '08:30', end: '09:29' },
@@ -1127,8 +1135,6 @@
        { start: '04:30', end: '05:29' },
        { start: '05:30', end: '06:29' }
      ];
- 
-     // Parse time string to Date object for comparison
      const parseTime = (timeStr, referenceDate = new Date()) => {
        const [hours, minutes] = timeStr.split(':').map(Number);
        const date = new Date(referenceDate);
@@ -1136,17 +1142,13 @@
        if (hours < 7) date.setDate(date.getDate() + 1);
        return date;
      };
- 
-     // Aggregate completed entries into time slots
      const hourlyRecords = [];
      completedEntries.forEach(entry => {
        const inTime = parseTime(entry.inTime);
        const outTime = parseTime(entry.outTime, inTime);
- 
        timeSlots.forEach(slot => {
          const slotStart = parseTime(slot.start);
          const slotEnd = parseTime(slot.end, slotStart);
- 
          if (inTime >= slotStart && outTime <= slotEnd) {
            const existingRecord = hourlyRecords.find(record => record.timeSlot === `${slot.start}-${slot.end}`);
            if (existingRecord) {
@@ -1160,8 +1162,6 @@
          }
        });
      });
- 
-     // Include all time slots, even those with zero counts
      const allHourlyRecords = timeSlots.map(slot => {
        const record = hourlyRecords.find(r => r.timeSlot === `${slot.start}-${slot.end}`) || {
          timeSlot: `${slot.start}-${slot.end}`,
@@ -1169,72 +1169,54 @@
        };
        return record;
      });
- 
-     // Create CSV content for hourly records
      let hourlyCsv = 'Time Slot,No. of Compactors Completed\n';
      allHourlyRecords.forEach(record => {
        hourlyCsv += `"${record.timeSlot}",${record.machineCount}\n`;
      });
- 
-     // Create and trigger download for hourly records
      const hourlyBlob = new Blob([hourlyCsv], { type: 'text/csv;charset=utf-8;' });
      const hourlyLink = document.createElement('a');
      const hourlyUrl = URL.createObjectURL(hourlyBlob);
- 
      hourlyLink.href = hourlyUrl;
      hourlyLink.download = `hourly_records_${dateStr}.csv`;
      hourlyLink.style.visibility = 'hidden';
- 
      document.body.appendChild(hourlyLink);
      hourlyLink.click();
      document.body.removeChild(hourlyLink);
      URL.revokeObjectURL(hourlyUrl);
- 
-     // Show success message
      showNotification('Completed and hourly records exported as CSV files.', 'success');
- 
    } catch (error) {
      console.error('Error in exportToCSV:', error);
      document.getElementById('error').textContent = 'An error occurred while exporting. Please try again.';
    }
  }
- 
+
  function clearAllData() {
    try {
-     // Confirm with user before clearing data
+     if (!token) {
+       showNotification('Please sign in with Google to clear data.', 'error');
+       return;
+     }
      if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
        console.log('Clear data canceled by user');
        return;
      }
- 
      console.log('Clearing all data...');
-     // Collect all entryIds for deletion
      deletedEntries = log.map(entry => entry.entryId);
      log = [];
- 
-     // Clear error message
      document.getElementById('error').textContent = '';
- 
-     // Explicitly reset tables
      const logBody = document.getElementById('logBody');
      logBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #6c757d;">No pending entries</td></tr>`;
      document.getElementById('pendingCount').textContent = '0 pending';
- 
      const completedBody = document.getElementById('completedBody');
      completedBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #6c757d;">No completed entries</td></tr>`;
      document.getElementById('completedCount').textContent = '0 completed';
- 
      const hourlyBody = document.getElementById('hourlyBody');
      hourlyBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
      document.getElementById('hourlyCount').textContent = '0 hourly records';
- 
-     // Reset all machine button states
      for (let i = 1; i <= 10; i++) {
        const button = document.getElementById(`machineButton${i}`);
        button.classList.remove('active');
      }
- 
-     // Reset toggle states
      showAllRecords = false;
      showAllHourly = false;
      isBlinkingEnabled = true;
@@ -1258,22 +1240,30 @@
        </svg>
        Show All
      `;
- 
-     // Update storage and sync with Google Sheets
      saveToStorage();
      sendToGoogleSheets();
- 
      showNotification('All data has been cleared.', 'success');
      console.log('Data cleared successfully');
- 
    } catch (error) {
      console.error('Error in clearAllData:', error);
      document.getElementById('error').textContent = 'An error occurred while clearing data. Please try again.';
    }
  }
- 
+
  function showNotification(message, type) {
-   alert(message);
+   const notification = document.createElement('div');
+   notification.className = `notification ${type}`;
+   notification.textContent = message;
+   document.body.appendChild(notification);
+   setTimeout(() => {
+     notification.classList.add('show');
+   }, 100);
+   setTimeout(() => {
+     notification.classList.remove('show');
+     setTimeout(() => {
+       notification.remove();
+     }, 300);
+   }, 3000);
  }
  </script>
 </body>
