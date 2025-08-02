@@ -1,73 +1,808 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Compactor Progress Tracker</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
-    h1 { text-align: center; color: #333; }
-    .container { max-width: 1200px; margin: auto; }
-    .machine-buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
-    .machine-button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
-    .machine-button:hover { background-color: #0056b3; }
-    .machine-button.active { background-color: #28a745; }
-    .controls { margin-bottom: 20px; display: flex; gap: 10px; }
-    .control-button { padding: 10px 20px; background-color: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    .control-button:hover { background-color: #c82333; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background-color: #007bff; color: white; }
-    .error { color: red; margin: 10px 0; }
-    .footer { text-align: center; margin-top: 20px; color: #666; }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    height: 100%;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: clamp(10px, 2vw, 15px);
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    height: auto;
+    color: #333;
+    line-height: 1.5;
+    font-size: clamp(14px, 2.5vw, 16px);
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .container {
+    max-width: min(1400px, 95vw);
+    margin: 0 auto;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    padding: clamp(15px, 2.5vw, 20px);
+    position: relative;
+    flex-grow: 1;
+    height: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, #4CAF50, #2196F3, #FF9800);
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: clamp(15px, 3vw, 25px);
+  }
+
+  h1 {
+    color: #2c3e50;
+    margin: clamp(10px, 2vw, 15px) 0;
+    font-weight: 600;
+    position: relative;
+    padding-bottom: 15px;
+    font-size: clamp(1.5rem, 5vw, 2rem);
+  }
+
+  h1::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: clamp(60px, 10vw, 80px);
+    height: 4px;
+    background: linear-gradient(90deg, #4CAF50, #2196F3);
+    border-radius: 2px;
+  }
+
+  .dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(15px, 3vw, 25px);
+    margin-bottom: clamp(15px, 3vw, 25px);
+    flex-grow: 1;
+  }
+
+  @media (min-width: 768px) {
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .card {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: clamp(10px, 2vw, 20px);
+    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    overflow: visible;
+    flex-grow: 0;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .card-header {
+    font-size: clamp(1rem, 3vw, 1.25rem);
+    font-weight: 600;
+    margin-bottom: clamp(10px, 2vw, 15px);
+    color: #2c3e50;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+  }
+
+  .compactor-grid {
+    display: grid;
+    grid-template-rows: repeat(2, auto);
+    grid-template-columns: repeat(5, minmax(50px, 1fr));
+    grid-template-areas: 
+      "b1 b2 b3 b4 b5"
+      "b6 b7 b8 b9 b10";
+    gap: clamp(8px, 1.5vw, 12px);
+    margin-bottom: clamp(10px, 2vw, 20px);
+  }
+
+  .compactor-btn[data-machine="1"] { grid-area: b1; }
+  .compactor-btn[data-machine="2"] { grid-area: b2; }
+  .compactor-btn[data-machine="3"] { grid-area: b3; }
+  .compactor-btn[data-machine="4"] { grid-area: b4; }
+  .compactor-btn[data-machine="5"] { grid-area: b5; }
+  .compactor-btn[data-machine="6"] { grid-area: b6; }
+  .compactor-btn[data-machine="7"] { grid-area: b7; }
+  .compactor-btn[data-machine="8"] { grid-area: b8; }
+  .compactor-btn[data-machine="9"] { grid-area: b9; }
+  .compactor-btn[data-machine="10"] { grid-area: b10; }
+
+  .compactor-btn {
+    padding: clamp(8px, 1.5vw, 12px);
+    border: none;
+    border-radius: 8px;
+    font-size: clamp(14px, 2.5vw, 18px);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: #4CAF50;
+    color: white;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    touch-action: manipulation;
+  }
+
+  .compactor-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 10px rgba(0,0,0,0.15);
+  }
+
+  .compactor-btn.active {
+    background-color: #6c757d;
+    transform: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .error {
+    color: #e74c3c;
+    font-size: clamp(0.9rem, 2vw, 1rem);
+    margin: clamp(10px, 1vw, 10px) 0;
+    min-height: 24px;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  .table-container {
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+    overflow-y: auto;
+    margin-top: clamp(10px, 2vw, 20px);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    width: 100%;
+    max-height: 400px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    table-layout: fixed; /* Ensure columns fit within table width */
+  }
+
+  th {
+    background-color: #f1f5f9;
+    padding: clamp(4px, 1vw, 8px); /* Reduced padding */
+    text-align: center;
+    font-weight: 600;
+    color: #2c3e50;
+    border: 1px solid #d1d5db;
+    font-size: clamp(0.7rem, 1.5vw, 0.8rem); /* Reduced font size */
+    width: auto;
+  }
+
+  td {
+    padding: clamp(4px, 1vw, 8px); /* Reduced padding */
+    border: 1px solid #d1d5db;
+    color: #4a5568;
+    text-align: center;
+    font-size: clamp(0.7rem, 1.5vw, 0.8rem); /* Reduced font size */
+    width: auto;
+    white-space: nowrap; /* Prevent text wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Truncate long text */
+  }
+
+  /* Specific styling for Time Slot column */
+  #hourlyTable th:nth-child(1),
+  #hourlyTable td:nth-child(1) {
+    width: clamp(80px, 15vw, 100px); /* Increased width for Time Slot */
+    white-space: normal; /* Allow text wrapping */
+    overflow: visible; /* Prevent truncation */
+    text-overflow: unset; /* Remove ellipsis */
+  }
+
+  /* Adjust other columns to fit within remaining space */
+  #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+  #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+    width: calc((100% - clamp(80px, 15vw, 100px)) / 11 * 0.9); /* Distribute remaining width */
+  }
+
+  tr:hover {
+    background-color: #f8fafc;
+  }
+
+  .cumulative-row {
+    background-color: #d4edda !important;
+  }
+
+  .cumulative-row th,
+  .cumulative-row td {
+    background-color: #d4edda !important;
+    font-weight: 700;
+    color: #155724;
+  }
+
+  .time-cell {
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .time-cell:hover {
+    background-color: #e3f2fd;
+  }
+
+  .blink {
+    animation: blink-animation 1s ease-in-out infinite;
+  }
+
+  @keyframes blink-animation {
+    0%, 100% { background-color: #f8f9fa; }
+    50% { background-color: #ffcccb; }
+  }
+
+  .table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(10px, 2vw, 15px);
+    flex-wrap: wrap;
+    gap: clamp(5px, 1vw, 10px);
+  }
+
+  .table-header h3 {
+    margin: 0;
+    flex: 1 1 auto;
+    font-size: clamp(1rem, 3vw, 1.2rem);
+  }
+
+  .table-header > div {
+    display: flex;
+    align-items: center;
+    gap: clamp(5px, 1vw, 10px);
+    flex: 0 1 auto;
+  }
+
+  .counter {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    padding: clamp(4px, 1vw, 6px) clamp(8px, 1.5vw, 12px);
+    border-radius: 20px;
+    font-weight: bold;
+    flex: 0 0 auto;
+    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+  }
+
+  .btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(10px, 2vw, 15px);
+    margin-top: clamp(15px, 3vw, 25px);
+  }
+
+  .btn {
+    flex: 1;
+    padding: clamp(8px, 1.5vw, 12px);
+    border: none;
+    border-radius: 8px;
+    font-size: clamp(0.85rem, 2.2vw, 0.95rem);
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(5px, 1vw, 8px);
+    min-width: 100px;
+    touch-action: manipulation;
+  }
+
+  .btn-export {
+    background-color: #2196F3;
+    color: white;
+  }
+
+  .btn-export:hover {
+    background-color: #0b7dda;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+  }
+
+  .btn-clear {
+    background-color: #e74c3c;
+    color: white;
+  }
+
+  .btn-clear:hover {
+    background-color: #c0392b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+  }
+
+  .btn-undo {
+    background-color: #f0ad4e;
+    color: white;
+  }
+
+  .btn-undo:hover {
+    background-color: #ec971f;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(240, 173, 78, 0.3);
+  }
+
+  .btn-undo:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .delete-icon {
+    cursor: pointer;
+    color: #e74c3c;
+    transition: all 0.2s;
+    width: clamp(14px, 2vw, 16px);
+    height: clamp(14px, 2vw, 16px);
+  }
+
+  .delete-icon:hover {
+    color: #c0392b;
+    transform: scale(1.1);
+  }
+
+  .highlight {
+    background: #fff9c4;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+  }
+
+  .footer {
+    text-align: center;
+    margin-top: clamp(15px, 3vw, 25px);
+    color: #6c757d;
+    padding-top: clamp(10px, 2vw, 15px);
+    border-top: 1px solid #e9ecef;
+    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+  }
+
+  .status-counters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(10px, 2vw, 15px);
+    margin-bottom: clamp(10px, 2vw, 15px);
+    justify-content: center;
+  }
+
+  .counter-badge {
+    background: #e3f2fd;
+    padding: clamp(6px, 1vw, 8px) clamp(10px, 2vw, 15px);
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+  }
+
+  .counter-badge.pending {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .counter-badge.completed {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #1976d2;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: clamp(3px, 0.5vw, 5px);
+    padding: clamp(3px, 0.5vw, 5px) clamp(5px, 1vw, 10px);
+    border-radius: 4px;
+    transition: all 0.2s;
+    flex: 0 0 auto;
+    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+    touch-action: manipulation;
+  }
+
+  .toggle-btn:hover {
+    background-color: #e3f2fd;
+  }
+
+  .blink-toggle {
+    color: #e74c3c;
+  }
+
+  .blink-toggle:hover {
+    color: #c0392b;
+  }
+
+  .status-row {
+    transition: background-color 0.3s;
+  }
+
+  .status-row:hover {
+    background-color: #ebf8ff;
+  }
+
+  /* Tablet-specific media query (768px to 1024px) */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .table-container {
+      overflow-x: hidden; /* Prevent horizontal scrolling */
+      margin-left: 0;
+      margin-right: 0;
+      padding: 0;
+    }
+
+    table {
+      table-layout: fixed; /* Force fixed layout to control column widths */
+      width: 100%;
+    }
+
+    th, td {
+      padding: clamp(2px, 0.5vw, 4px); /* Further reduced padding */
+      font-size: clamp(0.6rem, 1.2vw, 0.7rem); /* Smaller font size */
+      width: auto;
+    }
+
+    /* Status Records table adjustments */
+    #statusTable th:nth-child(1),
+    #statusTable th:nth-child(2),
+    #statusTable th:nth-child(3),
+    #statusTable th:nth-child(4),
+    #statusTable th:nth-child(5),
+    #statusTable th:nth-child(6),
+    #statusTable td:nth-child(1),
+    #statusTable td:nth-child(2),
+    #statusTable td:nth-child(3),
+    #statusTable td:nth-child(4),
+    #statusTable td:nth-child(5),
+    #statusTable td:nth-child(6) {
+      width: calc(100% / 6 * 0.9); /* Slightly reduced width for 6 columns */
+    }
+
+    /* Hourly Records table adjustments */
+    #hourlyTable th:nth-child(1),
+    #hourlyTable td:nth-child(1) {
+      width: clamp(70px, 12vw, 90px); /* Slightly smaller for tablets */
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+    }
+
+    #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+    #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+      width: calc((100% - clamp(70px, 12vw, 90px)) / 11 * 0.8); /* Adjust for remaining columns */
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .card {
+      padding: clamp(8px, 1.5vw, 15px);
+    }
+    
+    .table-container {
+      margin-left: calc(-1vw);
+      margin-right: calc(-1vw);
+      padding: 0 1vw;
+    }
+    
+    table {
+      min-width: 0; /* Ensure no minimum width forces scrolling */
+    }
+    
+    body {
+      padding: clamp(5px, 1vw, 10px);
+    }
+    
+    .container {
+      padding: clamp(10px, 2vw, 15px);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .compactor-grid {
+      grid-template-columns: repeat(5, minmax(45px, 1fr));
+      gap: clamp(6px, 1vw, 10px);
+    }
+    
+    .btn {
+      min-width: 90px;
+      padding: clamp(6px, 1.5vw, 10px);
+    }
+    
+    .table-container {
+      margin-left: calc(-2vw);
+      margin-right: calc(-2vw);
+      padding: 0 2vw;
+    }
+    
+    .dashboard {
+      flex-direction: column;
+    }
+    
+    .card {
+      width: 100%;
+      margin-bottom: clamp(10px, 2vw, 15px);
+    }
+    
+    body {
+      min-height: 100%;
+      height: auto;
+      padding: clamp(5px, 1vw, 8px);
+    }
+    
+    .container {
+      min-height: 100%;
+      height: auto;
+      padding: clamp(8px, 1.5vw, 12px);
+    }
+
+    /* Hourly Records table adjustments for mobile */
+    #hourlyTable th:nth-child(1),
+    #hourlyTable td:nth-child(1) {
+      width: clamp(60px, 20vw, 80px); /* Adjusted for smaller screens */
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+    }
+
+    #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+    #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+      width: calc((100% - clamp(60px, 20vw, 80px)) / 11 * 0.8); /* Adjust for remaining columns */
+    }
+  }
+
+  @media (max-width: 600px) {
+    .compactor-grid {
+      grid-template-columns: repeat(5, minmax(40px, 1fr));
+      gap: clamp(5px, 1vw, 8px);
+    }
+    
+    .compactor-btn {
+      font-size: clamp(12px, 2.2vw, 16px);
+      padding: clamp(6px, 1.2vw, 12px);
+    }
+    
+    table {
+      min-width: 0;
+      font-size: clamp(0.6rem, 1.4vw, 0.7rem);
+    }
+    
+    th, td {
+      padding: clamp(2px, 0.5vw, 4px);
+    }
+    
+    .btn {
+      min-width: 80px;
+      font-size: clamp(0.75rem, 2vw, 0.85rem);
+    }
+    
+    .table-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .table-header > div {
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    /* Hourly Records table adjustments for extra small screens */
+    #hourlyTable th:nth-child(1),
+    #hourlyTable td:nth-child(1) {
+      width: clamp(50px, 18vw, 70px); /* Further adjusted for very small screens */
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+      font-size: clamp(0.65rem, 1.6vw, 0.75rem); /* Slightly larger font for readability */
+    }
+
+    #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+    #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+      width: calc((100% - clamp(50px, 18vw, 70px)) / 11 * 0.7); /* Adjust for remaining columns */
+    }
+  }
+
+  @media (max-width: 400px) {
+    body {
+      padding: clamp(5px, 1vw, 8px);
+    }
+    
+    .container {
+      padding: clamp(8px, 1.5vw, 12px);
+    }
+    
+    h1 {
+      font-size: clamp(1.2rem, 4vw, 1.5rem);
+    }
+    
+    .compactor-grid {
+      grid-template-columns: repeat(5, minmax(35px, 1fr));
+      gap: clamp(4px, 0.8vw, 6px);
+    }
+    
+    .compactor-btn {
+      font-size: clamp(10px, 2vw, 14px);
+      padding: clamp(5px, 1vw, 10px);
+    }
+    
+    table {
+      min-width: 0;
+    }
+  }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Compactor Progress Tracker</h1>
-    <div class="machine-buttons" id="machineButtons"></div>
-    <div class="controls">
-      <button class="control-button" onclick="undoLastAction()">Undo</button>
-      <button class="control-button" onclick="clearData()">Clear Data</button>
-      <button class="control-button" onclick="exportToCSV()">Export to CSV</button>
+    <header>
+      <h1>Compactor Progress Tracker</h1>
+    </header>
+    
+    <div class="dashboard">
+      <div class="card">
+        <div class="card-header">Compactor Entry</div>
+        
+        <div class="compactor-grid">
+          <button class="compactor-btn" data-machine="1">1</button>
+          <button class="compactor-btn" data-machine="2">2</button>
+          <button class="compactor-btn" data-machine="3">3</button>
+          <button class="compactor-btn" data-machine="4">4</button>
+          <button class="compactor-btn" data-machine="5">5</button>
+          <button class="compactor-btn" data-machine="6">6</button>
+          <button class="compactor-btn" data-machine="7">7</button>
+          <button class="compactor-btn" data-machine="8">8</button>
+          <button class="compactor-btn" data-machine="9">9</button>
+          <button class="compactor-btn" data-machine="10">10</button>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="table-header">
+          <h3>Hourly Records</h3>
+          <div>
+            <span class="counter" id="hourlyCount">0 hours</span>
+            <button class="toggle-btn" id="toggleHourly">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+              </svg>
+              Show All
+            </button>
+          </div>
+        </div>
+        
+        <div class="table-container">
+          <table id="hourlyTable">
+            <thead>
+              <tr class="cumulative-row" id="cumulativeRow" style="display: none;">
+                <th>Cumulative Total</th>
+                <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+                <th></th>
+              </tr>
+              <tr>
+                <th>Time Slot</th>
+                <th>1</th>
+                <th>2</th>
+                <th>3</th>
+                <th>4</th>
+                <th>5</th>
+                <th>6</th>
+                <th>7</th>
+                <th>8</th>
+                <th>9</th>
+                <th>10</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="hourlyBody">
+              <tr>
+                <td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="btn-group">
+          <button class="btn btn-export" id="exportButton">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+              <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+            </svg>
+            Export to CSV
+          </button>
+          <button class="btn btn-clear" id="clearButton">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+              <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+            </svg>
+            Clear All Data
+          </button>
+          <button class="btn btn-undo" id="undoButton" disabled>
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 0a8 8 0 0 0-2.915 15.452c-.07-.633-.134-1.606.027-2.297.146-.625.938-3.977.938-3.977s-.239-.479-.239-1.187c0-1.113.645-1.943 1.448-1.943.682 0 1.012.512 1.012 1.127 0 .686-.437 1.712-.663 2.663-.188.796.805 1.446 1.742 1.446 2.094 0 3.71-2.205 3.71-5.398 0-2.82-2.03-4.788-4.922-4.788-3.354 0-5.32 2.517-5.32 5.117 0 1.015.388 2.103.873 2.696a.346.346 0 0 1 .078.427c-.066.286-.287.885-.392 1.104-.104.218-.217.243-.334.114C2.29 12.685 2 11.454 2 10.025 2 6.153 5.144 3 8.5 3 11.07 3 14 5.404 14 8.5c0 3.096-2.93 5.5-5.5 5.5-.943 0-1.816-.256-2.557-.683l-.737.552a.5.5 0 0 1-.683-.95l1.293-.97A7.942 7.942 0 0 0 8 0z"/>
+            </svg>
+            Undo
+          </button>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-header">Current Status</div>
+        
+        <div class="status-counters">
+          <div class="counter-badge pending" id="pendingCount">0 pending</div>
+          <div class="counter-badge completed" id="completedCount">0 completed</div>
+        </div>
+        
+        <div class="table-header">
+          <h3>Status Records</h3>
+          <div>
+            <span class="counter" id="statusCount">0 records</span>
+            <button class="toggle-btn blink-toggle" id="toggleBlink">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+              </svg>
+              Stop Blinking
+            </button>
+            <button class="toggle-btn" id="toggleRecords" style="display: none;">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+              </svg>
+              Show All
+            </button>
+          </div>
+        </div>
+        
+        <div class="table-container">
+          <table id="statusTable">
+            <thead>
+              <tr>
+                <th>Container #</th>
+                <th>Compactor</th>
+                <th>In Time</th>
+                <th>Out Time</th>
+                <th>Duration</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="statusBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No records</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-    <div class="error" id="error"></div>
-    <h2>Current Status</h2>
-    <table id="statusTable">
-      <thead>
-        <tr>
-          <th>No. of Container</th>
-          <th>Compactor</th>
-          <th>In Time</th>
-          <th>Out Time</th>
-          <th>Duration</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <h2>Hourly Records</h2>
-    <table id="hourlyTable">
-      <thead>
-        <tr>
-          <th>Time Slot</th>
-          <th>Machine 1</th>
-          <th>Machine 2</th>
-          <th>Machine 3</th>
-          <th>Machine 4</th>
-          <th>Machine 5</th>
-          <th>Machine 6</th>
-          <th>Machine 7</th>
-          <th>Machine 8</th>
-          <th>Machine 9</th>
-          <th>Machine 10</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    
     <div class="footer">
-      Compactor Progress Tracker v2.4 | Data is stored locally in your browser | <span id="lastSync">Last synced: None</span>
+      Compactor Progress Tracker v2.4 | Data is stored locally in your browser
     </div>
   </div>
 
