@@ -22,68 +22,70 @@
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOpf01vbYCMOICIDPXLsKDtVjA9uc51Ai4wu4gF5j87It-l8V1ZdAeM1ABMIfg6q2H/exec"; // Replace with your URL
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOpf01vbYCMOICIDPXLsKDtVjA9uc51Ai4wu4gF5j87It-l8V1ZdAeM1ABMIfg6q2H/exec";
 
-    // Write data to sheet
-    document.getElementById("writeForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      
-      const data = [
-        document.getElementById("name").value,
-        document.getElementById("email").value,
-        new Date().toLocaleString()
-      ];
-
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "write",
-            sheetName: "Contacts",
-            data: data
-          })
-        });
-        
-        const result = await response.json();
-        alert(`Success! ${result.rowsAdded} row(s) added.`);
-        e.target.reset();
-      } catch (error) {
-        console.error("Error:", error);
-        alert("Failed to save data");
-      }
+// POST data to sheet
+async function sendToSheet(data) {
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "write",
+        sheetName: "Contacts",
+        data: data
+      })
     });
+    
+    if (!response.ok) throw new Error("Network response was not ok");
+    return await response.json();
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+}
 
-    // Read data from sheet
-    document.getElementById("readData").addEventListener("click", async () => {
-      try {
-        const response = await fetch(`${SCRIPT_URL}?action=read&sheetName=Contacts`);
-        const result = await response.json();
-        
-        if (result.status === "success") {
-          const outputDiv = document.getElementById("output");
-          outputDiv.innerHTML = "<h3>Sheet Data:</h3>";
-          
-          const table = document.createElement("table");
-          table.border = "1";
-          
-          result.data.forEach(row => {
-            const tr = document.createElement("tr");
-            row.forEach(cell => {
-              const td = document.createElement("td");
-              td.textContent = cell;
-              tr.appendChild(td);
-            });
-            table.appendChild(tr);
-          });
-          
-          outputDiv.appendChild(table);
-        }
-      } catch (error) {
-        console.error("Error:", error);
-        alert("Failed to load data");
-      }
-    });
+// GET data from sheet
+async function getSheetData() {
+  try {
+    const response = await fetch(`${SCRIPT_URL}?action=read&sheetName=Contacts`);
+    if (!response.ok) throw new Error("Network response was not ok");
+    return await response.json();
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+}
+
+// Example usage with your form
+document.getElementById("writeForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  
+  const formData = {
+    name: e.target.name.value,
+    email: e.target.email.value,
+    timestamp: new Date().toISOString()
+  };
+  
+  try {
+    const result = await sendToSheet(Object.values(formData));
+    alert(`Success! ${result.rowsAdded} row(s) added.`);
+    e.target.reset();
+  } catch (error) {
+    alert("Failed to save data. Please try again.");
+  }
+});
+
+// Example usage for reading data
+document.getElementById("readData").addEventListener("click", async () => {
+  try {
+    const result = await getSheetData();
+    console.log("Sheet data:", result.data);
+    // Display the data in your UI
+  } catch (error) {
+    alert("Failed to load data. Please try again.");
+  }
+});
   </script>
 </body>
 </html>
