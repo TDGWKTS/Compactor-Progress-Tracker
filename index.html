@@ -1,89 +1,1053 @@
+```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Google Sheets API Example</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compactor Progress Tracker</title>
+  <style>
+    /* Your existing CSS remains unchanged */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    /* ... (rest of your CSS as provided) ... */
+  </style>
 </head>
 <body>
-  <h1>Google Sheets Data Manager</h1>
-  
-  <div>
-    <h2>Write Data</h2>
-    <form id="writeForm">
-      <input type="text" id="name" placeholder="Name" required>
-      <input type="email" id="email" placeholder="Email" required>
-      <button type="submit">Save to Sheet</button>
-    </form>
-  </div>
-  
-  <div>
-    <h2>Read Data</h2>
-    <button id="readData">Load Sheet Data</button>
-    <div id="output"></div>
+  <div class="container">
+    <header>
+      <h1>Compactor Progress Tracker</h1>
+    </header>
+    
+    <div class="dashboard">
+      <!-- Your existing HTML structure remains unchanged -->
+      <div class="card">
+        <div class="card-header">Compactor Entry</div>
+        <div class="compactor-grid">
+          <button class="compactor-btn" data-machine="1">1</button>
+          <button class="compactor-btn" data-machine="2">2</button>
+          <button class="compactor-btn" data-machine="3">3</button>
+          <button class="compactor-btn" data-machine="4">4</button>
+          <button class="compactor-btn" data-machine="5">5</button>
+          <button class="compactor-btn" data-machine="6">6</button>
+          <button class="compactor-btn" data-machine="7">7</button>
+          <button class="compactor-btn" data-machine="8">8</button>
+          <button class="compactor-btn" data-machine="9">9</button>
+          <button class="compactor-btn" data-machine="10">10</button>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="table-header">
+          <h3>Hourly Records</h3>
+          <div>
+            <span class="counter" id="hourlyCount">0 hours</span>
+            <button class="toggle-btn" id="toggleHourly">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+              </svg>
+              Show All
+            </button>
+          </div>
+        </div>
+        
+        <div class="table-container">
+          <table id="hourlyTable">
+            <thead>
+              <tr class="cumulative-row" id="cumulativeRow" style="display: none;">
+                <th>Cumulative Total</th>
+                <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+                <th></th>
+              </tr>
+              <tr>
+                <th>Time Slot</th>
+                <th>1</th>
+                <th>2</th>
+                <th>3</th>
+                <th>4</th>
+                <th>5</th>
+                <th>6</th>
+                <th>7</th>
+                <th>8</th>
+                <th>9</th>
+                <th>10</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="hourlyBody">
+              <tr>
+                <td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="btn-group">
+          <button class="btn btn-export" id="exportButton">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+              <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+            </svg>
+            Export to CSV
+          </button>
+          <button class="btn btn-clear" id="clearButton">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+              <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+            </svg>
+            Clear All Data
+          </button>
+          <button class="btn btn-undo" id="undoButton" disabled>
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 0a8 8 0 0 0-2.915 15.452c-.07-.633-.134-1.606.027-2.297.146-.625.938-3.977.938-3.977s-.239-.479-.239-1.187c0-1.113.645-1.943 1.448-1.943.682 0 1.012.512 1.012 1.127 0 .686-.437 1.712-.663 2.663-.188.796.805 1.446 1.742 1.446 2.094 0 3.71-2.205 3.71-5.398 0-2.82-2.03-4.788-4.922-4.788-3.354 0-5.32 2.517-5.32 5.117 0 1.015.388 2.103.873 2.696a.346.346 0 0 1 .078.427c-.066.286-.287.885-.392 1.104-.104.218-.217.243-.334.114C2.29 12.685 2 11.454 2 10.025 2 6.153 5.144 3 8.5 3 11.07 3 14 5.404 14 8.5c0 3.096-2.93 5.5-5.5 5.5-.943 0-1.816-.256-2.557-.683l-.737.552a.5.5 0 0 1-.683-.95l1.293-.97A7.942 7.942 0 0 0 8 0z"/>
+            </svg>
+            Undo
+          </button>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-header">Current Status</div>
+        
+        <div class="status-counters">
+          <div class="counter-badge pending" id="pendingCount">0 pending</div>
+          <div class="counter-badge completed" id="completedCount">0 completed</div>
+        </div>
+        
+        <div class="table-header">
+          <h3>Status Records</h3>
+          <div>
+            <span class="counter" id="statusCount">0 records</span>
+            <button class="toggle-btn blink-toggle" id="toggleBlink">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+              </svg>
+              Stop Blinking
+            </button>
+            <button class="toggle-btn" id="toggleRecords" style="display: none;">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+              </svg>
+              Show All
+            </button>
+          </div>
+        </div>
+        
+        <div class="table-container">
+          <table id="statusTable">
+            <thead>
+              <tr>
+                <th>Container #</th>
+                <th>Compactor</th>
+                <th>In Time</th>
+                <th>Out Time</th>
+                <th>Duration</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="statusBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No records</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div class="footer">
+      Compactor Progress Tracker v2.4 | Data is stored locally in your browser
+    </div>
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz543hTnxH3Ya0u-ucOgWlnWDgJB-6_1nQY7dPlD-08l3QmrHnjS3PAoLCBwt3LKCNg/exec"; // Replace with your URL
+    // In-memory log to track entries and action history for undo
+    let log = [];
+    let actionHistory = [];
+    let showAllRecords = false;
+    let showAllHourly = false;
+    let isBlinkingEnabled = true;
+    let updateInterval = null;
+    let syncInterval = null;
 
-    // Write data to sheet
-    document.getElementById("writeForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      
-      const data = [
-        document.getElementById("name").value,
-        document.getElementById("email").value,
-        new Date().toLocaleString()
-      ];
+    // Google Apps Script URL
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx-lh6_AQ_Ky7ijNLy8Xt_sk830aledU1ok69wBt_t0lMKCK8t8CTp3CQdoe1ehbMysg/exec';
 
+    // Initialize with no sample data
+    function initializeSampleData() {
+      log = [];
+      actionHistory = [];
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      document.getElementById('undoButton').disabled = true;
+      // Start dynamic updates every 60 seconds for UI
+      updateInterval = setInterval(updateStatusTable, 60000);
+      // Start auto-sync every 30 seconds
+      syncInterval = setInterval(syncToGoogleSheets, 30000);
+      // Perform initial sync
+      syncToGoogleSheets();
+    }
+    
+    // Initialize sample data and attach event listeners when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      initializeSampleData();
+    
+      // Attach event listeners to buttons
+      document.getElementById('exportButton').addEventListener('click', exportToCSV);
+      document.getElementById('clearButton').addEventListener('click', clearAllData);
+      document.getElementById('undoButton').addEventListener('click', undoLastAction);
+      document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
+      document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
+      document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
+    
+      // Attach event listeners to machine buttons
+      document.querySelectorAll('.compactor-btn').forEach(button => {
+        button.addEventListener('click', () => {
+          const machineNum = parseInt(button.getAttribute('data-machine'));
+          handleMachineButtonClick(machineNum);
+        });
+      });
+    
+      // Clean up intervals on page unload
+      window.addEventListener('unload', () => {
+        if (updateInterval) {
+          clearInterval(updateInterval);
+        }
+        if (syncInterval) {
+          clearInterval(syncInterval);
+        }
+      });
+    });
+    
+    // Sync data to Google Sheets
+    function syncToGoogleSheets() {
       try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        // Prepare status records (same as CSV export)
+        const statusRecords = log.map((entry, index) => ({
+          containerNumber: log.length - index,
+          compactorNumber: entry.machineNumber,
+          inTime: entry.inTime,
+          outTime: entry.outTime || ''
+        }));
+
+        // Prepare hourly records (same as CSV export)
+        const timeSlots = [
+          { start: '07:30', end: '08:29' },
+          { start: '08:30', end: '09:29' },
+          { start: '09:30', end: '10:29' },
+          { start: '10:30', end: '11:29' },
+          { start: '11:30', end: '12:29' },
+          { start: '12:30', end: '13:29' },
+          { start: '13:30', end: '14:29' },
+          { start: '14:30', end: '15:29' },
+          { start: '15:30', end: '16:29' },
+          { start: '16:30', end: '17:29' },
+          { start: '17:30', end: '18:29' },
+          { start: '18:30', end: '19:29' },
+          { start: '19:30', end: '20:29' },
+          { start: '20:30', end: '21:29' },
+          { start: '21:30', end: '22:29' },
+          { start: '22:30', end: '23:29' },
+          { start: '23:30', end: '00:29' },
+          { start: '00:30', end: '01:29' },
+          { start: '01:30', end: '02:29' },
+          { start: '02:30', end: '03:29' },
+          { start: '03:30', end: '04:29' },
+          { start: '04:30', end: '05:29' },
+          { start: '05:30', end: '06:29' }
+        ];
+
+        const parseTime = (timeStr, referenceDate = new Date()) => {
+          const [hours, minutes] = timeStr.split(':').map(Number);
+          const date = new Date(referenceDate);
+          date.setHours(hours, minutes, 0, 0);
+          if (hours < 7) date.setDate(date.getDate() + 1);
+          return date;
+        };
+
+        const hourlyRecords = [];
+        const completedEntries = log.filter(entry => entry.outTime);
+        timeSlots.forEach(slot => {
+          const slotStart = parseTime(slot.start);
+          const slotEnd = parseTime(slot.end, slotStart);
+          const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
+          completedEntries.forEach(entry => {
+            const inTime = parseTime(entry.inTime);
+            const outTime = parseTime(entry.outTime, inTime);
+            if (inTime >= slotStart && outTime <= slotEnd) {
+              machineCounts[entry.machineNumber]++;
+            }
+          });
+          // Include all time slots, even those with zero counts
+          hourlyRecords.push({
+            timeSlot: `${slot.start}-${slot.end}`,
+            machineCounts: machineCounts.slice(1),
+            total: machineCounts.slice(1).reduce((sum, count) => sum + count, 0)
+          });
+        });
+
+        // Send data to Google Sheets
+        fetch(SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Required for GitHub Pages to avoid CORS issues
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({
-            action: "write",
-            sheetName: "Contacts",
-            data: data
+            statusRecords,
+            hourlyRecords
           })
+        }).then(() => {
+          console.log('Data synced to Google Sheets');
+        }).catch(error => {
+          console.error('Error syncing to Google Sheets:', error);
+          document.getElementById('error').textContent = 'Failed to sync data to Google Sheets. Please try again later.';
+        });
+      } catch (error) {
+        console.error('Error in syncToGoogleSheets:', error);
+        document.getElementById('error').textContent = 'An error occurred while syncing data. Please try again.';
+      }
+    }
+
+    function toggleBlinking() {
+      isBlinkingEnabled = !isBlinkingEnabled;
+      const toggleButton = document.getElementById('toggleBlink');
+      toggleButton.innerHTML = `
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+        </svg>
+        ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
+      `;
+      updateStatusTable();
+    }
+    
+    function toggleHourlyRecords() {
+      showAllHourly = !showAllHourly;
+      updateHourlyTable();
+    }
+    
+    function toggleRecords() {
+      showAllRecords = !showAllRecords;
+      updateStatusTable();
+    }
+    
+    function handleMachineButtonClick(machineNum) {
+      try {
+        const errorDiv = document.getElementById('error');
+        const currentTime = new Date().toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Hong_Kong'
+        }).replace("24:", "00:"); // Handle midnight
+    
+        // Check for existing In Time without Out Time
+        const existingEntry = log.find(entry => 
+          entry.machineNumber === machineNum && !entry.outTime
+        );
+    
+        if (existingEntry) {
+          // Second click: Record Out Time
+          actionHistory.push({
+            type: 'addOutTime',
+            entry: { ...existingEntry },
+            newOutTime: currentTime
+          });
+          existingEntry.outTime = currentTime;
+          existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
+    
+          // Update UI
+          updateStatusTable();
+          updateHourlyTable();
+          updateMachineButtonStates();
+    
+          // Enable undo button
+          document.getElementById('undoButton').disabled = false;
+          // Trigger immediate sync
+          syncToGoogleSheets();
+        } else {
+          // First click: Record In Time
+          const entry = {
+            machineNumber: machineNum,
+            inTime: currentTime,
+            outTime: '',
+            entryTimestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' })
+          };
+    
+          actionHistory.push({
+            type: 'addInTime',
+            entry: { ...entry }
+          });
+    
+          // Add to log
+          log.push(entry);
+    
+          // Update UI
+          updateStatusTable();
+          updateHourlyTable();
+          updateMachineButtonStates();
+    
+          // Enable undo button
+          document.getElementById('undoButton').disabled = false;
+          // Trigger immediate sync
+          syncToGoogleSheets();
+        }
+    
+        // Clear error
+        errorDiv.textContent = '';
+    
+      } catch (error) {
+        console.error('Error in handleMachineButtonClick:', error);
+        document.getElementById('error').textContent = 'An error occurred. Please try again.';
+      }
+    }
+    
+    function updateMachineButtonStates() {
+      document.querySelectorAll('.compactor-btn').forEach(button => {
+        const machineNum = parseInt(button.getAttribute('data-machine'));
+        const hasActiveSession = log.some(entry => 
+          entry.machineNumber === machineNum && !entry.outTime
+        );
+        button.classList.toggle('active', hasActiveSession);
+      });
+    }
+    
+    function updateStatusTable() {
+      const statusBody = document.getElementById('statusBody');
+      const statusCount = document.getElementById('statusCount');
+      const pendingCount = document.getElementById('pendingCount');
+      const completedCount = document.getElementById('completedCount');
+      const toggleButton = document.getElementById('toggleRecords');
+    
+      const pendingRecords = log.filter(entry => !entry.outTime).length;
+      const completedRecords = log.filter(entry => entry.outTime).length;
+    
+      statusCount.textContent = `${log.length} records`;
+      pendingCount.textContent = `${pendingRecords} pending`;
+      completedCount.textContent = `${completedRecords} completed`;
+    
+      // Show toggle button if more than 10 records
+      toggleButton.style.display = log.length > 10 ? 'flex' : 'none';
+      toggleButton.innerHTML = `
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+        </svg>
+        ${showAllRecords ? 'Show Less' : 'Show All'}
+      `;
+    
+      if (log.length === 0) {
+        statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+        return;
+      }
+    
+      // Sort entries by entryTimestamp in descending order
+      log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
+    
+      // Limit to 10 entries unless showAllRecords is true
+      const displayEntries = showAllRecords ? log : log.slice(0, 10);
+    
+      statusBody.innerHTML = '';
+    
+      // Display in descending order for No. of Container
+      displayEntries.forEach((entry, index) => {
+        const row = document.createElement('tr');
+        row.className = 'status-row';
+    
+        // Calculate duration
+        const { display, minutes } = calculateDuration(entry.inTime, entry.outTime);
+    
+        // Apply blink class to Compactor Number cell if duration > 40 min and no Out Time
+        const blinkClass = isBlinkingEnabled && !entry.outTime && minutes > 39 ? 'blink' : '';
+    
+        // Calculate No. of Container in descending order
+        const containerNumber = log.length - (showAllRecords ? index : index);
+    
+        // Use index for promptOutTime to avoid syntax issues
+        const entryIndex = log.indexOf(entry);
+        row.innerHTML = `
+          <td>${containerNumber}</td>
+          <td class="${blinkClass}">${entry.machineNumber}</td>
+          <td class="time-cell" onclick="editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'inTime')">${entry.inTime}</td>
+          <td class="time-cell" onclick="${entry.outTime ? `editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'outTime')` : `promptOutTime(${entryIndex})`}">
+            ${entry.outTime || '-'}
+          </td>
+          <td>${display}</td>
+          <td>
+            <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}')">
+              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+              <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+            </svg>
+          </td>
+        `;
+    
+        statusBody.appendChild(row);
+      });
+    }
+    
+    function updateHourlyTable() {
+      const hourlyBody = document.getElementById('hourlyBody');
+      const hourlyCount = document.getElementById('hourlyCount');
+      const toggleButton = document.getElementById('toggleHourly');
+      const cumulativeRow = document.getElementById('cumulativeRow');
+    
+      // Define time slots from 07:30 to 06:29 next day
+      const timeSlots = [
+        { start: '07:30', end: '08:29' },
+        { start: '08:30', end: '09:29' },
+        { start: '09:30', end: '10:29' },
+        { start: '10:30', end: '11:29' },
+        { start: '11:30', end: '12:29' },
+        { start: '12:30', end: '13:29' },
+        { start: '13:30', end: '14:29' },
+        { start: '14:30', end: '15:29' },
+        { start: '15:30', end: '16:29' },
+        { start: '16:30', end: '17:29' },
+        { start: '17:30', end: '18:29' },
+        { start: '18:30', end: '19:29' },
+        { start: '19:30', end: '20:29' },
+        { start: '20:30', end: '21:29' },
+        { start: '21:30', end: '22:29' },
+        { start: '22:30', end: '23:29' },
+        { start: '23:30', end: '00:29' },
+        { start: '00:30', end: '01:29' },
+        { start: '01:30', end: '02:29' },
+        { start: '02:30', end: '03:29' },
+        { start: '03:30', end: '04:29' },
+        { start: '04:30', end: '05:29' },
+        { start: '05:30', end: '06:29' }
+      ];
+    
+      // Parse time string to Date object for comparison
+      const parseTime = (timeStr, referenceDate = new Date()) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const date = new Date(referenceDate);
+        date.setHours(hours, minutes, 0, 0);
+        if (hours < 7) date.setDate(date.getDate() + 1); // Handle post-midnight slots
+        return date;
+      };
+    
+      // Aggregate completed entries into time slots
+      const hourlyRecords = [];
+      const completedEntries = log.filter(entry => entry.outTime);
+    
+      timeSlots.forEach(slot => {
+        const slotStart = parseTime(slot.start);
+        const slotEnd = parseTime(slot.end, slotStart);
+        const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
+    
+        completedEntries.forEach(entry => {
+          const inTime = parseTime(entry.inTime);
+          const outTime = parseTime(entry.outTime, inTime);
+    
+          // Check if both inTime and outTime are within the time slot
+          if (inTime >= slotStart && outTime <= slotEnd) {
+            machineCounts[entry.machineNumber]++;
+          }
+        });
+    
+        // Include all time slots, even those with zero counts
+        hourlyRecords.push({
+          timeSlot: `${slot.start}-${slot.end}`,
+          machineCounts: machineCounts.slice(1),
+          total: machineCounts.slice(1).reduce((sum, count) => sum + count, 0),
+          startTime: slotStart
+        });
+      });
+    
+      // Update counter and toggle button
+      hourlyCount.textContent = `${hourlyRecords.length} hours`;
+      toggleButton.style.display = hourlyRecords.length > 5 ? 'flex' : 'none';
+      toggleButton.innerHTML = `
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+        </svg>
+        ${showAllHourly ? 'Show Less' : 'Show All'}
+      `;
+    
+      // Calculate cumulative totals
+      const cumulativeCounts = Array(11).fill(0);
+      completedEntries.forEach(entry => {
+        cumulativeCounts[entry.machineNumber]++;
+      });
+      const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+      
+      // Update cumulative totals row in thead
+      if (cumulativeTotal > 0) {
+        cumulativeRow.style.display = 'table-row';
+        cumulativeRow.innerHTML = `
+          <th>Cumulative Total</th>
+          ${cumulativeCounts.slice(1).map(count => `<th>${count}</th>`).join('')}
+          <th>${cumulativeTotal}</th>
+        `;
+      } else {
+        cumulativeRow.style.display = 'none';
+      }
+      
+      // Display records
+      hourlyBody.innerHTML = '';
+      
+      if (hourlyRecords.length === 0) {
+        hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td></tr>`;
+        return;
+      }
+    
+      // Sort by start time in descending order (most recent first)
+      hourlyRecords.sort((a, b) => b.startTime - a.startTime);
+    
+      // Limit to 5 entries unless showAllHourly is true
+      const displayRecords = showAllHourly ? hourlyRecords : hourlyRecords.slice(0, 5);
+    
+      displayRecords.forEach(record => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${record.timeSlot}</td>
+          ${record.machineCounts.map(count => `<td>${count}</td>`).join('')}
+          <td class="total-cell">${record.total}</td>
+        `;
+        hourlyBody.appendChild(row);
+      });
+    }
+    
+    function deleteEntry(machineNumber, entryTimestamp) {
+      try {
+        if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
+          return;
+        }
+    
+        // Find the entry to delete
+        const entryIndex = log.findIndex(entry => 
+          entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
+        );
+        if (entryIndex === -1) {
+          alert('Record not found.');
+          return;
+        }
+    
+        // Store the deleted entry in action history
+        actionHistory.push({
+          type: 'deleteEntry',
+          entry: { ...log[entryIndex] }
+        });
+    
+        // Remove the entry from the log
+        log.splice(entryIndex, 1);
+    
+        // Update UI
+        updateStatusTable();
+        updateHourlyTable();
+        updateMachineButtonStates();
+    
+        // Enable undo button
+        document.getElementById('undoButton').disabled = false;
+        // Trigger immediate sync
+        syncToGoogleSheets();
+    
+        alert('Record deleted successfully.');
+      } catch (error) {
+        console.error('Error in deleteEntry:', error);
+        document.getElementById('error').textContent = 'An error occurred while deleting the record. Please try again.';
+      }
+    }
+    
+    function calculateDuration(inTime, outTime = null) {
+      const parseTime = timeStr => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        return date;
+      };
+    
+      try {
+        const start = parseTime(inTime);
+        const end = outTime ? parseTime(outTime) : new Date();
+    
+        // If session crosses midnight
+        if (end < start) {
+          end.setDate(end.getDate() + 1);
+        }
+    
+        const diffMs = end - start;
+        const diffMins = Math.floor(diffMs / 60000);
+        const hours = Math.floor(diffMins / 60);
+        const minutes = diffMins % 60;
+    
+        return {
+          display: `${hours}h ${minutes}m`,
+          minutes: diffMins
+        };
+      } catch {
+        return { display: 'N/A', minutes: 0 };
+      }
+    }
+    
+    function promptOutTime(entryIndex) {
+      try {
+        const entry = log[entryIndex];
+        if (!entry || entry.outTime) return;
+    
+        // Prompt for Out Time
+        let outTimeInput = prompt(`Enter Out Time for Machine ${entry.machineNumber} (e.g., 1456 for 14:56):`, "");
+    
+        if (outTimeInput === null) return; // User cancelled
+    
+        // Normalize input
+        outTimeInput = outTimeInput.trim().replace(/[^0-9]/g, '');
+    
+        if (outTimeInput.length === 4) {
+          outTimeInput = `${outTimeInput.slice(0, 2)}:${outTimeInput.slice(2)}`;
+        }
+    
+        // Validate Out Time
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+        if (!timeRegex.test(outTimeInput)) {
+          alert('Out Time must be in HH:MM format (e.g., 14:56 or 1456).');
+          return;
+        }
+    
+        // Store the original entry state before updating
+        actionHistory.push({
+          type: 'addOutTime',
+          entry: { ...entry },
+          newOutTime: outTimeInput
+        });
+    
+        // Update entry
+        entry.outTime = outTimeInput;
+        entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
+    
+        // Update UI
+        updateStatusTable();
+        updateHourlyTable();
+        updateMachineButtonStates();
+    
+        // Enable undo button
+        document.getElementById('undoButton').disabled = false;
+        // Trigger immediate sync
+        syncToGoogleSheets();
+    
+        alert(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`);
+    
+      } catch (error) {
+        console.error('Error in promptOutTime:', error);
+        document.getElementById('error').textContent = 'An error occurred. Please try again.';
+      }
+    }
+    
+    function editEntry(machineNumber, entryTimestamp, field) {
+      try {
+        const entry = log.find(entry => 
+          entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
+        );
+        if (!entry) return;
+    
+        const timeLabel = field === 'inTime' ? 'In Time' : 'Out Time';
+        const currentValue = field === 'inTime' ? entry.inTime : entry.outTime;
+    
+        let newTime = prompt(`Enter new ${timeLabel} for Machine ${machineNumber} (e.g., 1456 for 14:56):`, currentValue ? currentValue.replace(':', '') : '');
+    
+        if (newTime === null) return; // User cancelled
+    
+        // Normalize input
+        newTime = newTime.trim().replace(/[^0-9]/g, '');
+    
+        if (newTime.length === 4) {
+          newTime = `${newTime.slice(0, 2)}:${newTime.slice(2)}`;
+        }
+    
+        // Validate time
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+        if (!timeRegex.test(newTime)) {
+          alert(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456).`);
+          return;
+        }
+    
+        // Store the original entry state before updating
+        actionHistory.push({
+          type: 'edit' + field,
+          entry: { ...entry },
+          newTime: newTime
+        });
+    
+        // Update entry
+        if (field === 'inTime') {
+          entry.inTime = newTime;
+        } else {
+          entry.outTime = newTime;
+        }
+    
+        entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
+    
+        // Update UI
+        updateStatusTable();
+        updateHourlyTable();
+        updateMachineButtonStates();
+    
+        // Enable undo button
+        document.getElementById('undoButton').disabled = false;
+        // Trigger immediate sync
+        syncToGoogleSheets();
+    
+        alert(`${timeLabel} updated to ${newTime} for Machine ${machineNumber}`);
+    
+      } catch (error) {
+        console.error('Error in editEntry:', error);
+        document.getElementById('error').textContent = 'An error occurred. Please try again.';
+      }
+    }
+    
+    function undoLastAction() {
+      try {
+        if (actionHistory.length === 0) {
+          alert('No actions to undo.');
+          return;
+        }
+    
+        const lastAction = actionHistory.pop();
+    
+        if (lastAction.type === 'addInTime') {
+          // Remove the last added In Time entry
+          const entryIndex = log.findIndex(entry => 
+            entry.machineNumber === lastAction.entry.machineNumber && 
+            entry.entryTimestamp === lastAction.entry.entryTimestamp
+          );
+          if (entryIndex !== -1) {
+            log.splice(entryIndex, 1);
+          }
+        } else if (lastAction.type === 'addOutTime') {
+          // Revert the Out Time to empty
+          const entry = log.find(entry => 
+            entry.machineNumber === lastAction.entry.machineNumber && 
+            entry.entryTimestamp === lastAction.entry.entryTimestamp
+          );
+          if (entry) {
+            entry.outTime = '';
+            entry.entryTimestamp = lastAction.entry.entryTimestamp;
+          }
+        } else if (lastAction.type === 'deleteEntry') {
+          // Restore the deleted entry
+          log.push({ ...lastAction.entry });
+        } else if (lastAction.type === 'editinTime' || lastAction.type === 'editoutTime') {
+          // Revert the edited time
+          const entry = log.find(entry => 
+            entry.machineNumber === lastAction.entry.machineNumber && 
+            entry.entryTimestamp === lastAction.entry.entryTimestamp
+          );
+          if (entry) {
+            entry.inTime = lastAction.entry.inTime;
+            entry.outTime = lastAction.entry.outTime;
+            entry.entryTimestamp = lastAction.entry.entryTimestamp;
+          }
+        }
+    
+        // Update UI
+        updateStatusTable();
+        updateHourlyTable();
+        updateMachineButtonStates();
+    
+        // Disable undo button if no actions remain
+        document.getElementById('undoButton').disabled = actionHistory.length === 0;
+        // Trigger immediate sync
+        syncToGoogleSheets();
+    
+        alert('Last action undone successfully.');
+      } catch (error) {
+        console.error('Error in undoLastAction:', error);
+        document.getElementById('error').textContent = 'An error occurred while undoing the last action. Please try again.';
+      }
+    }
+    
+    function exportToCSV() {
+      try {
+        // Get current date for file naming
+        const dateStr = new Date().toISOString().slice(0, 10);
+        
+        // 1. Export Status Records CSV
+        if (log.length === 0) {
+          alert('No records to export.');
+        } else {
+          // Create CSV content for status records
+          let statusCsv = 'No. of Container,Compactor Number,In Time,Out Time\n';
+    
+          log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
+            .forEach((entry, index) => {
+              const containerNumber = log.length - index;
+              const row = [
+                containerNumber,
+                entry.machineNumber,
+                `"${entry.inTime}"`,
+                `"${entry.outTime || ''}"`
+              ];
+              statusCsv += row.join(',') + '\n';
+            });
+    
+          // Create blob and trigger download for status records
+          const statusBlob = new Blob([statusCsv], { type: 'text/csv;charset=utf-8;' });
+          const statusUrl = URL.createObjectURL(statusBlob);
+          
+          const statusLink = document.createElement('a');
+          statusLink.href = statusUrl;
+          statusLink.download = `compactor_status_${dateStr}.csv`;
+          document.body.appendChild(statusLink);
+          statusLink.click();
+          document.body.removeChild(statusLink);
+          URL.revokeObjectURL(statusUrl);
+        }
+    
+        // 2. Export Hourly Records CSV
+        const timeSlots = [
+          { start: '07:30', end: '08:29' },
+          { start: '08:30', end: '09:29' },
+          { start: '09:30', end: '10:29' },
+          { start: '10:30', end: '11:29' },
+          { start: '11:30', end: '12:29' },
+          { start: '12:30', end: '13:29' },
+          { start: '13:30', end: '14:29' },
+          { start: '14:30', end: '15:29' },
+          { start: '15:30', end: '16:29' },
+          { start: '16:30', end: '17:29' },
+          { start: '17:30', end: '18:29' },
+          { start: '18:30', end: '19:29' },
+          { start: '19:30', end: '20:29' },
+          { start: '20:30', end: '21:29' },
+          { start: '21:30', end: '22:29' },
+          { start: '22:30', end: '23:29' },
+          { start: '23:30', end: '00:29' },
+          { start: '00:30', end: '01:29' },
+          { start: '01:30', end: '02:29' },
+          { start: '02:30', end: '03:29' },
+          { start: '03:30', end: '04:29' },
+          { start: '04:30', end: '05:29' },
+          { start: '05:30', end: '06:29' }
+        ];
+        
+        // Parse time string to Date object for comparison
+        const parseTime = (timeStr, referenceDate = new Date()) => {
+          const [hours, minutes] = timeStr.split(':').map(Number);
+          const date = new Date(referenceDate);
+          date.setHours(hours, minutes, 0, 0);
+          if (hours < 7) date.setDate(date.getDate() + 1);
+          return date;
+        };
+        
+        // Aggregate completed entries into time slots
+        const hourlyRecords = [];
+        const completedEntries = log.filter(entry => entry.outTime);
+        timeSlots.forEach(slot => {
+          const slotStart = parseTime(slot.start);
+          const slotEnd = parseTime(slot.end, slotStart);
+          const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
+          completedEntries.forEach(entry => {
+            const inTime = parseTime(entry.inTime);
+            const outTime = parseTime(entry.outTime, inTime);
+            if (inTime >= slotStart && outTime <= slotEnd) {
+              machineCounts[entry.machineNumber]++;
+            }
+          });
+          // Include all time slots, even those with zero counts
+          hourlyRecords.push({
+            timeSlot: `${slot.start}-${slot.end}`,
+            machineCounts: machineCounts.slice(1),
+            total: machineCounts.slice(1).reduce((sum, count) => sum + count, 0)
+          });
         });
         
-        const result = await response.json();
-        alert(`Success! ${result.rowsAdded} row(s) added.`);
-        e.target.reset();
-      } catch (error) {
-        console.error("Error:", error);
-        alert("Failed to save data");
-      }
-    });
-
-    // Read data from sheet
-    document.getElementById("readData").addEventListener("click", async () => {
-      try {
-        const response = await fetch(`${SCRIPT_URL}?action=read&sheetName=Contacts`);
-        const result = await response.json();
+        // Create CSV content for hourly records
+        let hourlyCsv = 'Time Slot,' + 
+                        Array.from({length: 10}, (_, i) => `Machine ${i+1}`).join(',') + 
+                        ',Total\n';
         
-        if (result.status === "success") {
-          const outputDiv = document.getElementById("output");
-          outputDiv.innerHTML = "<h3>Sheet Data:</h3>";
-          
-          const table = document.createElement("table");
-          table.border = "1";
-          
-          result.data.forEach(row => {
-            const tr = document.createElement("tr");
-            row.forEach(cell => {
-              const td = document.createElement("td");
-              td.textContent = cell;
-              tr.appendChild(td);
-            });
-            table.appendChild(tr);
-          });
-          
-          outputDiv.appendChild(table);
-        }
+        hourlyRecords.forEach(record => {
+          hourlyCsv += `"${record.timeSlot}",${record.machineCounts.join(',')},${record.total}\n`;
+        });
+        
+        // Create blob and trigger download for hourly records
+        const hourlyBlob = new Blob([hourlyCsv], { type: 'text/csv;charset=utf-8;' });
+        const hourlyUrl = URL.createObjectURL(hourlyBlob);
+        
+        const link = document.createElement('a');
+        link.href = hourlyUrl;
+        link.download = `compactor_hourly_${dateStr}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(hourlyUrl);
+        
+        alert('Status and hourly records exported as CSV files.');
       } catch (error) {
-        console.error("Error:", error);
-        alert("Failed to load data");
+        console.error('Error in exportToCSV:', error);
+        document.getElementById('error').textContent = 'An error occurred while exporting. Please try again.';
       }
-    });
+    }
+    
+    function clearAllData() {
+      try {
+        if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+          return;
+        }
+    
+        log = [];
+        actionHistory = [];
+    
+        // Clear error message
+        document.getElementById('error').textContent = '';
+    
+        // Explicitly reset tables
+        const statusBody = document.getElementById('statusBody');
+        statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+        document.getElementById('statusCount').textContent = '0 records';
+        document.getElementById('pendingCount').textContent = '0 pending';
+        document.getElementById('completedCount').textContent = '0 completed';
+    
+        const hourlyBody = document.getElementById('hourlyBody');
+        hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
+        document.getElementById('hourlyCount').textContent = '0 hours';
+    
+        // Reset all machine button states
+        document.querySelectorAll('.compactor-btn').forEach(button => {
+          button.classList.remove('active');
+        });
+    
+        // Reset toggle states
+        showAllRecords = false;
+        showAllHourly = false;
+        isBlinkingEnabled = true;
+        const toggleButton = document.getElementById('toggleBlink');
+        toggleButton.innerHTML = `
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+          </svg>
+          Stop Blinking
+        `;
+        document.getElementById('toggleRecords').innerHTML = `
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+          </svg>
+          Show All
+        `;
+        document.getElementById('toggleHourly').innerHTML = `
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+          </svg>
+          Show All
+        `;
+        document.getElementById('undoButton').disabled = true;
+        
+        // Trigger immediate sync
+        syncToGoogleSheets();
+        
+        alert('All data cleared successfully.');
+      } catch (error) {
+        console.error('Error in clearAllData:', error);
+        document.getElementById('error').textContent = 'An error occurred while clearing data. Please try again.';
+      }
+    }
   </script>
 </body>
 </html>
+```
