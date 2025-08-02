@@ -872,54 +872,46 @@
     }
     
     // Function to send data to Google Sheets
-   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxqI0wzsXE0wkHQ1B_lyBu_jNS1kno3IL3_OY2fP9qz_SZkY5PRTWMKQaso0EH9OPAg5A/exec';
-
-function sendToGoogleSheets(data, sheetName) {
-  // Create a unique request ID to avoid caching
-  const requestId = Date.now();
+ async function sendToGoogleSheets(sheetName, data) {
+  const scriptUrl = 'https://script.google.com/macros/s/AKfycbxqI0wzsXE0wkHQ1B_lyBu_jNS1kno3IL3_OY2fP9qz_SZkY5PRTWMKQaso0EH9OPAg5A/exec';
   
-  // Use URL parameters for GET request as fallback
-  const params = new URLSearchParams();
-  params.append('sheetName', sheetName);
-  params.append('data', JSON.stringify(data));
-  params.append('__origin', window.location.origin);
-  params.append('__cache', requestId);
-  
-  // First try POST request
-  return fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      sheetName: sheetName,
-      data: data,
-      __origin: window.location.origin,
-      __cache: requestId
-    })
-  })
-  .then(response => {
-    if (!response.ok) throw new Error('Network response was not ok');
-    return response.json();
-  })
-  .catch(postError => {
+  try {
+    // First try POST with proper headers
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sheetName: sheetName,
+        data: data
+      })
+    });
+    
+    if (!response.ok) throw new Error('POST failed');
+    
+    return await response.json();
+  } catch (postError) {
     console.log('POST failed, trying GET fallback', postError);
-    // If POST fails, try GET as fallback
-    return fetch(`${SCRIPT_URL}?${params.toString()}`)
-      .then(response => {
-        if (!response.ok) throw new Error('GET fallback failed');
-        return response.json();
-      });
-  })
-  .then(result => {
-    if (result.status === 'error') throw new Error(result.message);
-    return result;
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    throw error;
-  });
+    
+    // Fallback to GET with URL parameters
+    const params = new URLSearchParams();
+    params.append('sheetName', sheetName);
+    params.append('data', JSON.stringify(data));
+    
+    const getUrl = `${scriptUrl}?${params.toString()}`;
+    const getResponse = await fetch(getUrl);
+    
+    if (!getResponse.ok) throw new Error('GET fallback failed');
+    
+    return await getResponse.json();
+  }
 }
+
+// Usage example
+sendToGoogleSheets('Hourly Records', hourlyData)
+  .then(response => console.log('Success:', response))
+  .catch(error => console.error('Error:', error));
     // Function to handle automatic syncing
     function startAutoSync() {
       // Stop any existing sync interval
