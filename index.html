@@ -176,7 +176,7 @@
   }
 
   .table-container {
-    overflow-x: hidden; /* Prevent horizontal scrolling */
+    overflow-x: hidden;
     overflow-y: auto;
     margin-top: clamp(10px, 2vw, 20px);
     border-radius: 8px;
@@ -189,45 +189,43 @@
     width: 100%;
     border-collapse: collapse;
     background-color: white;
-    table-layout: fixed; /* Ensure columns fit within table width */
+    table-layout: fixed;
   }
 
   th {
     background-color: #f1f5f9;
-    padding: clamp(4px, 1vw, 8px); /* Reduced padding */
+    padding: clamp(4px, 1vw, 8px);
     text-align: center;
     font-weight: 600;
     color: #2c3e50;
     border: 1px solid #d1d5db;
-    font-size: clamp(0.7rem, 1.5vw, 0.8rem); /* Reduced font size */
+    font-size: clamp(0.7rem, 1.5vw, 0.8rem);
     width: auto;
   }
 
   td {
-    padding: clamp(4px, 1vw, 8px); /* Reduced padding */
+    padding: clamp(4px, 1vw, 8px);
     border: 1px solid #d1d5db;
     color: #4a5568;
     text-align: center;
-    font-size: clamp(0.7rem, 1.5vw, 0.8rem); /* Reduced font size */
+    font-size: clamp(0.7rem, 1.5vw, 0.8rem);
     width: auto;
-    white-space: nowrap; /* Prevent text wrapping */
+    white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis; /* Truncate long text */
+    text-overflow: ellipsis;
   }
 
-  /* Specific styling for Time Slot column */
   #hourlyTable th:nth-child(1),
   #hourlyTable td:nth-child(1) {
-    width: clamp(80px, 15vw, 100px); /* Increased width for Time Slot */
-    white-space: normal; /* Allow text wrapping */
-    overflow: visible; /* Prevent truncation */
-    text-overflow: unset; /* Remove ellipsis */
+    width: clamp(80px, 15vw, 100px);
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
   }
 
-  /* Adjust other columns to fit within remaining space */
   #hourlyTable th:nth-child(n+2):nth-child(-n+11),
   #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-    width: calc((100% - clamp(80px, 15vw, 100px)) / 11 * 0.9); /* Distribute remaining width */
+    width: calc((100% - clamp(80px, 15vw, 100px)) / 11 * 0.9);
   }
 
   tr:hover {
@@ -359,6 +357,15 @@
     box-shadow: none;
   }
 
+  .btn-sync {
+    background-color: #4CAF50;
+    color: white;
+  }
+
+  .btn-sync.off {
+    background-color: #f44336;
+  }
+
   .delete-icon {
     cursor: pointer;
     color: #e74c3c;
@@ -451,27 +458,56 @@
     background-color: #ebf8ff;
   }
 
+  /* Sync notification styles */
+  .sync-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 15px;
+    border-radius: 4px;
+    color: white;
+    font-size: 14px;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.3s ease;
+  }
+  .sync-notification.success {
+    background-color: #4CAF50;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .sync-notification.error {
+    background-color: #f44336;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .sync-notification.info {
+    background-color: #2196F3;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
   /* Tablet-specific media query (768px to 1024px) */
   @media (min-width: 768px) and (max-width: 1024px) {
     .table-container {
-      overflow-x: hidden; /* Prevent horizontal scrolling */
+      overflow-x: hidden;
       margin-left: 0;
       margin-right: 0;
       padding: 0;
     }
 
     table {
-      table-layout: fixed; /* Force fixed layout to control column widths */
+      table-layout: fixed;
       width: 100%;
     }
 
     th, td {
-      padding: clamp(2px, 0.5vw, 4px); /* Further reduced padding */
-      font-size: clamp(0.6rem, 1.2vw, 0.7rem); /* Smaller font size */
+      padding: clamp(2px, 0.5vw, 4px);
+      font-size: clamp(0.6rem, 1.2vw, 0.7rem);
       width: auto;
     }
 
-    /* Status Records table adjustments */
     #statusTable th:nth-child(1),
     #statusTable th:nth-child(2),
     #statusTable th:nth-child(3),
@@ -484,13 +520,12 @@
     #statusTable td:nth-child(4),
     #statusTable td:nth-child(5),
     #statusTable td:nth-child(6) {
-      width: calc(100% / 6 * 0.9); /* Slightly reduced width for 6 columns */
+      width: calc(100% / 6 * 0.9);
     }
 
-    /* Hourly Records table adjustments */
     #hourlyTable th:nth-child(1),
     #hourlyTable td:nth-child(1) {
-      width: clamp(70px, 12vw, 90px); /* Slightly smaller for tablets */
+      width: clamp(70px, 12vw, 90px);
       white-space: normal;
       overflow: visible;
       text-overflow: unset;
@@ -498,7 +533,7 @@
 
     #hourlyTable th:nth-child(n+2):nth-child(-n+11),
     #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-      width: calc((100% - clamp(70px, 12vw, 90px)) / 11 * 0.8); /* Adjust for remaining columns */
+      width: calc((100% - clamp(70px, 12vw, 90px)) / 11 * 0.8);
     }
   }
 
@@ -514,7 +549,7 @@
     }
     
     table {
-      min-width: 0; /* Ensure no minimum width forces scrolling */
+      min-width: 0;
     }
     
     body {
@@ -564,10 +599,9 @@
       padding: clamp(8px, 1.5vw, 12px);
     }
 
-    /* Hourly Records table adjustments for mobile */
     #hourlyTable th:nth-child(1),
     #hourlyTable td:nth-child(1) {
-      width: clamp(60px, 20vw, 80px); /* Adjusted for smaller screens */
+      width: clamp(60px, 20vw, 80px);
       white-space: normal;
       overflow: visible;
       text-overflow: unset;
@@ -575,7 +609,7 @@
 
     #hourlyTable th:nth-child(n+2):nth-child(-n+11),
     #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-      width: calc((100% - clamp(60px, 20vw, 80px)) / 11 * 0.8); /* Adjust for remaining columns */
+      width: calc((100% - clamp(60px, 20vw, 80px)) / 11 * 0.8);
     }
   }
 
@@ -614,19 +648,18 @@
       justify-content: flex-end;
     }
 
-    /* Hourly Records table adjustments for extra small screens */
     #hourlyTable th:nth-child(1),
     #hourlyTable td:nth-child(1) {
-      width: clamp(50px, 18vw, 70px); /* Further adjusted for very small screens */
+      width: clamp(50px, 18vw, 70px);
       white-space: normal;
       overflow: visible;
       text-overflow: unset;
-      font-size: clamp(0.65rem, 1.6vw, 0.75rem); /* Slightly larger font for readability */
+      font-size: clamp(0.65rem, 1.6vw, 0.75rem);
     }
 
     #hourlyTable th:nth-child(n+2):nth-child(-n+11),
     #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-      width: calc((100% - clamp(50px, 18vw, 70px)) / 11 * 0.7); /* Adjust for remaining columns */
+      width: calc((100% - clamp(50px, 18vw, 70px)) / 11 * 0.7);
     }
   }
 
@@ -729,12 +762,19 @@
         </div>
         
         <div class="btn-group">
+          <button class="btn btn-sync" id="syncToggle">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+            </svg>
+            Auto Sync: ON
+          </button>
           <button class="btn btn-export" id="exportButton">
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
               <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
               <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
             </svg>
-            Export to CSV
+            Manual Sync
           </button>
           <button class="btn btn-clear" id="clearButton">
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
@@ -803,7 +843,7 @@
     </div>
     
     <div class="footer">
-      Compactor Progress Tracker v2.4 | Data is stored locally in your browser
+      Compactor Progress Tracker v2.4 | Auto-sync with Google Sheets (30s)
     </div>
   </div>
 
@@ -815,6 +855,9 @@
     let showAllHourly = false;
     let isBlinkingEnabled = true;
     let updateInterval = null;
+    let syncInterval = null;
+    const SYNC_INTERVAL = 30000; // 30 seconds in milliseconds
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbxqI0wzsXE0wkHQ1B_lyBu_jNS1kno3IL3_OY2fP9qz_SZkY5PRTWMKQaso0EH9OPAg5A/exec';
 
     // Initialize with no sample data
     function initializeSampleData() {
@@ -828,17 +871,201 @@
       updateInterval = setInterval(updateStatusTable, 60000);
     }
     
+    // Function to send data to Google Sheets
+    function sendToGoogleSheets(data, sheetName) {
+      return fetch(scriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sheetName: sheetName,
+          data: data
+        })
+      })
+      .then(response => response.json())
+      .catch(error => {
+        console.error('Error:', error);
+        throw error;
+      });
+    }
+
+    // Function to handle automatic syncing
+    function startAutoSync() {
+      // Stop any existing sync interval
+      if (syncInterval) {
+        clearInterval(syncInterval);
+      }
+      
+      // Initial sync
+      syncWithGoogleSheets();
+      
+      // Set up periodic sync
+      syncInterval = setInterval(syncWithGoogleSheets, SYNC_INTERVAL);
+      
+      // Update sync button
+      const syncButton = document.getElementById('syncToggle');
+      syncButton.innerHTML = `
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+          <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+        </svg>
+        Auto Sync: ON
+      `;
+      syncButton.classList.remove('off');
+    }
+
+    // Function to handle the sync process
+    function syncWithGoogleSheets() {
+      const syncTime = new Date().toLocaleTimeString();
+      console.log(`Syncing with Google Sheets at ${syncTime}`);
+      
+      // Prepare status records data
+      const statusRecords = log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
+        .map((entry, index) => ({
+          containerNumber: log.length - index,
+          compactorNumber: entry.machineNumber,
+          inTime: entry.inTime,
+          outTime: entry.outTime || '',
+          duration: calculateDuration(entry.inTime, entry.outTime).display,
+          entryTimestamp: entry.entryTimestamp
+        }));
+
+      // Prepare hourly records data
+      const timeSlots = [
+        { start: '07:30', end: '08:29' },
+        { start: '08:30', end: '09:29' },
+        { start: '09:30', end: '10:29' },
+        { start: '10:30', end: '11:29' },
+        { start: '11:30', end: '12:29' },
+        { start: '12:30', end: '13:29' },
+        { start: '13:30', end: '14:29' },
+        { start: '14:30', end: '15:29' },
+        { start: '15:30', end: '16:29' },
+        { start: '16:30', end: '17:29' },
+        { start: '17:30', end: '18:29' },
+        { start: '18:30', end: '19:29' },
+        { start: '19:30', end: '20:29' },
+        { start: '20:30', end: '21:29' },
+        { start: '21:30', end: '22:29' },
+        { start: '22:30', end: '23:29' },
+        { start: '23:30', end: '00:29' },
+        { start: '00:30', end: '01:29' },
+        { start: '01:30', end: '02:29' },
+        { start: '02:30', end: '03:29' },
+        { start: '03:30', end: '04:29' },
+        { start: '04:30', end: '05:29' },
+        { start: '05:30', end: '06:29' }
+      ];
+      
+      const hourlyRecords = [];
+      const completedEntries = log.filter(entry => entry.outTime);
+      
+      timeSlots.forEach(slot => {
+        const slotStart = parseTime(slot.start);
+        const slotEnd = parseTime(slot.end, slotStart);
+        const machineCounts = Array(11).fill(0);
+        
+        completedEntries.forEach(entry => {
+          const inTime = parseTime(entry.inTime);
+          const outTime = parseTime(entry.outTime, inTime);
+          if (inTime >= slotStart && outTime <= slotEnd) {
+            machineCounts[entry.machineNumber]++;
+          }
+        });
+        
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        
+        hourlyRecords.push({
+          timeSlot: `${slot.start}-${slot.end}`,
+          machine1: machineCounts[1],
+          machine2: machineCounts[2],
+          machine3: machineCounts[3],
+          machine4: machineCounts[4],
+          machine5: machineCounts[5],
+          machine6: machineCounts[6],
+          machine7: machineCounts[7],
+          machine8: machineCounts[8],
+          machine9: machineCounts[9],
+          machine10: machineCounts[10],
+          total: total
+        });
+      });
+
+      // Send data to Google Sheets
+      Promise.all([
+        sendToGoogleSheets(statusRecords, 'Completed Records'),
+        sendToGoogleSheets(hourlyRecords, 'Hourly Records')
+      ])
+      .then(() => {
+        console.log(`Sync successful at ${syncTime}`);
+        showSyncNotification(`Last sync: ${syncTime}`, 'success');
+      })
+      .catch(error => {
+        console.error(`Sync failed at ${syncTime}:`, error);
+        showSyncNotification(`Sync failed: ${error.message}`, 'error');
+      });
+    }
+
+    // Helper function to show sync status
+    function showSyncNotification(message, type = 'info') {
+      const notification = document.createElement('div');
+      notification.className = `sync-notification ${type}`;
+      notification.textContent = message;
+      
+      document.body.appendChild(notification);
+      
+      // Auto-remove after 3 seconds
+      setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateY(20px)';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    // Helper function to parse time
+    function parseTime(timeStr, referenceDate = new Date()) {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      const date = new Date(referenceDate);
+      date.setHours(hours, minutes, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1);
+      return date;
+    }
+    
     // Initialize sample data and attach event listeners when page loads
     document.addEventListener('DOMContentLoaded', () => {
       initializeSampleData();
     
+      // Start auto-sync when page loads
+      startAutoSync();
+    
       // Attach event listeners to buttons
-      document.getElementById('exportButton').addEventListener('click', exportToCSV);
+      document.getElementById('exportButton').addEventListener('click', syncWithGoogleSheets);
       document.getElementById('clearButton').addEventListener('click', clearAllData);
       document.getElementById('undoButton').addEventListener('click', undoLastAction);
       document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
       document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
       document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
+      
+      // Sync toggle button
+      document.getElementById('syncToggle').addEventListener('click', function() {
+        if (syncInterval) {
+          clearInterval(syncInterval);
+          syncInterval = null;
+          this.innerHTML = `
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+            </svg>
+            Auto Sync: OFF
+          `;
+          this.classList.add('off');
+          showSyncNotification('Auto sync disabled', 'info');
+        } else {
+          startAutoSync();
+          showSyncNotification('Auto sync enabled', 'success');
+        }
+      });
     
       // Attach event listeners to machine buttons
       document.querySelectorAll('.compactor-btn').forEach(button => {
@@ -848,10 +1075,13 @@
         });
       });
     
-      // Clean up interval on page unload
+      // Clean up intervals on page unload
       window.addEventListener('unload', () => {
         if (updateInterval) {
           clearInterval(updateInterval);
+        }
+        if (syncInterval) {
+          clearInterval(syncInterval);
         }
       });
     });
@@ -1394,130 +1624,6 @@
       } catch (error) {
         console.error('Error in undoLastAction:', error);
         document.getElementById('error').textContent = 'An error occurred while undoing the last action. Please try again.';
-      }
-    }
-    
-    function exportToCSV() {
-      try {
-        // Get current date for file naming
-        const dateStr = new Date().toISOString().slice(0, 10);
-        
-        // 1. Export Status Records CSV
-        if (log.length === 0) {
-          alert('No records to export.');
-        } else {
-          // Create CSV content for status records
-          let statusCsv = 'No. of Container,Compactor Number,In Time,Out Time\n';
-    
-          log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
-            .forEach((entry, index) => {
-              const containerNumber = log.length - index;
-              const row = [
-                containerNumber,
-                entry.machineNumber,
-                `"${entry.inTime}"`,
-                `"${entry.outTime || ''}"`
-              ];
-              statusCsv += row.join(',') + '\n';
-            });
-    
-          // Create blob and trigger download for status records
-          const statusBlob = new Blob([statusCsv], { type: 'text/csv;charset=utf-8;' });
-          const statusUrl = URL.createObjectURL(statusBlob);
-          
-          const statusLink = document.createElement('a');
-          statusLink.href = statusUrl;
-          statusLink.download = `compactor_status_${dateStr}.csv`;
-          document.body.appendChild(statusLink);
-          statusLink.click();
-          document.body.removeChild(statusLink);
-          URL.revokeObjectURL(statusUrl);
-        }
-    
-        // 2. Export Hourly Records CSV
-        const timeSlots = [
-          { start: '07:30', end: '08:29' },
-          { start: '08:30', end: '09:29' },
-          { start: '09:30', end: '10:29' },
-          { start: '10:30', end: '11:29' },
-          { start: '11:30', end: '12:29' },
-          { start: '12:30', end: '13:29' },
-          { start: '13:30', end: '14:29' },
-          { start: '14:30', end: '15:29' },
-          { start: '15:30', end: '16:29' },
-          { start: '16:30', end: '17:29' },
-          { start: '17:30', end: '18:29' },
-          { start: '18:30', end: '19:29' },
-          { start: '19:30', end: '20:29' },
-          { start: '20:30', end: '21:29' },
-          { start: '21:30', end: '22:29' },
-          { start: '22:30', end: '23:29' },
-          { start: '23:30', end: '00:29' },
-          { start: '00:30', end: '01:29' },
-          { start: '01:30', end: '02:29' },
-          { start: '02:30', end: '03:29' },
-          { start: '03:30', end: '04:29' },
-          { start: '04:30', end: '05:29' },
-          { start: '05:30', end: '06:29' }
-        ];
-        
-        // Parse time string to Date object for comparison
-        const parseTime = (timeStr, referenceDate = new Date()) => {
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          const date = new Date(referenceDate);
-          date.setHours(hours, minutes, 0, 0);
-          if (hours < 7) date.setDate(date.getDate() + 1);
-          return date;
-        };
-        
-        // Aggregate completed entries into time slots
-        const hourlyRecords = [];
-        const completedEntries = log.filter(entry => entry.outTime);
-        timeSlots.forEach(slot => {
-          const slotStart = parseTime(slot.start);
-          const slotEnd = parseTime(slot.end, slotStart);
-          const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
-          completedEntries.forEach(entry => {
-            const inTime = parseTime(entry.inTime);
-            const outTime = parseTime(entry.outTime, inTime);
-            if (inTime >= slotStart && outTime <= slotEnd) {
-              machineCounts[entry.machineNumber]++;
-            }
-          });
-          // Include all time slots, even those with zero counts
-          hourlyRecords.push({
-            timeSlot: `${slot.start}-${slot.end}`,
-            machineCounts,
-            startTime: slotStart
-          });
-        });
-        
-        // Create CSV content for hourly records
-        let hourlyCsv = 'Time Slot,' + 
-                        Array.from({length: 10}, (_, i) => `Machine ${i+1}`).join(',') + 
-                        ',Total\n';
-        
-        hourlyRecords.forEach(record => {
-          const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-          hourlyCsv += `"${record.timeSlot}",${record.machineCounts.slice(1).join(',')},${total}\n`;
-        });
-        
-        // Create blob and trigger download for hourly records
-        const hourlyBlob = new Blob([hourlyCsv], { type: 'text/csv;charset=utf-8;' });
-        const hourlyUrl = URL.createObjectURL(hourlyBlob);
-        
-        const link = document.createElement('a');
-        link.href = hourlyUrl;
-        link.download = `compactor_hourly_${dateStr}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(hourlyUrl);
-        
-        alert('Status and hourly records exported as CSV files.');
-      } catch (error) {
-        console.error('Error in exportToCSV:', error);
-        document.getElementById('error').textContent = 'An error occurred while exporting. Please try again.';
       }
     }
     
