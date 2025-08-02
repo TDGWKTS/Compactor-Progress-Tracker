@@ -872,12 +872,17 @@
     }
     
     // Function to send data to Google Sheets
-   function sendToGoogleSheets(data, sheetName) {
-  return fetch(scriptUrl, {
+   // Updated sendToGoogleSheets function
+function sendToGoogleSheets(data, sheetName) {
+  // Use a proxy server to avoid CORS issues
+  const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+  const scriptUrl = 'https://script.google.com/macros/s/AKfycbxqI0wzsXE0wkHQ1B_lyBu_jNS1kno3IL3_OY2fP9qz_SZkY5PRTWMKQaso0EH9OPAg5A/exec';
+  
+  return fetch(proxyUrl + scriptUrl, {
     method: 'POST',
-    mode: 'no-cors', // Add this line
     headers: {
       'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest' // Required by CORS Anywhere
     },
     body: JSON.stringify({
       sheetName: sheetName,
@@ -888,14 +893,7 @@
     if (!response.ok) {
       throw new Error('Network response was not ok');
     }
-    return response.text(); // Use text() instead of json() for no-cors mode
-  })
-  .then(text => {
-    try {
-      return JSON.parse(text);
-    } catch {
-      return {status: 'success', message: 'Data sent (no response parsed)'};
-    }
+    return response.json();
   })
   .catch(error => {
     console.error('Error:', error);
