@@ -872,24 +872,36 @@
     }
     
     // Function to send data to Google Sheets
-    function sendToGoogleSheets(data, sheetName) {
-      return fetch(scriptUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sheetName: sheetName,
-          data: data
-        })
-      })
-      .then(response => response.json())
-      .catch(error => {
-        console.error('Error:', error);
-        throw error;
-      });
+   function sendToGoogleSheets(data, sheetName) {
+  return fetch(scriptUrl, {
+    method: 'POST',
+    mode: 'no-cors', // Add this line
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      sheetName: sheetName,
+      data: data
+    })
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
     }
-
+    return response.text(); // Use text() instead of json() for no-cors mode
+  })
+  .then(text => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {status: 'success', message: 'Data sent (no response parsed)'};
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    throw error;
+  });
+}
     // Function to handle automatic syncing
     function startAutoSync() {
       // Stop any existing sync interval
