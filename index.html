@@ -22,86 +22,68 @@
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxOpf01vbYCMOICIDPXLsKDtVjA9uc51Ai4wu4gF5j87It-l8V1ZdAeM1ABMIfg6q2H/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz543hTnxH3Ya0u-ucOgWlnWDgJB-6_1nQY7dPlD-08l3QmrHnjS3PAoLCBwt3LKCNg/exec"; // Replace with your URL
 
-// Universal fetch handler
-async function callGoogleScript(method, payload = null) {
-  try {
-    // For GET requests
-    if (method === 'GET') {
-      const params = new URLSearchParams(payload);
-      const url = `${SCRIPT_URL}?${params.toString()}`;
+    // Write data to sheet
+    document.getElementById("writeForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
       
-      // Use JSONP for GET requests to bypass CORS
-      return await jsonpFetch(url);
-    }
-    // For POST requests
-    else {
-      // Use a proxy for POST requests
-      return await proxyFetch(SCRIPT_URL, payload);
-    }
-  } catch (error) {
-    console.error("API Error:", error);
-    throw error;
-  }
-}
+      const data = [
+        document.getElementById("name").value,
+        document.getElementById("email").value,
+        new Date().toLocaleString()
+      ];
 
-// JSONP implementation for GET requests
-function jsonpFetch(url) {
-  return new Promise((resolve, reject) => {
-    const callbackName = `jsonp_${Date.now()}`;
-    const script = document.createElement('script');
-    
-    window[callbackName] = response => {
-      delete window[callbackName];
-      document.body.removeChild(script);
-      resolve(response);
-    };
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "write",
+            sheetName: "Contacts",
+            data: data
+          })
+        });
+        
+        const result = await response.json();
+        alert(`Success! ${result.rowsAdded} row(s) added.`);
+        e.target.reset();
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Failed to save data");
+      }
+    });
 
-    script.src = `${url}&callback=${callbackName}`;
-    script.onerror = () => {
-      delete window[callbackName];
-      document.body.removeChild(script);
-      reject(new Error('JSONP request failed'));
-    };
-    
-    document.body.appendChild(script);
-  });
-}
-
-// Proxy solution for POST requests
-async function proxyFetch(url, payload) {
-  // Use a free CORS proxy service
-  const proxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
-  
-  const response = await fetch(proxyUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest' // Required by some proxies
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-  return await response.json();
-}
-
-// Example usage
-async function writeData(sheetName, data) {
-  return await callGoogleScript('POST', {
-    action: 'write',
-    sheetName: sheetName,
-    data: data
-  });
-}
-
-async function readData(sheetName) {
-  return await callGoogleScript('GET', {
-    action: 'read',
-    sheetName: sheetName
-  });
-}
+    // Read data from sheet
+    document.getElementById("readData").addEventListener("click", async () => {
+      try {
+        const response = await fetch(`${SCRIPT_URL}?action=read&sheetName=Contacts`);
+        const result = await response.json();
+        
+        if (result.status === "success") {
+          const outputDiv = document.getElementById("output");
+          outputDiv.innerHTML = "<h3>Sheet Data:</h3>";
+          
+          const table = document.createElement("table");
+          table.border = "1";
+          
+          result.data.forEach(row => {
+            const tr = document.createElement("tr");
+            row.forEach(cell => {
+              const td = document.createElement("td");
+              td.textContent = cell;
+              tr.appendChild(td);
+            });
+            table.appendChild(tr);
+          });
+          
+          outputDiv.appendChild(table);
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Failed to load data");
+      }
+    });
   </script>
 </body>
 </html>
