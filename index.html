@@ -374,7 +374,7 @@
     <div class="main-content">
         <!-- Chart container (75%) -->
         <div class="chart-container">
-            <div class="chart-title" id="chartTitle">All Time Periods (Click to Collapse)</div>
+            <div class="chart-title" id="chartTitle">Hourly Vehicle Entries (Click to Expand)</div>
             <div class="chart-wrapper">
                 <canvas id="vehicleChart"></canvas>
             </div>
@@ -428,7 +428,7 @@
     let vehicleCounts = Array(timePeriods.length).fill(0);
     let totalEntries = 0;
     let showAllTablePeriods = false;
-    let showAllChartPeriods = true; // Start with chart expanded
+    let showAllChartPeriods = false;
     let firstEntryDate = null;
     let allEntries = [];
     let accessToken = null;
@@ -581,17 +581,9 @@
             const currentPeriodIndex = getCurrentPeriodIndex();
             
             if (showAllChartPeriods) {
-                // Show all periods in descending order (latest at top)
-                const periodsToShow = [];
-                const countsToShow = [];
-                for (let i = timePeriods.length - 1; i >= 0; i--) {
-                    periodsToShow.push(timePeriods[i]);
-                    countsToShow.push(vehicleCounts[i]);
-                }
-                vehicleChart.data.labels = periodsToShow;
-                vehicleChart.data.datasets[0].data = countsToShow;
+                vehicleChart.data.labels = [...timePeriods].reverse();
+                vehicleChart.data.datasets[0].data = [...vehicleCounts].reverse();
             } else {
-                // Show up to 10 recent periods in descending order, current period at top
                 const startIndex = Math.max(0, currentPeriodIndex - 9);
                 const periodsToShow = [];
                 const countsToShow = [];
@@ -607,7 +599,7 @@
             
             chartTitle.textContent = showAllChartPeriods ? 
                 'All Time Periods (Click to Collapse)' : 
-                'Recent Entries (Click to Expand)';
+                'Hourly Vehicle Entries (Click to Expand)';
             
             vehicleChart.update();
         }
