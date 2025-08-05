@@ -904,1047 +904,1086 @@
   </div>
 
   <script>
-   // Password protection
-    const CORRECT_PASSWORD = "compactor123";
-    const coverPage = document.getElementById('cover-page');
-    const mainContainer = document.getElementById('main-container');
-    const passwordInput = document.getElementById('password-input');
-    const loginBtn = document.getElementById('login-btn');
-    const loginError = document.getElementById('login-error');
+// Password protection
+const CORRECT_PASSWORD = "compactor123";
+const coverPage = document.getElementById('cover-page');
+const mainContainer = document.getElementById('main-container');
+const passwordInput = document.getElementById('password-input');
+const loginBtn = document.getElementById('login-btn');
+const loginError = document.getElementById('login-error');
 
-    // Google Sheets API configuration
-    const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
-    const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
-    const SPREADSHEET_ID = '1JnmxsmhqBGbQsU45PlgDmALU_vCdov5MlsHIon6992g';
-    const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
-    let gapiInitialized = false;
-    let tokenClient;
+// Google Sheets API configuration
+const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
+const SPREADSHEET_ID = '1JnmxsmhqBGbQsU45PlgDmALU_vCdov5MlsHIon6992g';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+let gapiInitialized = false;
+let tokenClient;
+let gisLoaded = false;
 
-    // In-memory log to track entries and action history for undo
-    let log = [];
-    let actionHistory = [];
-    let showAllRecords = false;
-    let showAllHourly = false;
-    let isBlinkingEnabled = true;
-    let updateInterval = null;
-    let syncInterval = null;
+// In-memory log to track entries and action history for undo
+let log = [];
+let actionHistory = [];
+let showAllRecords = false;
+let showAllHourly = false;
+let isBlinkingEnabled = true;
+let updateInterval = null;
+let syncInterval = null;
 
-    document.addEventListener('DOMContentLoaded', () => {
-      // Debug: Ensure elements are found
-      console.log('Elements:', { coverPage, mainContainer, passwordInput, loginBtn, loginError });
+// Function to check if both gapi and gis are loaded
+function checkApiLoaded(callback) {
+  if (typeof gapi !== 'undefined' && typeof google !== 'undefined') {
+    callback();
+  } else {
+    setTimeout(() => checkApiLoaded(callback), 100);
+  }
+}
 
-      // Check if user is already logged in
-      if (sessionStorage.getItem('loggedIn') === 'true') {
-        console.log('User already logged in');
-        coverPage.style.display = 'none';
-        mainContainer.style.display = 'block';
-      }
+document.addEventListener('DOMContentLoaded', () => {
+  // Debug: Ensure elements are found
+  console.log('Elements:', { coverPage, mainContainer, passwordInput, loginBtn, loginError });
 
-      // Handle login button click
-      loginBtn.addEventListener('click', () => {
-        console.log('Login button clicked, password:', passwordInput.value);
-        if (passwordInput.value === CORRECT_PASSWORD) {
-          console.log('Password correct, logging in...');
-          coverPage.style.display = 'none';
-          mainContainer.style.display = 'block';
-          sessionStorage.setItem('loggedIn', 'true');
-          loginError.textContent = '';
-        } else {
-          console.log('Password incorrect');
-          loginError.textContent = 'Incorrect password. Please try again.';
-          passwordInput.focus();
-        }
-      });
+  // Check if user is already logged in
+  if (sessionStorage.getItem('loggedIn') === 'true') {
+    console.log('User already logged in');
+    coverPage.style.display = 'none';
+    mainContainer.style.display = 'block';
+  }
 
-      // Allow pressing Enter to submit password
-      passwordInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          console.log('Enter key pressed');
-          loginBtn.click();
-        }
-      });
-
-      // Focus password input
+  // Handle login button click
+  loginBtn.addEventListener('click', () => {
+    console.log('Login button clicked, password:', passwordInput.value);
+    if (passwordInput.value === CORRECT_PASSWORD) {
+      console.log('Password correct, logging in...');
+      coverPage.style.display = 'none';
+      mainContainer.style.display = 'block';
+      sessionStorage.setItem('loggedIn', 'true');
+      loginError.textContent = '';
+      // Initialize Google API after successful login
+      initializeGapi();
+    } else {
+      console.log('Password incorrect');
+      loginError.textContent = 'Incorrect password. Please try again.';
       passwordInput.focus();
+    }
+  });
 
-      // Initialize Google API client
-      initializeGapi();
+  // Allow pressing Enter to submit password
+  passwordInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      console.log('Enter key pressed');
+      loginBtn.click();
+    }
+  });
 
-      // Load data from local storage
-      loadFromLocalStorage();
+  // Focus password input
+  passwordInput.focus();
 
-      // Attach event listeners to buttons
-      document.getElementById('exportButton').addEventListener('click', exportToCSV);
-      document.getElementById('clearButton').addEventListener('click', clearAllData);
-      document.getElementById('undoButton').addEventListener('click', undoLastAction);
-      document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
-      document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
-      document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
+  // Load data from local storage
+  loadFromLocalStorage();
 
-      // Attach event listeners to machine buttons
-      document.querySelectorAll('.compactor-btn').forEach(button => {
-        button.addEventListener('click', () => {
-          const machineNum = parseInt(button.getAttribute('data-machine'));
-          handleMachineButtonClick(machineNum);
-        });
-      });
+  // Attach event listeners to buttons
+  document.getElementById('exportButton').addEventListener('click', exportToCSV);
+  document.getElementById('clearButton').addEventListener('click', clearAllData);
+  document.getElementById('undoButton').addEventListener('click', undoLastAction);
+  document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
+  document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
+  document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
 
-      // Clean up intervals on page unload
-      window.addEventListener('unload', () => {
-        if (updateInterval) {
-          clearInterval(updateInterval);
-        }
-        if (syncInterval) {
-          clearInterval(syncInterval);
-        }
-      });
+  // Attach event listeners to machine buttons
+  document.querySelectorAll('.compactor-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      const machineNum = parseInt(button.getAttribute('data-machine'));
+      handleMachineButtonClick(machineNum);
     });
+  });
 
-    // Initialize Google API client
-    function initializeGapi() {
-      gapi.load('client', () => {
-        gapi.client.init({
-          apiKey: API_KEY,
-          discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-        }).then(() => {
-          gapiInitialized = true;
-          // Initialize Google Identity Services for OAuth
-          tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
-            scope: SCOPES,
-            callback: (response) => {
-              if (response.error) {
-                console.error('OAuth error:', response.error);
-                document.getElementById('error').textContent = 'Google authentication failed. Please try again.';
-                return;
-              }
-              gapi.client.setToken({ access_token: response.access_token });
-              // Start syncing after authentication
-              syncToGoogleSheets();
-              syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000); // Sync every 5 minutes
-            },
-          });
-          // Request token on page load if logged in
-          if (sessionStorage.getItem('loggedIn') === 'true') {
-            tokenClient.requestAccessToken({ prompt: '' });
-          }
-        }).catch(error => {
-          console.error('Error initializing gapi client:', error);
-          document.getElementById('error').textContent = 'Failed to initialize Google API client. Please try again.';
+  // Clean up intervals on page unload
+  window.addEventListener('unload', () => {
+    if (updateInterval) {
+      clearInterval(updateInterval);
+    }
+    if (syncInterval) {
+      clearInterval(syncInterval);
+    }
+  });
+});
+
+// Initialize Google API client
+function initializeGapi() {
+  // Load gapi client
+  gapi.load('client', () => {
+    gapi.client.init({
+      apiKey: API_KEY,
+      discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+    }).then(() => {
+      // Wait for Google Identity Services to load
+      checkApiLoaded(() => {
+        gapiInitialized = true;
+        gisLoaded = true;
+        // Initialize Google Identity Services for OAuth
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: (response) => {
+            if (response.error) {
+              console.error('OAuth error:', response.error);
+              document.getElementById('error').textContent = 'Google authentication failed. Please try again.';
+              return;
+            }
+            gapi.client.setToken({ access_token: response.access_token });
+            // Start syncing after authentication
+            syncToGoogleSheets();
+            syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000); // Sync every 5 minutes
+          },
         });
-      });
-    }
-
-    // Load data from local storage
-    function loadFromLocalStorage() {
-      const savedLog = localStorage.getItem('compactorLog');
-      const savedHistory = localStorage.getItem('compactorActionHistory');
-      if (savedLog) {
-        log = JSON.parse(savedLog);
-      }
-      if (savedHistory) {
-        actionHistory = JSON.parse(savedHistory);
-      }
-      updateStatusTable();
-      updateHourlyTable();
-      updateMachineButtonStates();
-      document.getElementById('undoButton').disabled = actionHistory.length === 0;
-    }
-
-    // Save data to local storage
-    function saveToLocalStorage() {
-      try {
-        localStorage.setItem('compactorLog', JSON.stringify(log));
-        localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-      } catch (error) {
-        console.error('Error saving to local storage:', error);
-        document.getElementById('error').textContent = 'Error saving data locally. Please try again.';
-      }
-    }
-
-    // Initialize with no sample data
-    function initializeSampleData() {
-      log = [];
-      actionHistory = [];
-      loadFromLocalStorage();
-      updateStatusTable();
-      updateHourlyTable();
-      updateMachineButtonStates();
-      document.getElementById('undoButton').disabled = true;
-      // Start dynamic updates every 60 seconds
-      updateInterval = setInterval(updateStatusTable, 60000);
-      // Initialize Google API
-      initializeGapi();
-    }
-
-    function toggleBlinking() {
-      isBlinkingEnabled = !isBlinkingEnabled;
-      const toggleButton = document.getElementById('toggleBlink');
-      toggleButton.innerHTML = `
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-        </svg>
-        ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
-      `;
-      updateStatusTable();
-    }
-
-    function toggleHourlyRecords() {
-      showAllHourly = !showAllHourly;
-      updateHourlyTable();
-    }
-
-    function toggleRecords() {
-      showAllRecords = !showAllRecords;
-      updateStatusTable();
-    }
-
-    function handleMachineButtonClick(machineNum) {
-      try {
-        const errorDiv = document.getElementById('error');
-        const currentTime = new Date().toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: false,
-          timeZone: 'Asia/Hong_Kong'
-        }).replace("24:", "00:"); // Handle midnight
-
-        // Check for existing In Time without Out Time
-        const existingEntry = log.find(entry => 
-          entry.machineNumber === machineNum && !entry.outTime
-        );
-
-        if (existingEntry) {
-          // Second click: Record Out Time
-          actionHistory.push({
-            type: 'addOutTime',
-            entry: { ...existingEntry },
-            newOutTime: currentTime
-          });
-          existingEntry.outTime = currentTime;
-          existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-
-          // Update UI
-          updateStatusTable();
-          updateHourlyTable();
-          updateMachineButtonStates();
-          saveToLocalStorage();
-
-          // Enable undo button
-          document.getElementById('undoButton').disabled = false;
-        } else {
-          // First click: Record In Time
-          const entry = {
-            machineNumber: machineNum,
-            inTime: currentTime,
-            outTime: '',
-            entryTimestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' })
-          };
-
-          actionHistory.push({
-            type: 'addInTime',
-            entry: { ...entry }
-          });
-
-          // Add to log
-          log.push(entry);
-
-          // Update UI
-          updateStatusTable();
-          updateHourlyTable();
-          updateMachineButtonStates();
-          saveToLocalStorage();
-
-          // Enable undo button
-          document.getElementById('undoButton').disabled = false;
+        // Request token if user is logged in
+        if (sessionStorage.getItem('loggedIn') === 'true') {
+          tokenClient.requestAccessToken({ prompt: '' });
         }
-
-        // Clear error
-        errorDiv.textContent = '';
-
-      } catch (error) {
-        console.error('Error in handleMachineButtonClick:', error);
-        document.getElementById('error').textContent = 'An error occurred. Please try again.';
-      }
-    }
-
-    function updateMachineButtonStates() {
-      document.querySelectorAll('.compactor-btn').forEach(button => {
-        const machineNum = parseInt(button.getAttribute('data-machine'));
-        const hasActiveSession = log.some(entry => 
-          entry.machineNumber === machineNum && !entry.outTime
-        );
-        button.classList.toggle('active', hasActiveSession);
       });
-    }
+    }).catch(error => {
+      console.error('Error initializing gapi client:', error);
+      document.getElementById('error').textContent = 'Failed to initialize Google API client. Please try again.';
+    });
+  });
+}
 
-    function updateStatusTable() {
-      const statusBody = document.getElementById('statusBody');
-      const statusCount = document.getElementById('statusCount');
-      const pendingCount = document.getElementById('pendingCount');
-      const completedCount = document.getElementById('completedCount');
-      const toggleButton = document.getElementById('toggleRecords');
+// Load data from local storage
+function loadFromLocalStorage() {
+  const savedLog = localStorage.getItem('compactorLog');
+  const savedHistory = localStorage.getItem('compactorActionHistory');
+  if (savedLog) {
+    log = JSON.parse(savedLog);
+  }
+  if (savedHistory) {
+    actionHistory = JSON.parse(savedHistory);
+  }
+  updateStatusTable();
+  updateHourlyTable();
+  updateMachineButtonStates();
+  document.getElementById('undoButton').disabled = actionHistory.length === 0;
+}
 
-      const pendingRecords = log.filter(entry => !entry.outTime).length;
-      const completedRecords = log.filter(entry => entry.outTime).length;
+// Save data to local storage
+function saveToLocalStorage() {
+  try {
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+  } catch (error) {
+    console.error('Error saving to local storage:', error);
+    document.getElementById('error').textContent = 'Error saving data locally. Please try again.';
+  }
+}
 
-      statusCount.textContent = `${log.length} records`;
-      pendingCount.textContent = `${pendingRecords} pending`;
-      completedCount.textContent = `${completedRecords} completed`;
+// Initialize with no sample data
+function initializeSampleData() {
+  log = [];
+  actionHistory = [];
+  loadFromLocalStorage();
+  updateStatusTable();
+  updateHourlyTable();
+  updateMachineButtonStates();
+  document.getElementById('undoButton').disabled = true;
+  // Start dynamic updates every 60 seconds
+  updateInterval = setInterval(updateStatusTable, 60000);
+}
 
-      // Show toggle button if more than 10 records
-      toggleButton.style.display = log.length > 10 ? 'flex' : 'none';
-      toggleButton.innerHTML = `
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-        </svg>
-        ${showAllRecords ? 'Show Less' : 'Show All'}
-      `;
+// Toggle blinking
+function toggleBlinking() {
+  isBlinkingEnabled = !isBlinkingEnabled;
+  const toggleButton = document.getElementById('toggleBlink');
+  toggleButton.innerHTML = `
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+      <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+    </svg>
+    ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
+  `;
+  updateStatusTable();
+}
 
-      if (log.length === 0) {
-        statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
-        return;
-      }
+// Toggle hourly records display
+function toggleHourlyRecords() {
+  showAllHourly = !showAllHourly;
+  updateHourlyTable();
+}
 
-      // Sort entries by entryTimestamp in descending order
-      log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
+// Toggle status records display
+function toggleRecords() {
+  showAllRecords = !showAllRecords;
+  updateStatusTable();
+}
 
-      // Limit to 10 entries unless showAllRecords is true
-      const displayEntries = showAllRecords ? log : log.slice(0, 10);
+// Handle machine button clicks
+function handleMachineButtonClick(machineNum) {
+  try {
+    const errorDiv = document.getElementById('error');
+    const currentTime = new Date().toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Hong_Kong'
+    }).replace("24:", "00:"); // Handle midnight
 
-      statusBody.innerHTML = '';
+    // Check for existing In Time without Out Time
+    const existingEntry = log.find(entry => 
+      entry.machineNumber === machineNum && !entry.outTime
+    );
 
-      // Display in descending order for No. of Container
-      displayEntries.forEach((entry, index) => {
-        const row = document.createElement('tr');
-        row.className = 'status-row';
-
-        // Calculate duration
-        const { display, minutes } = calculateDuration(entry.inTime, entry.outTime);
-
-        // Apply blink class to Compactor Number cell if duration > 40 min and no Out Time
-        const blinkClass = isBlinkingEnabled && !entry.outTime && minutes > 39 ? 'blink' : '';
-
-        // Calculate No. of Container in descending order
-        const containerNumber = log.length - (showAllRecords ? index : index);
-
-        // Use index for promptOutTime to avoid syntax issues
-        const entryIndex = log.indexOf(entry);
-        row.innerHTML = `
-          <td>${containerNumber}</td>
-          <td class="${blinkClass}">${entry.machineNumber}</td>
-          <td class="time-cell" onclick="editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'inTime')">${entry.inTime}</td>
-          <td class="time-cell" onclick="${entry.outTime ? `editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'outTime')` : `promptOutTime(${entryIndex})`}">
-            ${entry.outTime || '-'}
-          </td>
-          <td>${display}</td>
-          <td>
-            <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}')">
-              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-              <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-            </svg>
-          </td>
-        `;
-
-        statusBody.appendChild(row);
+    if (existingEntry) {
+      // Second click: Record Out Time
+      actionHistory.push({
+        type: 'addOutTime',
+        entry: { ...existingEntry },
+        newOutTime: currentTime
       });
-    }
+      existingEntry.outTime = currentTime;
+      existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
 
-    function updateHourlyTable() {
-      const hourlyBody = document.getElementById('hourlyBody');
-      const hourlyCount = document.getElementById('hourlyCount');
-      const toggleButton = document.getElementById('toggleHourly');
-      const cumulativeRow = document.getElementById('cumulativeRow');
+      // Update UI
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      saveToLocalStorage();
 
-      // Define time slots from 07:30 to 06:29 next day
-      const timeSlots = [
-        { start: '07:30', end: '08:29' },
-        { start: '08:30', end: '09:29' },
-        { start: '09:30', end: '10:29' },
-        { start: '10:30', end: '11:29' },
-        { start: '11:30', end: '12:29' },
-        { start: '12:30', end: '13:29' },
-        { start: '13:30', end: '14:29' },
-        { start: '14:30', end: '15:29' },
-        { start: '15:30', end: '16:29' },
-        { start: '16:30', end: '17:29' },
-        { start: '17:30', end: '18:29' },
-        { start: '18:30', end: '19:29' },
-        { start: '19:30', end: '20:29' },
-        { start: '20:30', end: '21:29' },
-        { start: '21:30', end: '22:29' },
-        { start: '22:30', end: '23:29' },
-        { start: '23:30', end: '00:29' },
-        { start: '00:30', end: '01:29' },
-        { start: '01:30', end: '02:29' },
-        { start: '02:30', end: '03:29' },
-        { start: '03:30', end: '04:29' },
-        { start: '04:30', end: '05:29' },
-        { start: '05:30', end: '06:29' }
-      ];
-
-      // Parse time string to Date object for comparison
-      const parseTime = (timeStr, referenceDate = new Date()) => {
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const date = new Date(referenceDate);
-        date.setHours(hours, minutes, 0, 0);
-        if (hours < 7) date.setDate(date.getDate() + 1); // Handle post-midnight slots
-        return date;
+      // Enable undo button
+      document.getElementById('undoButton').disabled = false;
+    } else {
+      // First click: Record In Time
+      const entry = {
+        machineNumber: machineNum,
+        inTime: currentTime,
+        outTime: '',
+        entryTimestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' })
       };
 
-      // Aggregate completed entries into time slots
-      const hourlyRecords = [];
-      const completedEntries = log.filter(entry => entry.outTime);
+      actionHistory.push({
+        type: 'addInTime',
+        entry: { ...entry }
+      });
+
+      // Add to log
+      log.push(entry);
+
+      // Update UI
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      saveToLocalStorage();
+
+      // Enable undo button
+      document.getElementById('undoButton').disabled = false;
+    }
+
+    // Clear error
+    errorDiv.textContent = '';
+
+  } catch (error) {
+    console.error('Error in handleMachineButtonClick:', error);
+    document.getElementById('error').textContent = 'An error occurred. Please try again.';
+  }
+}
+
+// Update machine button states
+function updateMachineButtonStates() {
+  document.querySelectorAll('.compactor-btn').forEach(button => {
+    const machineNum = parseInt(button.getAttribute('data-machine'));
+    const hasActiveSession = log.some(entry => 
+      entry.machineNumber === machineNum && !entry.outTime
+    );
+    button.classList.toggle('active', hasActiveSession);
+  });
+}
+
+// Update status table
+function updateStatusTable() {
+  const statusBody = document.getElementById('statusBody');
+  const statusCount = document.getElementById('statusCount');
+  const pendingCount = document.getElementById('pendingCount');
+  const completedCount = document.getElementById('completedCount');
+  const toggleButton = document.getElementById('toggleRecords');
+
+  const pendingRecords = log.filter(entry => !entry.outTime).length;
+  const completedRecords = log.filter(entry => entry.outTime).length;
+
+  statusCount.textContent = `${log.length} records`;
+  pendingCount.textContent = `${pendingRecords} pending`;
+  completedCount.textContent = `${completedRecords} completed`;
+
+  // Show toggle button if more than 10 records
+  toggleButton.style.display = log.length > 10 ? 'flex' : 'none';
+  toggleButton.innerHTML = `
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+    </svg>
+    ${showAllRecords ? 'Show Less' : 'Show All'}
+  `;
+
+  if (log.length === 0) {
+    statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+    return;
+  }
+
+  // Sort entries by entryTimestamp in descending order
+  log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
+
+  // Limit to 10 entries unless showAllRecords is true
+  const displayEntries = showAllRecords ? log : log.slice(0, 10);
+
+  statusBody.innerHTML = '';
+
+  // Display in descending order for No. of Container
+  displayEntries.forEach((entry, index) => {
+    const row = document.createElement('tr');
+    row.className = 'status-row';
+
+    // Calculate duration
+    const { display, minutes } = calculateDuration(entry.inTime, entry.outTime);
+
+    // Apply blink class to Compactor Number cell if duration > 40 min and no Out Time
+    const blinkClass = isBlinkingEnabled && !entry.outTime && minutes > 39 ? 'blink' : '';
+
+    // Calculate No. of Container in descending order
+    const containerNumber = log.length - (showAllRecords ? index : index);
+
+    // Use index for promptOutTime to avoid syntax issues
+    const entryIndex = log.indexOf(entry);
+    row.innerHTML = `
+      <td>${containerNumber}</td>
+      <td class="${blinkClass}">${entry.machineNumber}</td>
+      <td class="time-cell" onclick="editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'inTime')">${entry.inTime}</td>
+      <td class="time-cell" onclick="${entry.outTime ? `editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'outTime')` : `promptOutTime(${entryIndex})`}">
+        ${entry.outTime || '-'}
+      </td>
+      <td>${display}</td>
+      <td>
+        <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}')">
+          <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+          <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+        </svg>
+      </td>
+    `;
+
+    statusBody.appendChild(row);
+  });
+}
+
+// Update hourly table
+function updateHourlyTable() {
+  const hourlyBody = document.getElementById('hourlyBody');
+  const hourlyCount = document.getElementById('hourlyCount');
+  const toggleButton = document.getElementById('toggleHourly');
+  const cumulativeRow = document.getElementById('cumulativeRow');
+
+  // Define time slots from 07:30 to 06:29 next day
+  const timeSlots = [
+    { start: '07:30', end: '08:29' },
+    { start: '08:30', end: '09:29' },
+    { start: '09:30', end: '10:29' },
+    { start: '10:30', end: '11:29' },
+    { start: '11:30', end: '12:29' },
+    { start: '12:30', end: '13:29' },
+    { start: '13:30', end: '14:29' },
+    { start: '14:30', end: '15:29' },
+    { start: '15:30', end: '16:29' },
+    { start: '16:30', end: '17:29' },
+    { start: '17:30', end: '18:29' },
+    { start: '18:30', end: '19:29' },
+    { start: '19:30', end: '20:29' },
+    { start: '20:30', end: '21:29' },
+    { start: '21:30', end: '22:29' },
+    { start: '22:30', end: '23:29' },
+    { start: '23:30', end: '00:29' },
+    { start: '00:30', end: '01:29' },
+    { start: '01:30', end: '02:29' },
+    { start: '02:30', end: '03:29' },
+    { start: '03:30', end: '04:29' },
+    { start: '04:30', end: '05:29' },
+    { start: '05:30', end: '06:29' }
+  ];
+
+  // Parse time string to Date object for comparison
+  const parseTime = (timeStr, referenceDate = new Date()) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const date = new Date(referenceDate);
+    date.setHours(hours, minutes, 0, 0);
+    if (hours < 7) date.setDate(date.getDate() + 1); // Handle post-midnight slots
+    return date;
+  };
+
+  // Aggregate completed entries into time slots
+  const hourlyRecords = [];
+  const completedEntries = log.filter(entry => entry.outTime);
+
+  timeSlots.forEach(slot => {
+    const slotStart = parseTime(slot.start);
+    const slotEnd = parseTime(slot.end, slotStart);
+    const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
+
+    completedEntries.forEach(entry => {
+      const inTime = parseTime(entry.inTime);
+      const outTime = parseTime(entry.outTime, inTime);
+
+      // Check if both inTime and outTime are within the time slot
+      if (inTime >= slotStart && outTime <= slotEnd) {
+        machineCounts[entry.machineNumber]++;
+      }
+    });
+
+    // Only include time slots with at least one completed record
+    if (machineCounts.some(count => count > 0)) {
+      hourlyRecords.push({
+        timeSlot: `${slot.start}-${slot.end}`,
+        machineCounts,
+        startTime: slotStart
+      });
+    }
+  });
+
+  // Update counter and toggle button
+  hourlyCount.textContent = `${hourlyRecords.length} hours`;
+  toggleButton.style.display = hourlyRecords.length > 5 ? 'flex' : 'none';
+  toggleButton.innerHTML = `
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+    </svg>
+    ${showAllHourly ? 'Show Less' : 'Show All'}
+  `;
+
+  // Calculate cumulative totals
+  const cumulativeCounts = Array(11).fill(0);
+  completedEntries.forEach(entry => {
+    cumulativeCounts[entry.machineNumber]++;
+  });
+  const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+
+  // Update cumulative totals row in thead
+  if (cumulativeTotal > 0) {
+    cumulativeRow.style.display = 'table-row';
+    cumulativeRow.innerHTML = `
+      <th>Cumulative Total</th>
+      ${cumulativeCounts.slice(1).map(count => `<th>${count}</th>`).join('')}
+      <th>${cumulativeTotal}</th>
+    `;
+  } else {
+    cumulativeRow.style.display = 'none';
+  }
+
+  // Display records
+  hourlyBody.innerHTML = '';
+
+  if (hourlyRecords.length === 0) {
+    hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td></tr>`;
+    return;
+  }
+
+  // Sort by start time in descending order (most recent first)
+  hourlyRecords.sort((a, b) => b.startTime - a.startTime);
+
+  // Limit to 5 entries unless showAllHourly is true
+  const displayRecords = showAllHourly ? hourlyRecords : hourlyRecords.slice(0, 5);
+
+  displayRecords.forEach(record => {
+    const row = document.createElement('tr');
+
+    // Calculate total for this time slot
+    const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+
+    row.innerHTML = `
+      <td>${record.timeSlot}</td>
+      ${record.machineCounts.slice(1).map(count => `<td>${count}</td>`).join('')}
+      <td class="total-cell">${total}</td>
+    `;
+    hourlyBody.appendChild(row);
+  });
+}
+
+// Delete an entry
+function deleteEntry(machineNumber, entryTimestamp) {
+  try {
+    if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
+      return;
+    }
+
+    // Find the entry to delete
+    const entryIndex = log.findIndex(entry => 
+      entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
+    );
+    if (entryIndex === -1) {
+      alert('Record not found.');
+      return;
+    }
+
+    // Store the deleted entry in action history
+    actionHistory.push({
+      type: 'deleteEntry',
+      entry: { ...log[entryIndex] }
+    });
+
+    // Remove the entry from the log
+    log.splice(entryIndex, 1);
+
+    // Update UI
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    saveToLocalStorage();
+
+    // Enable undo button
+    document.getElementById('undoButton').disabled = false;
+
+    alert('Record deleted successfully.');
+  } catch (error) {
+    console.error('Error in deleteEntry:', error);
+    document.getElementById('error').textContent = 'An error occurred while deleting the record. Please try again.';
+  }
+}
+
+// Calculate duration between inTime and outTime
+function calculateDuration(inTime, outTime = null) {
+  const parseTime = timeStr => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+  };
+
+  try {
+    const start = parseTime(inTime);
+    const end = outTime ? parseTime(outTime) : new Date();
+
+    // If session crosses midnight
+    if (end < start) {
+      end.setDate(end.getDate() + 1);
+    }
+
+    const diffMs = end - start;
+    const diffMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMins / 60);
+    const minutes = diffMins % 60;
+
+    return {
+      display: `${hours}h ${minutes}m`,
+      minutes: diffMins
+    };
+  } catch {
+    return { display: 'N/A', minutes: 0 };
+  }
+}
+
+// Prompt for Out Time
+function promptOutTime(entryIndex) {
+  try {
+    const entry = log[entryIndex];
+    if (!entry || entry.outTime) return;
+
+    // Prompt for Out Time
+    let outTimeInput = prompt(`Enter Out Time for Machine ${entry.machineNumber} (e.g., 1456 for 14:56):`, "");
+
+    if (outTimeInput === null) return; // User cancelled
+
+    // Normalize input
+    outTimeInput = outTimeInput.trim().replace(/[^0-9]/g, '');
+
+    if (outTimeInput.length === 4) {
+      outTimeInput = `${outTimeInput.slice(0, 2)}:${outTimeInput.slice(2)}`;
+    }
+
+    // Validate Out Time
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(outTimeInput)) {
+      alert('Out Time must be in HH:MM format (e.g., 14:56 or 1456).');
+      return;
+    }
+
+    // Store the original entry state before updating
+    actionHistory.push({
+      type: 'addOutTime',
+      entry: { ...entry },
+      newOutTime: outTimeInput
+    });
+
+    // Update entry
+    entry.outTime = outTimeInput;
+    entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
+
+    // Update UI
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    saveToLocalStorage();
+
+    // Enable undo button
+    document.getElementById('undoButton').disabled = false;
+
+    alert(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`);
+
+  } catch (error) {
+    console.error('Error in promptOutTime:', error);
+    document.getElementById('error').textContent = 'An error occurred. Please try again.';
+  }
+}
+
+// Edit In Time or Out Time
+function editEntry(machineNumber, entryTimestamp, field) {
+  try {
+    const entry = log.find(entry => 
+      entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
+    );
+    if (!entry) return;
+
+    const timeLabel = field === 'inTime' ? 'In Time' : 'Out Time';
+    const currentValue = field === 'inTime' ? entry.inTime : entry.outTime;
+
+    let newTime = prompt(`Enter new ${timeLabel} for Machine ${machineNumber} (e.g., 1456 for 14:56):`, currentValue ? currentValue.replace(':', '') : '');
+
+    if (newTime === null) return; // User cancelled
+
+    // Normalize input
+    newTime = newTime.trim().replace(/[^0-9]/g, '');
+
+    if (newTime.length === 4) {
+      newTime = `${newTime.slice(0, 2)}:${newTime.slice(2)}`;
+    }
+
+    // Validate time
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(newTime)) {
+      alert(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456).`);
+      return;
+    }
+
+    // Store the original entry state before updating
+    actionHistory.push({
+      type: 'edit' + field,
+      entry: { ...entry },
+      newTime: newTime
+    });
+
+    // Update entry
+    if (field === 'inTime') {
+      entry.inTime = newTime;
+    } else {
+      entry.outTime = newTime;
+    }
+
+    entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
+
+    // Update UI
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    saveToLocalStorage();
+
+    // Enable undo button
+    document.getElementById('undoButton').disabled = false;
+
+    alert(`${timeLabel} updated to ${newTime} for Machine ${machineNumber}`);
+
+  } catch (error) {
+    console.error('Error in editEntry:', error);
+    document.getElementById('error').textContent = 'An error occurred. Please try again.';
+  }
+}
+
+// Undo last action
+function undoLastAction() {
+  try {
+    if (actionHistory.length === 0) {
+      alert('No actions to undo.');
+      return;
+    }
+
+    const lastAction = actionHistory.pop();
+
+    if (lastAction.type === 'addInTime') {
+      // Remove the last added In Time entry
+      const entryIndex = log.findIndex(entry => 
+        entry.machineNumber === lastAction.entry.machineNumber && 
+        entry.entryTimestamp === lastAction.entry.entryTimestamp
+      );
+      if (entryIndex !== -1) {
+        log.splice(entryIndex, 1);
+      }
+    } else if (lastAction.type === 'addOutTime') {
+      // Revert the Out Time to empty
+      const entry = log.find(entry => 
+        entry.machineNumber === lastAction.entry.machineNumber && 
+        entry.entryTimestamp === lastAction.entry.entryTimestamp
+      );
+      if (entry) {
+        entry.outTime = '';
+        entry.entryTimestamp = lastAction.entry.entryTimestamp;
+      }
+    } else if (lastAction.type === 'deleteEntry') {
+      // Restore the deleted entry
+      log.push({ ...lastAction.entry });
+    } else if (lastAction.type === 'editinTime' || lastAction.type === 'editoutTime') {
+      // Revert the edited time
+      const entry = log.find(entry => 
+        entry.machineNumber === lastAction.entry.machineNumber && 
+        entry.entryTimestamp === lastAction.entry.entryTimestamp
+      );
+      if (entry) {
+        entry.inTime = lastAction.entry.inTime;
+        entry.outTime = lastAction.entry.outTime;
+        entry.entryTimestamp = lastAction.entry.entryTimestamp;
+      }
+    }
+
+    // Update UI
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    saveToLocalStorage();
+
+    // Disable undo button if no actions remain
+    document.getElementById('undoButton').disabled = actionHistory.length === 0;
+
+    alert('Last action undone successfully.');
+  } catch (error) {
+    console.error('Error in undoLastAction:', error);
+    document.getElementById('error').textContent = 'An error occurred while undoing the last action. Please try again.';
+  }
+}
+
+// Sync data to Google Sheets
+function syncToGoogleSheets() {
+  if (!gapiInitialized || !gisLoaded || !tokenClient) {
+    console.warn('Google API not initialized or tokenClient undefined. Attempting to initialize...');
+    initializeGapi();
+    return;
+  }
+
+  try {
+    // Check if token is still valid
+    if (!gapi.client.getToken()) {
+      tokenClient.requestAccessToken({ prompt: '' });
+      return;
+    }
+
+    // 1. Sync Completed Records
+    const completedEntries = log.filter(entry => entry.outTime);
+    let statusValues = [['No. of Container', 'Compactor Number', 'In Time', 'Out Time', 'Duration']];
+    completedEntries.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
+      .forEach((entry, index) => {
+        const containerNumber = completedEntries.length - index;
+        const duration = calculateDuration(entry.inTime, entry.outTime).display;
+        statusValues.push([
+          containerNumber,
+          entry.machineNumber,
+          entry.inTime,
+          entry.outTime,
+          duration
+        ]);
+      });
+
+    // Clear and update Completed Records sheet
+    gapi.client.sheets.spreadsheets.values.clear({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Completed Records!A1:E'
+    }).then(() => {
+      if (statusValues.length > 1) { // Only append if there are records
+        gapi.client.sheets.spreadsheets.values.append({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Completed Records!A1:E',
+          valueInputOption: 'RAW',
+          resource: { values: statusValues }
+        }).then(() => {
+          console.log('Completed Records synced to Google Sheets');
+        }).catch(error => {
+          console.error('Error syncing Completed Records:', error);
+          document.getElementById('error').textContent = 'Error syncing Completed Records to Google Sheets.';
+        });
+      }
+    }).catch(error => {
+      console.error('Error clearing Completed Records:', error);
+      document.getElementById('error').textContent = 'Error clearing Completed Records in Google Sheets.';
+    });
+
+    // 2. Sync Hourly Records
+    const timeSlots = [
+      { start: '07:30', end: '08:29' },
+      { start: '08:30', end: '09:29' },
+      { start: '09:30', end: '10:29' },
+      { start: '10:30', end: '11:29' },
+      { start: '11:30', end: '12:29' },
+      { start: '12:30', end: '13:29' },
+      { start: '13:30', end: '14:29' },
+      { start: '14:30', end: '15:29' },
+      { start: '15:30', end: '16:29' },
+      { start: '16:30', end: '17:29' },
+      { start: '17:30', end: '18:29' },
+      { start: '18:30', end: '19:29' },
+      { start: '19:30', end: '20:29' },
+      { start: '20:30', end: '21:29' },
+      { start: '21:30', end: '22:29' },
+      { start: '22:30', end: '23:29' },
+      { start: '23:30', end: '00:29' },
+      { start: '00:30', end: '01:29' },
+      { start: '01:30', end: '02:29' },
+      { start: '02:30', end: '03:29' },
+      { start: '03:30', end: '04:29' },
+      { start: '04:30', end: '05:29' },
+      { start: '05:30', end: '06:29' }
+    ];
+
+    const parseTime = (timeStr, referenceDate = new Date()) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      const date = new Date(referenceDate);
+      date.setHours(hours, minutes, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1); // Handle post-midnight slots
+      return date;
+    };
+
+    const hourlyRecords = [];
+    completedEntries.forEach(entry => {
+      const inTime = parseTime(entry.inTime);
+      const outTime = parseTime(entry.outTime, inTime);
 
       timeSlots.forEach(slot => {
         const slotStart = parseTime(slot.start);
         const slotEnd = parseTime(slot.end, slotStart);
-        const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
 
-        completedEntries.forEach(entry => {
-          const inTime = parseTime(entry.inTime);
-          const outTime = parseTime(entry.outTime, inTime);
-
-          // Check if both inTime and outTime are within the time slot
-          if (inTime >= slotStart && outTime <= slotEnd) {
-            machineCounts[entry.machineNumber]++;
+        if (inTime >= slotStart && outTime <= slotEnd) {
+          let record = hourlyRecords.find(r => r.timeSlot === `${slot.start}-${slot.end}`);
+          if (!record) {
+            record = { timeSlot: `${slot.start}-${slot.end}`, machineCounts: Array(11).fill(0), startTime: slotStart };
+            hourlyRecords.push(record);
           }
-        });
-
-        // Only include time slots with at least one completed record
-        if (machineCounts.some(count => count > 0)) {
-          hourlyRecords.push({
-            timeSlot: `${slot.start}-${slot.end}`,
-            machineCounts,
-            startTime: slotStart
-          });
+          record.machineCounts[entry.machineNumber]++;
         }
       });
+    });
 
-      // Update counter and toggle button
-      hourlyCount.textContent = `${hourlyRecords.length} hours`;
-      toggleButton.style.display = hourlyRecords.length > 5 ? 'flex' : 'none';
-      toggleButton.innerHTML = `
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-        </svg>
-        ${showAllHourly ? 'Show Less' : 'Show All'}
-      `;
+    // Prepare values for Hourly Records sheet
+    let hourlyValues = [['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total']];
+    hourlyRecords.sort((a, b) => b.startTime - a.startTime).forEach(record => {
+      const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+      hourlyValues.push([
+        record.timeSlot,
+        ...record.machineCounts.slice(1),
+        total
+      ]);
+    });
 
-      // Calculate cumulative totals
-      const cumulativeCounts = Array(11).fill(0);
-      completedEntries.forEach(entry => {
-        cumulativeCounts[entry.machineNumber]++;
-      });
-      const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-
-      // Update cumulative totals row in thead
-      if (cumulativeTotal > 0) {
-        cumulativeRow.style.display = 'table-row';
-        cumulativeRow.innerHTML = `
-          <th>Cumulative Total</th>
-          ${cumulativeCounts.slice(1).map(count => `<th>${count}</th>`).join('')}
-          <th>${cumulativeTotal}</th>
-        `;
-      } else {
-        cumulativeRow.style.display = 'none';
-      }
-
-      // Display records
-      hourlyBody.innerHTML = '';
-
-      if (hourlyRecords.length === 0) {
-        hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td></tr>`;
-        return;
-      }
-
-      // Sort by start time in descending order (most recent first)
-      hourlyRecords.sort((a, b) => b.startTime - a.startTime);
-
-      // Limit to 5 entries unless showAllHourly is true
-      const displayRecords = showAllHourly ? hourlyRecords : hourlyRecords.slice(0, 5);
-
-      displayRecords.forEach(record => {
-        const row = document.createElement('tr');
-
-        // Calculate total for this time slot
-        const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-
-        row.innerHTML = `
-          <td>${record.timeSlot}</td>
-          ${record.machineCounts.slice(1).map(count => `<td>${count}</td>`).join('')}
-          <td class="total-cell">${total}</td>
-        `;
-        hourlyBody.appendChild(row);
-      });
+    // Calculate cumulative totals
+    const cumulativeCounts = Array(11).fill(0);
+    completedEntries.forEach(entry => {
+      cumulativeCounts[entry.machineNumber]++;
+    });
+    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    if (cumulativeTotal > 0) {
+      hourlyValues.push(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
     }
 
-    function deleteEntry(machineNumber, entryTimestamp) {
-      try {
-        if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
-          return;
-        }
-
-        // Find the entry to delete
-        const entryIndex = log.findIndex(entry => 
-          entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
-        );
-        if (entryIndex === -1) {
-          alert('Record not found.');
-          return;
-        }
-
-        // Store the deleted entry in action history
-        actionHistory.push({
-          type: 'deleteEntry',
-          entry: { ...log[entryIndex] }
-        });
-
-        // Remove the entry from the log
-        log.splice(entryIndex, 1);
-
-        // Update UI
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        saveToLocalStorage();
-
-        // Enable undo button
-        document.getElementById('undoButton').disabled = false;
-
-        alert('Record deleted successfully.');
-      } catch (error) {
-        console.error('Error in deleteEntry:', error);
-        document.getElementById('error').textContent = 'An error occurred while deleting the record. Please try again.';
-      }
-    }
-
-    function calculateDuration(inTime, outTime = null) {
-      const parseTime = timeStr => {
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const date = new Date();
-        date.setHours(hours, minutes, 0, 0);
-        return date;
-      };
-
-      try {
-        const start = parseTime(inTime);
-        const end = outTime ? parseTime(outTime) : new Date();
-
-        // If session crosses midnight
-        if (end < start) {
-          end.setDate(end.getDate() + 1);
-        }
-
-        const diffMs = end - start;
-        const diffMins = Math.floor(diffMs / 60000);
-        const hours = Math.floor(diffMins / 60);
-        const minutes = diffMins % 60;
-
-        return {
-          display: `${hours}h ${minutes}m`,
-          minutes: diffMins
-        };
-      } catch {
-        return { display: 'N/A', minutes: 0 };
-      }
-    }
-
-    function promptOutTime(entryIndex) {
-      try {
-        const entry = log[entryIndex];
-        if (!entry || entry.outTime) return;
-
-        // Prompt for Out Time
-        let outTimeInput = prompt(`Enter Out Time for Machine ${entry.machineNumber} (e.g., 1456 for 14:56):`, "");
-
-        if (outTimeInput === null) return; // User cancelled
-
-        // Normalize input
-        outTimeInput = outTimeInput.trim().replace(/[^0-9]/g, '');
-
-        if (outTimeInput.length === 4) {
-          outTimeInput = `${outTimeInput.slice(0, 2)}:${outTimeInput.slice(2)}`;
-        }
-
-        // Validate Out Time
-        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-        if (!timeRegex.test(outTimeInput)) {
-          alert('Out Time must be in HH:MM format (e.g., 14:56 or 1456).');
-          return;
-        }
-
-        // Store the original entry state before updating
-        actionHistory.push({
-          type: 'addOutTime',
-          entry: { ...entry },
-          newOutTime: outTimeInput
-        });
-
-        // Update entry
-        entry.outTime = outTimeInput;
-        entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-
-        // Update UI
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        saveToLocalStorage();
-
-        // Enable undo button
-        document.getElementById('undoButton').disabled = false;
-
-        alert(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`);
-
-      } catch (error) {
-        console.error('Error in promptOutTime:', error);
-        document.getElementById('error').textContent = 'An error occurred. Please try again.';
-      }
-    }
-
-    function editEntry(machineNumber, entryTimestamp, field) {
-      try {
-        const entry = log.find(entry => 
-          entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
-        );
-        if (!entry) return;
-
-        const timeLabel = field === 'inTime' ? 'In Time' : 'Out Time';
-        const currentValue = field === 'inTime' ? entry.inTime : entry.outTime;
-
-        let newTime = prompt(`Enter new ${timeLabel} for Machine ${machineNumber} (e.g., 1456 for 14:56):`, currentValue ? currentValue.replace(':', '') : '');
-
-        if (newTime === null) return; // User cancelled
-
-        // Normalize input
-        newTime = newTime.trim().replace(/[^0-9]/g, '');
-
-        if (newTime.length === 4) {
-          newTime = `${newTime.slice(0, 2)}:${newTime.slice(2)}`;
-        }
-
-        // Validate time
-        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-        if (!timeRegex.test(newTime)) {
-          alert(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456).`);
-          return;
-        }
-
-        // Store the original entry state before updating
-        actionHistory.push({
-          type: 'edit' + field,
-          entry: { ...entry },
-          newTime: newTime
-        });
-
-        // Update entry
-        if (field === 'inTime') {
-          entry.inTime = newTime;
-        } else {
-          entry.outTime = newTime;
-        }
-
-        entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-
-        // Update UI
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        saveToLocalStorage();
-
-        // Enable undo button
-        document.getElementById('undoButton').disabled = false;
-
-        alert(`${timeLabel} updated to ${newTime} for Machine ${machineNumber}`);
-
-      } catch (error) {
-        console.error('Error in editEntry:', error);
-        document.getElementById('error').textContent = 'An error occurred. Please try again.';
-      }
-    }
-
-    function undoLastAction() {
-      try {
-        if (actionHistory.length === 0) {
-          alert('No actions to undo.');
-          return;
-        }
-
-        const lastAction = actionHistory.pop();
-
-        if (lastAction.type === 'addInTime') {
-          // Remove the last added In Time entry
-          const entryIndex = log.findIndex(entry => 
-            entry.machineNumber === lastAction.entry.machineNumber && 
-            entry.entryTimestamp === lastAction.entry.entryTimestamp
-          );
-          if (entryIndex !== -1) {
-            log.splice(entryIndex, 1);
-          }
-        } else if (lastAction.type === 'addOutTime') {
-          // Revert the Out Time to empty
-          const entry = log.find(entry => 
-            entry.machineNumber === lastAction.entry.machineNumber && 
-            entry.entryTimestamp === lastAction.entry.entryTimestamp
-          );
-          if (entry) {
-            entry.outTime = '';
-            entry.entryTimestamp = lastAction.entry.entryTimestamp;
-          }
-        } else if (lastAction.type === 'deleteEntry') {
-          // Restore the deleted entry
-          log.push({ ...lastAction.entry });
-        } else if (lastAction.type === 'editinTime' || lastAction.type === 'editoutTime') {
-          // Revert the edited time
-          const entry = log.find(entry => 
-            entry.machineNumber === lastAction.entry.machineNumber && 
-            entry.entryTimestamp === lastAction.entry.entryTimestamp
-          );
-          if (entry) {
-            entry.inTime = lastAction.entry.inTime;
-            entry.outTime = lastAction.entry.outTime;
-            entry.entryTimestamp = lastAction.entry.entryTimestamp;
-          }
-        }
-
-        // Update UI
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        saveToLocalStorage();
-
-        // Disable undo button if no actions remain
-        document.getElementById('undoButton').disabled = actionHistory.length === 0;
-
-        alert('Last action undone successfully.');
-      } catch (error) {
-        console.error('Error in undoLastAction:', error);
-        document.getElementById('error').textContent = 'An error occurred while undoing the last action. Please try again.';
-      }
-    }
-
-    function syncToGoogleSheets() {
-      if (!gapiInitialized || !gapi.client.getToken()) {
-        tokenClient.requestAccessToken({ prompt: '' });
-        return;
-      }
-
-      try {
-        // 1. Sync Completed Records
-        const completedEntries = log.filter(entry => entry.outTime);
-        let statusValues = [['No. of Container', 'Compactor Number', 'In Time', 'Out Time', 'Duration']];
-        completedEntries.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
-          .forEach((entry, index) => {
-            const containerNumber = completedEntries.length - index;
-            const duration = calculateDuration(entry.inTime, entry.outTime).display;
-            statusValues.push([
-              containerNumber,
-              entry.machineNumber,
-              entry.inTime,
-              entry.outTime,
-              duration
-            ]);
-          });
-
-        // Clear and update Completed Records sheet
-        gapi.client.sheets.spreadsheets.values.clear({
+    // Clear and update Hourly Records sheet
+    gapi.client.sheets.spreadsheets.values.clear({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Hourly Records!A1:L'
+    }).then(() => {
+      if (hourlyValues.length > 1) { // Only append if there are records
+        gapi.client.sheets.spreadsheets.values.append({
           spreadsheetId: SPREADSHEET_ID,
-          range: 'Completed Records!A1:E'
+          range: 'Hourly Records!A1:L',
+          valueInputOption: 'RAW',
+          resource: { values: hourlyValues }
         }).then(() => {
-          if (statusValues.length > 1) { // Only append if there are records
-            gapi.client.sheets.spreadsheets.values.append({
-              spreadsheetId: SPREADSHEET_ID,
-              range: 'Completed Records!A1:E',
-              valueInputOption: 'RAW',
-              resource: { values: statusValues }
-            }).then(() => {
-              console.log('Completed Records synced to Google Sheets');
-            }).catch(error => {
-              console.error('Error syncing Completed Records:', error);
-              document.getElementById('error').textContent = 'Error syncing Completed Records to Google Sheets.';
-            });
-          }
+          console.log('Hourly Records synced to Google Sheets');
         }).catch(error => {
-          console.error('Error clearing Completed Records:', error);
-          document.getElementById('error').textContent = 'Error clearing Completed Records in Google Sheets.';
+          console.error('Error syncing Hourly Records:', error);
+          document.getElementById('error').textContent = 'Error syncing Hourly Records to Google Sheets.';
         });
+      }
+    }).catch(error => {
+      console.error('Error clearing Hourly Records:', error);
+      document.getElementById('error').textContent = 'Error clearing Hourly Records in Google Sheets.';
+    });
 
-        // 2. Sync Hourly Records
-        const timeSlots = [
-          { start: '07:30', end: '08:29' },
-          { start: '08:30', end: '09:29' },
-          { start: '09:30', end: '10:29' },
-          { start: '10:30', end: '11:29' },
-          { start: '11:30', end: '12:29' },
-          { start: '12:30', end: '13:29' },
-          { start: '13:30', end: '14:29' },
-          { start: '14:30', end: '15:29' },
-          { start: '15:30', end: '16:29' },
-          { start: '16:30', end: '17:29' },
-          { start: '17:30', end: '18:29' },
-          { start: '18:30', end: '19:29' },
-          { start: '19:30', end: '20:29' },
-          { start: '20:30', end: '21:29' },
-          { start: '21:30', end: '22:29' },
-          { start: '22:30', end: '23:29' },
-          { start: '23:30', end: '00:29' },
-          { start: '00:30', end: '01:29' },
-          { start: '01:30', end: '02:29' },
-          { start: '02:30', end: '03:29' },
-          { start: '03:30', end: '04:29' },
-          { start: '04:30', end: '05:29' },
-          { start: '05:30', end: '06:29' }
-        ];
+  } catch (error) {
+    console.error('Error in syncToGoogleSheets:', error);
+    document.getElementById('error').textContent = 'An error occurred while syncing to Google Sheets.';
+  }
+}
 
-        const parseTime = (timeStr, referenceDate = new Date()) => {
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          const date = new Date(referenceDate);
-          date.setHours(hours, minutes, 0, 0);
-          if (hours < 7) date.setDate(date.getDate() + 1); // Handle post-midnight slots
-          return date;
-        };
+// Export data to CSV
+function exportToCSV() {
+  try {
+    // 1. Completed Records CSV
+    let completedCsvContent = 'No. of Container,Compactor Number,In Time,Out Time,Duration\n';
+    const completedEntries = log.filter(entry => entry.outTime);
+    completedEntries.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
+      .forEach((entry, index) => {
+        const containerNumber = completedEntries.length - index;
+        const duration = calculateDuration(entry.inTime, entry.outTime).display;
+        completedCsvContent += `${containerNumber},${entry.machineNumber},${entry.inTime},${entry.outTime},${duration}\n`;
+      });
 
-        const hourlyRecords = [];
-        completedEntries.forEach(entry => {
-          const inTime = parseTime(entry.inTime);
-          const outTime = parseTime(entry.outTime, inTime);
+    // 2. Hourly Records CSV
+    let hourlyCsvContent = 'Time Slot,1,2,3,4,5,6,7,8,9,10,Total\n';
+    const timeSlots = [
+      { start: '07:30', end: '08:29' },
+      { start: '08:30', end: '09:29' },
+      { start: '09:30', end: '10:29' },
+      { start: '10:30', end: '11:29' },
+      { start: '11:30', end: '12:29' },
+      { start: '12:30', end: '13:29' },
+      { start: '13:30', end: '14:29' },
+      { start: '14:30', end: '15:29' },
+      { start: '15:30', end: '16:29' },
+      { start: '16:30', end: '17:29' },
+      { start: '17:30', end: '18:29' },
+      { start: '18:30', end: '19:29' },
+      { start: '19:30', end: '20:29' },
+      { start: '20:30', end: '21:29' },
+      { start: '21:30', end: '22:29' },
+      { start: '22:30', end: '23:29' },
+      { start: '23:30', end: '00:29' },
+      { start: '00:30', end: '01:29' },
+      { start: '01:30', end: '02:29' },
+      { start: '02:30', end: '03:29' },
+      { start: '03:30', end: '04:29' },
+      { start: '04:30', end: '05:29' },
+      { start: '05:30', end: '06:29' }
+    ];
 
-          timeSlots.forEach(slot => {
-            const slotStart = parseTime(slot.start);
-            const slotEnd = parseTime(slot.end, slotStart);
+    const parseTime = (timeStr, referenceDate = new Date()) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      const date = new Date(referenceDate);
+      date.setHours(hours, minutes, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1);
+      return date;
+    };
 
-            if (inTime >= slotStart && outTime <= slotEnd) {
-              let record = hourlyRecords.find(r => r.timeSlot === `${slot.start}-${slot.end}`);
-              if (!record) {
-                record = { timeSlot: `${slot.start}-${slot.end}`, machineCounts: Array(11).fill(0), startTime: slotStart };
-                hourlyRecords.push(record);
-              }
-              record.machineCounts[entry.machineNumber]++;
-            }
-          });
-        });
+    const hourlyRecords = [];
+    completedEntries.forEach(entry => {
+      const inTime = parseTime(entry.inTime);
+      const outTime = parseTime(entry.outTime, inTime);
 
-        // Prepare values for Hourly Records sheet
-        let hourlyValues = [['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total']];
-        hourlyRecords.sort((a, b) => b.startTime - a.startTime).forEach(record => {
-          const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-          hourlyValues.push([
-            record.timeSlot,
-            ...record.machineCounts.slice(1),
-            total
-          ]);
-        });
+      timeSlots.forEach(slot => {
+        const slotStart = parseTime(slot.start);
+        const slotEnd = parseTime(slot.end, slotStart);
 
-        // Calculate cumulative totals
-        const cumulativeCounts = Array(11).fill(0);
-        completedEntries.forEach(entry => {
-          cumulativeCounts[entry.machineNumber]++;
-        });
-        const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-        if (cumulativeTotal > 0) {
-          hourlyValues.push(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+        if (inTime >= slotStart && outTime <= slotEnd) {
+          let record = hourlyRecords.find(r => r.timeSlot === `${slot.start}-${slot.end}`);
+          if (!record) {
+            record = { timeSlot: `${slot.start}-${slot.end}`, machineCounts: Array(11).fill(0), startTime: slotStart };
+            hourlyRecords.push(record);
+          }
+          record.machineCounts[entry.machineNumber]++;
         }
+      });
+    });
 
-        // Clear and update Hourly Records sheet
+    // Sort by start time in descending order
+    hourlyRecords.sort((a, b) => b.startTime - a.startTime);
+    hourlyRecords.forEach(record => {
+      const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+      hourlyCsvContent += `${record.timeSlot},${record.machineCounts.slice(1).join(',')},${total}\n`;
+    });
+
+    // Add cumulative totals
+    const cumulativeCounts = Array(11).fill(0);
+    completedEntries.forEach(entry => {
+      cumulativeCounts[entry.machineNumber]++;
+    });
+    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    if (cumulativeTotal > 0) {
+      hourlyCsvContent += `Cumulative Total,${cumulativeCounts.slice(1).join(',')},${cumulativeTotal}\n`;
+    }
+
+    // Combine both CSVs into a single file
+    const combinedCsvContent = `Completed Records\n${completedCsvContent}\n\nHourly Records\n${hourlyCsvContent}`;
+
+    // Create and download the CSV
+    const blob = new Blob([combinedCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Compactor_Progress_${new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Hong_Kong' }).replace(/\//g, '-')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Sync to Google Sheets and clear local storage upon successful export
+    if (gapiInitialized && gisLoaded && tokenClient) {
+      syncToGoogleSheets();
+    } else {
+      console.warn('Google API not initialized. Skipping sync.');
+    }
+    localStorage.removeItem('compactorLog');
+    localStorage.removeItem('compactorActionHistory');
+    log = [];
+    actionHistory = [];
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    document.getElementById('undoButton').disabled = true;
+
+    alert('Data exported to CSV successfully. Local data cleared.');
+
+  } catch (error) {
+    console.error('Error in exportToCSV:', error);
+    document.getElementById('error').textContent = 'An error occurred while exporting to CSV. Please try again.';
+  }
+}
+
+// Clear all data
+function clearAllData() {
+  try {
+    if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+      return;
+    }
+
+    // Store current state for undo
+    actionHistory.push({
+      type: 'clearAll',
+      log: [...log]
+    });
+
+    // Clear data
+    log = [];
+    localStorage.removeItem('compactorLog');
+    localStorage.removeItem('compactorActionHistory');
+
+    // Update UI
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    document.getElementById('undoButton').disabled = false;
+
+    // Clear Google Sheets
+    if (gapiInitialized && gisLoaded && tokenClient && gapi.client.getToken()) {
+      gapi.client.sheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Completed Records!A1:E'
+      }).then(() => {
         gapi.client.sheets.spreadsheets.values.clear({
           spreadsheetId: SPREADSHEET_ID,
           range: 'Hourly Records!A1:L'
         }).then(() => {
-          if (hourlyValues.length > 1) { // Only append if there are records
-            gapi.client.sheets.spreadsheets.values.append({
-              spreadsheetId: SPREADSHEET_ID,
-              range: 'Hourly Records!A1:L',
-              valueInputOption: 'RAW',
-              resource: { values: hourlyValues }
-            }).then(() => {
-              console.log('Hourly Records synced to Google Sheets');
-            }).catch(error => {
-              console.error('Error syncing Hourly Records:', error);
-              document.getElementById('error').textContent = 'Error syncing Hourly Records to Google Sheets.';
-            });
-          }
+          console.log('Google Sheets cleared');
+          alert('All data cleared successfully from local storage and Google Sheets.');
         }).catch(error => {
           console.error('Error clearing Hourly Records:', error);
           document.getElementById('error').textContent = 'Error clearing Hourly Records in Google Sheets.';
         });
-
-      } catch (error) {
-        console.error('Error in syncToGoogleSheets:', error);
-        document.getElementById('error').textContent = 'An error occurred while syncing to Google Sheets.';
-      }
+      }).catch(error => {
+        console.error('Error clearing Completed Records:', error);
+        document.getElementById('error').textContent = 'Error clearing Completed Records in Google Sheets.';
+      });
+    } else {
+      console.warn('Google API not initialized. Clearing local storage only.');
+      alert('All data cleared successfully from local storage.');
     }
 
-    function exportToCSV() {
-      try {
-        // 1. Completed Records CSV
-        let completedCsvContent = 'No. of Container,Compactor Number,In Time,Out Time,Duration\n';
-        const completedEntries = log.filter(entry => entry.outTime);
-        completedEntries.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
-          .forEach((entry, index) => {
-            const containerNumber = completedEntries.length - index;
-            const duration = calculateDuration(entry.inTime, entry.outTime).display;
-            completedCsvContent += `${containerNumber},${entry.machineNumber},${entry.inTime},${entry.outTime},${duration}\n`;
-          });
-
-        // 2. Hourly Records CSV
-        let hourlyCsvContent = 'Time Slot,1,2,3,4,5,6,7,8,9,10,Total\n';
-        const timeSlots = [
-          { start: '07:30', end: '08:29' },
-          { start: '08:30', end: '09:29' },
-          { start: '09:30', end: '10:29' },
-          { start: '10:30', end: '11:29' },
-          { start: '11:30', end: '12:29' },
-          { start: '12:30', end: '13:29' },
-          { start: '13:30', end: '14:29' },
-          { start: '14:30', end: '15:29' },
-          { start: '15:30', end: '16:29' },
-          { start: '16:30', end: '17:29' },
-          { start: '17:30', end: '18:29' },
-          { start: '18:30', end: '19:29' },
-          { start: '19:30', end: '20:29' },
-          { start: '20:30', end: '21:29' },
-          { start: '21:30', end: '22:29' },
-          { start: '22:30', end: '23:29' },
-          { start: '23:30', end: '00:29' },
-          { start: '00:30', end: '01:29' },
-          { start: '01:30', end: '02:29' },
-          { start: '02:30', end: '03:29' },
-          { start: '03:30', end: '04:29' },
-          { start: '04:30', end: '05:29' },
-          { start: '05:30', end: '06:29' }
-        ];
-
-        const parseTime = (timeStr, referenceDate = new Date()) => {
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          const date = new Date(referenceDate);
-          date.setHours(hours, minutes, 0, 0);
-          if (hours < 7) date.setDate(date.getDate() + 1);
-          return date;
-        };
-
-        const hourlyRecords = [];
-        completedEntries.forEach(entry => {
-          const inTime = parseTime(entry.inTime);
-          const outTime = parseTime(entry.outTime, inTime);
-
-          timeSlots.forEach(slot => {
-            const slotStart = parseTime(slot.start);
-            const slotEnd = parseTime(slot.end, slotStart);
-
-            if (inTime >= slotStart && outTime <= slotEnd) {
-              let record = hourlyRecords.find(r => r.timeSlot === `${slot.start}-${slot.end}`);
-              if (!record) {
-                record = { timeSlot: `${slot.start}-${slot.end}`, machineCounts: Array(11).fill(0), startTime: slotStart };
-                hourlyRecords.push(record);
-              }
-              record.machineCounts[entry.machineNumber]++;
-            }
-          });
-        });
-
-        // Sort by start time in descending order
-        hourlyRecords.sort((a, b) => b.startTime - a.startTime);
-        hourlyRecords.forEach(record => {
-          const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-          hourlyCsvContent += `${record.timeSlot},${record.machineCounts.slice(1).join(',')},${total}\n`;
-        });
-
-        // Add cumulative totals
-        const cumulativeCounts = Array(11).fill(0);
-        completedEntries.forEach(entry => {
-          cumulativeCounts[entry.machineNumber]++;
-        });
-        const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-        if (cumulativeTotal > 0) {
-          hourlyCsvContent += `Cumulative Total,${cumulativeCounts.slice(1).join(',')},${cumulativeTotal}\n`;
-        }
-
-        // Combine both CSVs into a single file
-        const combinedCsvContent = `Completed Records\n${completedCsvContent}\n\nHourly Records\n${hourlyCsvContent}`;
-
-        // Create and download the CSV
-        const blob = new Blob([combinedCsvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `Compactor_Progress_${new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Hong_Kong' }).replace(/\//g, '-')}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Sync to Google Sheets and clear local storage upon successful export
-        syncToGoogleSheets();
-        localStorage.removeItem('compactorLog');
-        localStorage.removeItem('compactorActionHistory');
-        log = [];
-        actionHistory = [];
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        document.getElementById('undoButton').disabled = true;
-
-        alert('Data exported to CSV and synced to Google Sheets successfully. Local data cleared.');
-
-      } catch (error) {
-        console.error('Error in exportToCSV:', error);
-        document.getElementById('error').textContent = 'An error occurred while exporting to CSV. Please try again.';
-      }
-    }
-
-    function clearAllData() {
-      try {
-        if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-          return;
-        }
-
-        // Store current state for undo
-        actionHistory.push({
-          type: 'clearAll',
-          log: [...log]
-        });
-
-        // Clear data
-        log = [];
-        localStorage.removeItem('compactorLog');
-        localStorage.removeItem('compactorActionHistory');
-
-        // Update UI
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        document.getElementById('undoButton').disabled = false;
-
-        // Clear Google Sheets
-        if (gapiInitialized && gapi.client.getToken()) {
-          gapi.client.sheets.spreadsheets.values.clear({
-            spreadsheetId: SPREADSHEET_ID,
-            range: 'Completed Records!A1:E'
-          }).then(() => {
-            gapi.client.sheets.spreadsheets.values.clear({
-              spreadsheetId: SPREADSHEET_ID,
-              range: 'Hourly Records!A1:L'
-            }).then(() => {
-              console.log('Google Sheets cleared');
-              alert('All data cleared successfully from local storage and Google Sheets.');
-            }).catch(error => {
-              console.error('Error clearing Hourly Records:', error);
-              document.getElementById('error').textContent = 'Error clearing Hourly Records in Google Sheets.';
-            });
-          }).catch(error => {
-            console.error('Error clearing Completed Records:', error);
-            document.getElementById('error').textContent = 'Error clearing Completed Records in Google Sheets.';
-          });
-        } else {
-          alert('All data cleared successfully from local storage.');
-        }
-
-      } catch (error) {
-        console.error('Error in clearAllData:', error);
-        document.getElementById('error').textContent = 'An error occurred while clearing data. Please try again.';
-      }
-    }
+  } catch (error) {
+    console.error('Error in clearAllData:', error);
+    document.getElementById('error').textContent = 'An error occurred while clearing data. Please try again.';
+  }
+}
 </script>
 </body>
 </html>
