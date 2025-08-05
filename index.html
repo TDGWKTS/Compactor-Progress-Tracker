@@ -738,6 +738,72 @@
       min-width: 0;
     }
   }
+
+
+.sync-status {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 15px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sync-status.pending {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .sync-status.success {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .sync-status.error {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .sync-icon {
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .sync-btn {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 10px;
+  }
+
+  .sync-btn:hover {
+    background-color: #5a6268;
+  }
+
+  .sync-btn svg {
+    width: 14px;
+    height: 14px;
+  }
   </style>
 </head>
 <body>
@@ -897,10 +963,24 @@
       </div>
       
       <div class="footer">
-        Compactor Progress Tracker v2.4 | Data is stored locally in your browser
-      </div>
-    </div>
+    Compactor Progress Tracker v2.5 | Data is stored locally in your browser
+    <button class="sync-btn" id="manualSyncBtn">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+      </svg>
+      Sync Now
+    </button>
   </div>
+
+  <div id="syncStatus" class="sync-status" style="display: none;">
+    <svg class="sync-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+      <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+      <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+    </svg>
+    <span id="syncStatusText">Syncing data...</span>
+  </div>
+</div>
 
   <script>
     // Google Sheets API configuration
@@ -1018,118 +1098,144 @@
       document.body.appendChild(script);
     }
     
-    // Sync data to Google Sheets
-    async function syncToGoogleSheets() {
-      if (!gapiLoaded || log.length === 0) return;
+     // Global variable to track sync state
+  let isSyncing = false;
+
+  // Enhanced syncToGoogleSheets function with status updates
+  async function syncToGoogleSheets() {
+    if (!gapiLoaded || log.length === 0 || isSyncing) return;
+    
+    isSyncing = true;
+    const syncStatus = document.getElementById('syncStatus');
+    const syncStatusText = document.getElementById('syncStatusText');
+    
+    try {
+      // Show sync status
+      syncStatus.style.display = 'flex';
+      syncStatus.className = 'sync-status pending';
+      syncStatusText.textContent = 'Syncing data to Google Sheets...';
       
-      try {
-        // Prepare completed records data
-        const completedRecords = log.filter(entry => entry.outTime);
-        const completedData = [
-          ['No. of Container', 'Compactor Number', 'In Time', 'Out Time', 'Duration']
-        ];
+      // Prepare completed records data
+      const completedRecords = log.filter(entry => entry.outTime);
+      const completedData = [
+        ['No. of Container', 'Compactor Number', 'In Time', 'Out Time', 'Duration']
+      ];
+      
+      completedRecords.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
+        .forEach((entry, index) => {
+          const containerNumber = completedRecords.length - index;
+          const duration = calculateDuration(entry.inTime, entry.outTime).display;
+          completedData.push([
+            containerNumber,
+            entry.machineNumber,
+            entry.inTime,
+            entry.outTime,
+            duration
+          ]);
+        });
+      
+      // Prepare hourly records data
+      const timeSlots = [
+        { start: '07:30', end: '08:29' },
+        { start: '08:30', end: '09:29' },
+        { start: '09:30', end: '10:29' },
+        { start: '10:30', end: '11:29' },
+        { start: '11:30', end: '12:29' },
+        { start: '12:30', end: '13:29' },
+        { start: '13:30', end: '14:29' },
+        { start: '14:30', end: '15:29' },
+        { start: '15:30', end: '16:29' },
+        { start: '16:30', end: '17:29' },
+        { start: '17:30', end: '18:29' },
+        { start: '18:30', end: '19:29' },
+        { start: '19:30', end: '20:29' },
+        { start: '20:30', end: '21:29' },
+        { start: '21:30', end: '22:29' },
+        { start: '22:30', end: '23:29' },
+        { start: '23:30', end: '00:29' },
+        { start: '00:30', end: '01:29' },
+        { start: '01:30', end: '02:29' },
+        { start: '02:30', end: '03:29' },
+        { start: '03:30', end: '04:29' },
+        { start: '04:30', end: '05:29' },
+        { start: '05:30', end: '06:29' }
+      ];
+      
+      const hourlyData = [
+        ['Time Slot', ...Array.from({length: 10}, (_, i) => `Machine ${i+1}`), 'Total']
+      ];
+      
+      const parseTime = (timeStr, referenceDate = new Date()) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const date = new Date(referenceDate);
+        date.setHours(hours, minutes, 0, 0);
+        if (hours < 7) date.setDate(date.getDate() + 1);
+        return date;
+      };
+      
+      timeSlots.forEach(slot => {
+        const slotStart = parseTime(slot.start);
+        const slotEnd = parseTime(slot.end, slotStart);
+        const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
         
-        completedRecords.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
-          .forEach((entry, index) => {
-            const containerNumber = completedRecords.length - index;
-            const duration = calculateDuration(entry.inTime, entry.outTime).display;
-            completedData.push([
-              containerNumber,
-              entry.machineNumber,
-              entry.inTime,
-              entry.outTime,
-              duration
-            ]);
-          });
-        
-        // Prepare hourly records data
-        const timeSlots = [
-          { start: '07:30', end: '08:29' },
-          { start: '08:30', end: '09:29' },
-          { start: '09:30', end: '10:29' },
-          { start: '10:30', end: '11:29' },
-          { start: '11:30', end: '12:29' },
-          { start: '12:30', end: '13:29' },
-          { start: '13:30', end: '14:29' },
-          { start: '14:30', end: '15:29' },
-          { start: '15:30', end: '16:29' },
-          { start: '16:30', end: '17:29' },
-          { start: '17:30', end: '18:29' },
-          { start: '18:30', end: '19:29' },
-          { start: '19:30', end: '20:29' },
-          { start: '20:30', end: '21:29' },
-          { start: '21:30', end: '22:29' },
-          { start: '22:30', end: '23:29' },
-          { start: '23:30', end: '00:29' },
-          { start: '00:30', end: '01:29' },
-          { start: '01:30', end: '02:29' },
-          { start: '02:30', end: '03:29' },
-          { start: '03:30', end: '04:29' },
-          { start: '04:30', end: '05:29' },
-          { start: '05:30', end: '06:29' }
-        ];
-        
-        const hourlyData = [
-          ['Time Slot', ...Array.from({length: 10}, (_, i) => `Machine ${i+1}`), 'Total']
-        ];
-        
-        const parseTime = (timeStr, referenceDate = new Date()) => {
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          const date = new Date(referenceDate);
-          date.setHours(hours, minutes, 0, 0);
-          if (hours < 7) date.setDate(date.getDate() + 1);
-          return date;
-        };
-        
-        timeSlots.forEach(slot => {
-          const slotStart = parseTime(slot.start);
-          const slotEnd = parseTime(slot.end, slotStart);
-          const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
-          
-          completedRecords.forEach(entry => {
-            const inTime = parseTime(entry.inTime);
-            const outTime = parseTime(entry.outTime, inTime);
-            if (inTime >= slotStart && outTime <= slotEnd) {
-              machineCounts[entry.machineNumber]++;
-            }
-          });
-          
-          const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-          if (total > 0) {
-            hourlyData.push([`${slot.start}-${slot.end}`, ...machineCounts.slice(1), total]);
+        completedRecords.forEach(entry => {
+          const inTime = parseTime(entry.inTime);
+          const outTime = parseTime(entry.outTime, inTime);
+          if (inTime >= slotStart && outTime <= slotEnd) {
+            machineCounts[entry.machineNumber]++;
           }
         });
         
-        // Update Google Sheets
-        await updateSheet(COMPLETED_SHEET_NAME, completedData);
-        await updateSheet(HOURLY_SHEET_NAME, hourlyData);
-        
-        console.log('Data synced to Google Sheets');
-      } catch (error) {
-        console.error('Error syncing to Google Sheets:', error);
-      }
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        if (total > 0) {
+          hourlyData.push([`${slot.start}-${slot.end}`, ...machineCounts.slice(1), total]);
+        }
+      });
+      
+      // Update Google Sheets
+      await updateSheet(COMPLETED_SHEET_NAME, completedData);
+      await updateSheet(HOURLY_SHEET_NAME, hourlyData);
+      
+      // Update sync status
+      syncStatus.className = 'sync-status success';
+      syncStatusText.textContent = 'Data synced successfully!';
+      
+      console.log('Data synced to Google Sheets');
+    } catch (error) {
+      console.error('Error syncing to Google Sheets:', error);
+      syncStatus.className = 'sync-status error';
+      syncStatusText.textContent = 'Sync failed. See console for details.';
+    } finally {
+      isSyncing = false;
+      
+      // Hide status after 3 seconds
+      setTimeout(() => {
+        syncStatus.style.display = 'none';
+      }, 3000);
     }
-    
-    // Update a specific sheet in the spreadsheet
-    async function updateSheet(sheetName, data) {
-      try {
-        await gapi.client.sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `${sheetName}!A1`,
-          valueInputOption: 'RAW',
-          resource: {
-            values: data
-          }
-        });
-      } catch (error) {
-        console.error(`Error updating ${sheetName}:`, error);
-        throw error;
-      }
+  }
+
+  // Manual sync function that syncs to both Google Sheets and local storage
+  async function manualSync() {
+    try {
+      // Save to local storage first
+      saveToLocalStorage();
+      
+      // Then sync to Google Sheets
+      await syncToGoogleSheets();
+      
+      alert('Data synced to both Google Sheets and local storage successfully!');
+    } catch (error) {
+      console.error('Manual sync failed:', error);
+      alert('Manual sync failed. See console for details.');
     }
-    
-    // Attach event listeners when page loads
-    document.addEventListener('DOMContentLoaded', () => {
-      initializeSampleData();
+  }
+
+  // Update the DOMContentLoaded event listener to include the manual sync button
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeSampleData();
+
+
     
       // Attach event listeners to buttons
       document.getElementById('exportButton').addEventListener('click', exportToCSV);
@@ -1138,6 +1244,8 @@
       document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
       document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
       document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
+      document.getElementById('manualSyncBtn').addEventListener('click', manualSync);
+  });
     
       // Attach event listeners to machine buttons
       document.querySelectorAll('.compactor-btn').forEach(button => {
