@@ -926,7 +926,6 @@
   let isBlinkingEnabled = true;
   let updateInterval = null;
   let syncInterval = null;
-  let gapiLoaded = false;
   let authInitialized = false;
 
   // Initialize the application
@@ -952,66 +951,51 @@
     
     // Start syncing to Google Sheets every 5 minutes
     syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
-    
-    // Load Google API client library
-    loadGoogleAPI();
   }
 
-  // Load Google API client library
-  function loadGoogleAPI() {
-    return new Promise((resolve, reject) => {
-      if (window.gapi) {
-        gapiLoaded = true;
-        resolve();
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
-        gapiLoaded = true;
-        resolve();
-      };
-      script.onerror = () => {
-        reject('Failed to load Google API script');
-      };
-      document.body.appendChild(script);
-    });
-  }
-  
   // Initialize Google API client
   async function initClient() {
     try {
-      if (!gapiLoaded) {
-        await loadGoogleAPI();
+      if (!window.gapi) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://apis.google.com/js/api.js';
+          script.async = true;
+          script.defer = true;
+          script.onload = resolve;
+          script.onerror = reject;
+          document.body.appendChild(script);
+        });
       }
-      
-      await gapi.load('client:auth2', async () => {
-        try {
-          await gapi.client.init({
-            apiKey: API_KEY,
-            clientId: CLIENT_ID,
-            scope: SCOPE,
-            discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-          });
-          authInitialized = true;
-          console.log('Google API client initialized');
-          
-          // Listen for sign-in state changes
-          gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-          
-          // Handle initial sign-in state
-          updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
-        } catch (error) {
-          console.error('Error initializing Google API client:', error);
-          throw error;
-        }
+
+      await new Promise((resolve, reject) => {
+        gapi.load('client:auth2', {
+          callback: resolve,
+          onerror: reject,
+          timeout: 5000,
+          ontimeout: reject
+        });
       });
+
+      await gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        scope: SCOPE,
+        discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+      });
+
+      authInitialized = true;
+      console.log('Google API client initialized');
+      
+      // Listen for sign-in state changes
+      gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+      updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+      
+      return true;
     } catch (error) {
-      console.error('Error loading Google API:', error);
-      throw error;
+      console.error('Error initializing Google API:', error);
+      authInitialized = false;
+      return false;
     }
   }
 
@@ -1020,458 +1004,7 @@
       console.log('User is signed in');
     } else {
       console.log('User is not signed in');
-      // You can trigger sign-in here if needed
-      // handleAuthClick();
     }
-  }
-
-  function handleAuthClick() {
-    if (authInitialized) {
-      gapi.auth2.getAuthInstance().signIn();
-    } else {
-      console.error('Google API not initialized');
-    }
-  }
-
-  // Check login status
-  if (sessionStorage.getItem('loggedIn') === 'true') {
-    coverPage.style.display = 'none';
-    mainContainer.style.display = 'block';
-    initializeApp();
-  }
-
-  // Handle login button click
-  loginBtn.addEventListener('click', async () => {
-    console.log('Login button clicked, password:', passwordInput.value);
-    if (passwordInput.value === CORRECT_PASSWORD) {
-      console.log('Password correct, logging in...');
-      coverPage.style.display = 'none';
-      mainContainer.style.display = 'block';
-      sessionStorage.setItem('loggedIn', 'true');
-      initializeApp();
-    } else {
-      loginError.textContent = 'Incorrect password. Please try again.';
-      passwordInput.focus();
-    }
-  });
-
-  // Sync data to Google Sheets
-  async function syncToGoogleSheets() {
-    if (!authInitialized) {
-      console.log('Google API not initialized. Attempting initialization...');
-      try {
-        await initClient();
-      } catch (error) {
-        console.error('Failed to initialize Google API:', error);
-        return false;
-      }
-    }
-    
-    try {
-      // Check if user is signed in
-      const authInstance = gapi.auth2.getAuthInstance();
-      if (!authInstance.isSignedIn.get()) {
-        // Try to sign in silently first
-        try {
-          await authInstance.signIn({prompt: 'none'});
-        } catch (silentError) {
-          console.log('Silent sign-in failed, prompting user...');
-          await authInstance.signIn();
-        }
-      }
-      
-      // Prepare data for "Completed Records" sheet
-      const completedRecords = log.filter(entry => entry.outTime);
-      const statusData = [
-        ['No. of Container', 'Compactor Number', 'In Time', 'Out Time']
-      ];
-      
-      completedRecords.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
-        .forEach((entry, index) => {
-          const containerNumber = completedRecords.length - index;
-          statusData.push([
-            containerNumber,
-            entry.machineNumber,
-            entry.inTime,
-            entry.outTime
-          ]);
-        });
-      
-      // Prepare data for "Hourly Records" sheet
-      const timeSlots = [
-        { start: '07:30', end: '08:29' },
-        { start: '08:30', end: '09:29' },
-        { start: '09:30', end: '10:29' },
-        { start: '10:30', end: '11:29' },
-        { start: '11:30', end: '12:29' },
-        { start: '12:30', end: '13:29' },
-        { start: '13:30', end: '14:29' },
-        { start: '14:30', end: '15:29' },
-        { start: '15:30', end: '16:29' },
-        { start: '16:30', end: '17:29' },
-        { start: '17:30', end: '18:29' },
-        { start: '18:30', end: '19:29' },
-        { start: '19:30', end: '20:29' },
-        { start: '20:30', end: '21:29' },
-        { start: '21:30', end: '22:29' },
-        { start: '22:30', end: '23:29' },
-        { start: '23:30', end: '00:29' },
-        { start: '00:30', end: '01:29' },
-        { start: '01:30', end: '02:29' },
-        { start: '02:30', end: '03:29' },
-        { start: '03:30', end: '04:29' },
-        { start: '04:30', end: '05:29' },
-        { start: '05:30', end: '06:29' }
-      ];
-      
-      const hourlyData = [
-        ['Time Slot', ...Array.from({length: 10}, (_, i) => `Machine ${i+1}`), 'Total']
-      ];
-      
-      const parseTime = (timeStr, referenceDate = new Date()) => {
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        const date = new Date(referenceDate);
-        date.setHours(hours, minutes, 0, 0);
-        if (hours < 7) date.setDate(date.getDate() + 1);
-        return date;
-      };
-      
-      timeSlots.forEach(slot => {
-        const slotStart = parseTime(slot.start);
-        const slotEnd = parseTime(slot.end, slotStart);
-        const machineCounts = Array(10).fill(0);
-        
-        completedRecords.forEach(entry => {
-          const inTime = parseTime(entry.inTime);
-          const outTime = parseTime(entry.outTime, inTime);
-          if (inTime >= slotStart && outTime <= slotEnd) {
-            machineCounts[entry.machineNumber - 1]++;
-          }
-        });
-        
-        const total = machineCounts.reduce((sum, count) => sum + count, 0);
-        if (total > 0) {
-          hourlyData.push([
-            `${slot.start}-${slot.end}`,
-            ...machineCounts,
-            total
-          ]);
-        }
-      });
-
-      // Clear existing data first
-      await gapi.client.sheets.spreadsheets.batchUpdate({
-        spreadsheetId: SPREADSHEET_ID,
-        resource: {
-          requests: [
-            {
-              updateCells: {
-                range: {
-                  sheetId: 0,
-                  startRowIndex: 1,
-                  endRowIndex: 1000,
-                  startColumnIndex: 0,
-                  endColumnIndex: 4
-                },
-                fields: 'userEnteredValue'
-              }
-            },
-            {
-              updateCells: {
-                range: {
-                  sheetId: 1,
-                  startRowIndex: 1,
-                  endRowIndex: 1000,
-                  startColumnIndex: 0,
-                  endColumnIndex: 11
-                },
-                fields: 'userEnteredValue'
-              }
-            }
-          ]
-        }
-      });
-
-      // Update both sheets with new data
-      await gapi.client.sheets.spreadsheets.batchUpdate({
-        spreadsheetId: SPREADSHEET_ID,
-        resource: {
-          requests: [
-            {
-              updateCells: {
-                range: {
-                  sheetId: 0,
-                  startRowIndex: 0,
-                  startColumnIndex: 0
-                },
-                rows: statusData.map(row => ({
-                  values: row.map(cell => ({ userEnteredValue: { stringValue: cell.toString() } }))
-                })),
-                fields: 'userEnteredValue'
-              }
-            },
-            {
-              updateCells: {
-                range: {
-                  sheetId: 1,
-                  startRowIndex: 0,
-                  startColumnIndex: 0
-                },
-                rows: hourlyData.map(row => ({
-                  values: row.map(cell => ({ userEnteredValue: { stringValue: cell.toString() } }))
-                })),
-                fields: 'userEnteredValue'
-              }
-            }
-          ]
-        }
-      });
-      
-      console.log('Data synced to Google Sheets successfully');
-      return true;
-    } catch (error) {
-      console.error('Error syncing to Google Sheets:', error);
-      if (error.error && error.error === 'access_denied') {
-        alert('You do not have permission to edit this Google Sheet. Please make sure you are logged in with an authorized account.');
-      }
-      return false;
-    }
-  }
-
-  // Modified exportToCSV function
-  async function exportToCSV() {
-    try {
-      // Get current date for file naming
-      const dateStr = new Date().toISOString().slice(0, 10);
-      
-      // 1. Export Status Records CSV
-      if (log.length > 0) {
-        let statusCsv = 'No. of Container,Compactor Number,In Time,Out Time\n';
-        log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
-          .forEach((entry, index) => {
-            const containerNumber = log.length - index;
-            statusCsv += [
-              containerNumber,
-              entry.machineNumber,
-              `"${entry.inTime}"`,
-              `"${entry.outTime || ''}"`
-            ].join(',') + '\n';
-          });
-
-        const statusBlob = new Blob([statusCsv], { type: 'text/csv;charset=utf-8;' });
-        const statusUrl = URL.createObjectURL(statusBlob);
-        const statusLink = document.createElement('a');
-        statusLink.href = statusUrl;
-        statusLink.download = `compactor_status_${dateStr}.csv`;
-        document.body.appendChild(statusLink);
-        statusLink.click();
-        document.body.removeChild(statusLink);
-        URL.revokeObjectURL(statusUrl);
-      }
-
-      // 2. Export Hourly Records CSV
-      const completedRecords = log.filter(entry => entry.outTime);
-      if (completedRecords.length > 0) {
-        const timeSlots = [
-          { start: '07:30', end: '08:29' },
-          { start: '08:30', end: '09:29' },
-          { start: '09:30', end: '10:29' },
-          { start: '10:30', end: '11:29' },
-          { start: '11:30', end: '12:29' },
-          { start: '12:30', end: '13:29' },
-          { start: '13:30', end: '14:29' },
-          { start: '14:30', end: '15:29' },
-          { start: '15:30', end: '16:29' },
-          { start: '16:30', end: '17:29' },
-          { start: '17:30', end: '18:29' },
-          { start: '18:30', end: '19:29' },
-          { start: '19:30', end: '20:29' },
-          { start: '20:30', end: '21:29' },
-          { start: '21:30', end: '22:29' },
-          { start: '22:30', end: '23:29' },
-          { start: '23:30', end: '00:29' },
-          { start: '00:30', end: '01:29' },
-          { start: '01:30', end: '02:29' },
-          { start: '02:30', end: '03:29' },
-          { start: '03:30', end: '04:29' },
-          { start: '04:30', end: '05:29' },
-          { start: '05:30', end: '06:29' }
-        ];
-        
-        let hourlyCsv = 'Time Slot,' + 
-          Array.from({length: 10}, (_, i) => `Machine ${i+1}`).join(',') + 
-          ',Total\n';
-        
-        const parseTime = (timeStr, referenceDate = new Date()) => {
-          const [hours, minutes] = timeStr.split(':').map(Number);
-          const date = new Date(referenceDate);
-          date.setHours(hours, minutes, 0, 0);
-          if (hours < 7) date.setDate(date.getDate() + 1);
-          return date;
-        };
-        
-        timeSlots.forEach(slot => {
-          const slotStart = parseTime(slot.start);
-          const slotEnd = parseTime(slot.end, slotStart);
-          const machineCounts = Array(10).fill(0);
-          
-          completedRecords.forEach(entry => {
-            const inTime = parseTime(entry.inTime);
-            const outTime = parseTime(entry.outTime, inTime);
-            if (inTime >= slotStart && outTime <= slotEnd) {
-              machineCounts[entry.machineNumber - 1]++;
-            }
-          });
-          
-          const total = machineCounts.reduce((sum, count) => sum + count, 0);
-          if (total > 0) {
-            hourlyCsv += `"${slot.start}-${slot.end}",${machineCounts.join(',')},${total}\n`;
-          }
-        });
-
-        const hourlyBlob = new Blob([hourlyCsv], { type: 'text/csv;charset=utf-8;' });
-        const hourlyUrl = URL.createObjectURL(hourlyBlob);
-        const link = document.createElement('a');
-        link.href = hourlyUrl;
-        link.download = `compactor_hourly_${dateStr}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(hourlyUrl);
-      }
-
-      // Sync to Google Sheets
-      const syncSuccess = await syncToGoogleSheets();
-      
-      if (syncSuccess) {
-        // Clear localStorage after successful export and sync
-        localStorage.removeItem('compactorLog');
-        localStorage.removeItem('compactorActionHistory');
-        alert('Data exported and synced to Google Sheets successfully!');
-      } else {
-        alert('Data exported but Google Sheets sync failed. Check console for details.');
-      }
-    } catch (error) {
-      console.error('Error in exportToCSV:', error);
-      document.getElementById('error').textContent = 'An error occurred while exporting. Please try again.';
-    }
-  }
- // Helper function to set loading state
-  function setLoading(isLoading) {
-    const exportBtn = document.getElementById('exportButton');
-    exportBtn.disabled = isLoading;
-    exportBtn.innerHTML = isLoading ? 
-      '<svg width="20" height="20" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g transform="translate(1 1)" stroke-width="2"><circle stroke-opacity=".5" cx="18" cy="18" r="18"/><path d="M36 18c0-9.94-8.06-18-18-18"><animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="1s" repeatCount="indefinite"/></path></g></g></svg> Syncing...' : 
-      '<svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg> Export to CSV';
-  }
-
-  // Toggle blinking animation
-  function toggleBlinking() {
-    isBlinkingEnabled = !isBlinkingEnabled;
-    const toggleButton = document.getElementById('toggleBlink');
-    toggleButton.innerHTML = `
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-      </svg>
-      ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
-    `;
-    updateStatusTable();
-  }
-
-  // Toggle hourly records view
-  function toggleHourlyRecords() {
-    showAllHourly = !showAllHourly;
-    updateHourlyTable();
-  }
-
-  // Toggle records view
-  function toggleRecords() {
-    showAllRecords = !showAllRecords;
-    updateStatusTable();
-  }
-
-  // Handle machine button click
-  function handleMachineButtonClick(machineNum) {
-    try {
-      const errorDiv = document.getElementById('error');
-      const currentTime = new Date().toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Hong_Kong'
-      }).replace("24:", "00:");
-
-      // Check for existing In Time without Out Time
-      const existingEntry = log.find(entry => 
-        entry.machineNumber === machineNum && !entry.outTime
-      );
-
-      if (existingEntry) {
-        // Second click: Record Out Time
-        actionHistory.push({
-          type: 'addOutTime',
-          entry: { ...existingEntry },
-          newOutTime: currentTime
-        });
-        existingEntry.outTime = currentTime;
-        existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-
-        // Update UI
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-
-        // Enable undo button
-        document.getElementById('undoButton').disabled = false;
-      } else {
-        // First click: Record In Time
-        const entry = {
-          machineNumber: machineNum,
-          inTime: currentTime,
-          outTime: '',
-          entryTimestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' })
-        };
-
-        actionHistory.push({
-          type: 'addInTime',
-          entry: { ...entry }
-        });
-
-        // Add to log
-        log.push(entry);
-
-        // Update UI
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-
-        // Enable undo button
-        document.getElementById('undoButton').disabled = false;
-      }
-      
-      // Save to localStorage
-      localStorage.setItem('compactorLog', JSON.stringify(log));
-      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-
-      // Clear error
-      errorDiv.textContent = '';
-
-    } catch (error) {
-      console.error('Error in handleMachineButtonClick:', error);
-      document.getElementById('error').textContent = 'An error occurred. Please try again.';
-    }
-  }
-
-  // Update machine button states
-  function updateMachineButtonStates() {
-    document.querySelectorAll('.compactor-btn').forEach(button => {
-      const machineNum = parseInt(button.getAttribute('data-machine'));
-      const hasActiveSession = log.some(entry => 
-        entry.machineNumber === machineNum && !entry.outTime
-      );
-      button.classList.toggle('active', hasActiveSession);
-    });
   }
 
   // Update status table
@@ -1675,48 +1208,15 @@
     });
   }
 
-  // Delete entry
-  function deleteEntry(machineNumber, entryTimestamp) {
-    try {
-      if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
-        return;
-      }
-
-      // Find the entry to delete
-      const entryIndex = log.findIndex(entry => 
-        entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
+  // Update machine button states
+  function updateMachineButtonStates() {
+    document.querySelectorAll('.compactor-btn').forEach(button => {
+      const machineNum = parseInt(button.getAttribute('data-machine'));
+      const hasActiveSession = log.some(entry => 
+        entry.machineNumber === machineNum && !entry.outTime
       );
-      if (entryIndex === -1) {
-        alert('Record not found.');
-        return;
-      }
-
-      // Store the deleted entry in action history
-      actionHistory.push({
-        type: 'deleteEntry',
-        entry: { ...log[entryIndex] }
-      });
-
-      // Remove the entry from the log
-      log.splice(entryIndex, 1);
-      
-      // Save to localStorage
-      localStorage.setItem('compactorLog', JSON.stringify(log));
-      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-
-      // Update UI
-      updateStatusTable();
-      updateHourlyTable();
-      updateMachineButtonStates();
-
-      // Enable undo button
-      document.getElementById('undoButton').disabled = false;
-
-      alert('Record deleted successfully.');
-    } catch (error) {
-      console.error('Error in deleteEntry:', error);
-      document.getElementById('error').textContent = 'An error occurred while deleting the record. Please try again.';
-    }
+      button.classList.toggle('active', hasActiveSession);
+    });
   }
 
   // Calculate duration
@@ -1748,6 +1248,78 @@
       };
     } catch {
       return { display: 'N/A', minutes: 0 };
+    }
+  }
+
+  // Handle machine button click
+  function handleMachineButtonClick(machineNum) {
+    try {
+      const errorDiv = document.getElementById('error');
+      const currentTime = new Date().toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Hong_Kong'
+      }).replace("24:", "00:");
+
+      // Check for existing In Time without Out Time
+      const existingEntry = log.find(entry => 
+        entry.machineNumber === machineNum && !entry.outTime
+      );
+
+      if (existingEntry) {
+        // Second click: Record Out Time
+        actionHistory.push({
+          type: 'addOutTime',
+          entry: { ...existingEntry },
+          newOutTime: currentTime
+        });
+        existingEntry.outTime = currentTime;
+        existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
+
+        // Update UI
+        updateStatusTable();
+        updateHourlyTable();
+        updateMachineButtonStates();
+
+        // Enable undo button
+        document.getElementById('undoButton').disabled = false;
+      } else {
+        // First click: Record In Time
+        const entry = {
+          machineNumber: machineNum,
+          inTime: currentTime,
+          outTime: '',
+          entryTimestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' })
+        };
+
+        actionHistory.push({
+          type: 'addInTime',
+          entry: { ...entry }
+        });
+
+        // Add to log
+        log.push(entry);
+
+        // Update UI
+        updateStatusTable();
+        updateHourlyTable();
+        updateMachineButtonStates();
+
+        // Enable undo button
+        document.getElementById('undoButton').disabled = false;
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('compactorLog', JSON.stringify(log));
+      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+
+      // Clear error
+      errorDiv.textContent = '';
+
+    } catch (error) {
+      console.error('Error in handleMachineButtonClick:', error);
+      document.getElementById('error').textContent = 'An error occurred. Please try again.';
     }
   }
 
@@ -1869,6 +1441,50 @@
     } catch (error) {
       console.error('Error in editEntry:', error);
       document.getElementById('error').textContent = 'An error occurred. Please try again.';
+    }
+  }
+
+  // Delete entry
+  function deleteEntry(machineNumber, entryTimestamp) {
+    try {
+      if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
+        return;
+      }
+
+      // Find the entry to delete
+      const entryIndex = log.findIndex(entry => 
+        entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
+      );
+      if (entryIndex === -1) {
+        alert('Record not found.');
+        return;
+      }
+
+      // Store the deleted entry in action history
+      actionHistory.push({
+        type: 'deleteEntry',
+        entry: { ...log[entryIndex] }
+      });
+
+      // Remove the entry from the log
+      log.splice(entryIndex, 1);
+      
+      // Save to localStorage
+      localStorage.setItem('compactorLog', JSON.stringify(log));
+      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+
+      // Update UI
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+
+      // Enable undo button
+      document.getElementById('undoButton').disabled = false;
+
+      alert('Record deleted successfully.');
+    } catch (error) {
+      console.error('Error in deleteEntry:', error);
+      document.getElementById('error').textContent = 'An error occurred while deleting the record. Please try again.';
     }
   }
 
@@ -2002,7 +1618,53 @@
     }
   }
 
-// Attach event listeners to buttons
+  // Toggle blinking animation
+  function toggleBlinking() {
+    isBlinkingEnabled = !isBlinkingEnabled;
+    const toggleButton = document.getElementById('toggleBlink');
+    toggleButton.innerHTML = `
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+      </svg>
+      ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
+    `;
+    updateStatusTable();
+  }
+
+  // Toggle hourly records view
+  function toggleHourlyRecords() {
+    showAllHourly = !showAllHourly;
+    updateHourlyTable();
+  }
+
+  // Toggle records view
+  function toggleRecords() {
+    showAllRecords = !showAllRecords;
+    updateStatusTable();
+  }
+
+  // Check login status
+  if (sessionStorage.getItem('loggedIn') === 'true') {
+    coverPage.style.display = 'none';
+    mainContainer.style.display = 'block';
+    initializeApp();
+  }
+
+  // Handle login button click
+  loginBtn.addEventListener('click', async () => {
+    if (passwordInput.value === CORRECT_PASSWORD) {
+      coverPage.style.display = 'none';
+      mainContainer.style.display = 'block';
+      sessionStorage.setItem('loggedIn', 'true');
+      initializeApp();
+    } else {
+      loginError.textContent = 'Incorrect password. Please try again.';
+      passwordInput.focus();
+    }
+  });
+
+  // Attach event listeners to buttons
   document.getElementById('exportButton').addEventListener('click', exportToCSV);
   document.getElementById('clearButton').addEventListener('click', clearAllData);
   document.getElementById('undoButton').addEventListener('click', undoLastAction);
@@ -2024,5 +1686,5 @@
     if (syncInterval) clearInterval(syncInterval);
   });
 </script>
-Key Impr</body>
+</body>
 </html>
