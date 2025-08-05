@@ -959,15 +959,20 @@
         return false;
       }
 
+      // Load client and auth2 libraries
       await new Promise((resolve, reject) => {
         gapi.load('client:auth2', {
-          callback: resolve,
-          onerror: reject,
-          timeout: 5000,
+          callback: () => {
+            console.log('Google API client:auth2 loaded');
+            resolve();
+          },
+          onerror: () => reject(new Error('Failed to load gapi client:auth2')),
+          timeout: 10000, // Increased timeout to 10 seconds
           ontimeout: () => reject(new Error('Google API load timeout'))
         });
       });
 
+      // Initialize the client with API key, client ID, and scope
       await gapi.client.init({
         apiKey: API_KEY,
         clientId: CLIENT_ID,
@@ -976,8 +981,9 @@
       });
 
       authInitialized = true;
-      console.log('Google API client initialized');
+      console.log('Google API client initialized successfully');
 
+      // Set up sign-in status listener
       gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
       updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
 
@@ -985,19 +991,23 @@
     } catch (error) {
       console.error('Error initializing Google API:', error);
       authInitialized = false;
-      document.getElementById('error').textContent = 'Failed to initialize Google API. Some features may not work.';
+      document.getElementById('error').textContent = 'Failed to initialize Google API. Please check your network or API credentials.';
       return false;
     }
   }
 
+  // Handle sign-in status changes
   function updateSigninStatus(isSignedIn) {
     console.log(isSignedIn ? 'User is signed in' : 'User is not signed in');
+    if (isSignedIn) {
+      document.getElementById('error').textContent = '';
+    }
   }
 
   // Sync data to Google Sheets
   async function syncToGoogleSheets() {
     if (!authInitialized) {
-      console.error('Google API not initialized. Attempting initialization...');
+      console.warn('Google API not initialized. Attempting initialization...');
       const initialized = await initClient();
       if (!initialized) {
         document.getElementById('error').textContent = 'Google API initialization failed. Cannot sync data.';
@@ -1008,6 +1018,7 @@
     try {
       const isSignedIn = gapi.auth2.getAuthInstance().isSignedIn.get();
       if (!isSignedIn) {
+        console.log('User not signed in. Prompting for sign-in...');
         await gapi.auth2.getAuthInstance().signIn();
       }
 
@@ -1020,25 +1031,43 @@
         calculateDuration(entry.inTime, entry.outTime).display
       ]);
 
-      // Append data to Google Sheet
-      const response = await gapi.client.sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'Sheet1!A:E',
-        valueInputOption: 'RAW',
-        insertDataOption: 'INSERT_ROWS',
-        resource: {
-          values: [
-            ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'],
-            ...values
-          ]
-        }
-      });
+      // Append data to Google Sheet with retry logic for rate limits
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          const response = await gapi.client.sheets.spreadsheets.values.append({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Sheet1!A:E',
+            valueInputOption: 'RAW',
+            insertDataOption: 'INSERT_ROWS',
+            resource: {
+              values: [
+                ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'],
+                ...values
+              ]
+            }
+          });
 
-      console.log('Data synced to Google Sheets:', response);
-      return true;
+          console.log('Data synced to Google Sheets:', response);
+          document.getElementById('error').textContent = '';
+          return true;
+        } catch (error) {
+          if (error.status === 429 && retries > 0) {
+            // Handle rate limit with exponential backoff
+            const delay = (4 - retries) * 1000; // 1s, 2s, 3s
+            console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            retries--;
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      throw new Error('Failed to sync after retries');
     } catch (error) {
       console.error('Error syncing to Google Sheets:', error);
-      document.getElementById('error').textContent = 'Failed to sync data to Google Sheets.';
+      document.getElementById('error').textContent = 'Failed to sync data to Google Sheets. Please try again later.';
       return false;
     }
   }
