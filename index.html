@@ -923,9 +923,9 @@
   const loginError = document.getElementById('login-error');
 
   // Google Sheets API configuration
-  const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM'; // Replace with your actual API key
-  const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com'; // Replace with your actual OAuth client ID
-  const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo'; // Replace with your actual spreadsheet ID
+  const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
+  const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
+  const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo';
   const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 
   // Global variables
@@ -983,7 +983,7 @@
             resolve();
           },
           onerror: () => reject(new Error('Failed to load gapi client:auth2')),
-          timeout: 15000, // Increased timeout to 15 seconds
+          timeout: 15000, // 15-second timeout
           ontimeout: () => reject(new Error('Google API load timeout'))
         });
       });
@@ -1005,9 +1005,17 @@
 
       return true;
     } catch (error) {
-      console.error('Error initializing Google API:', error.message || error);
+      // Enhanced error logging
+      const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
+      console.error('Error initializing Google API:', {
+        message: error.message,
+        details: errorDetails,
+        status: error.status,
+        result: error.result,
+        stack: error.stack
+      });
       authInitialized = false;
-      document.getElementById('error').textContent = `Failed to initialize Google API: ${error.message || 'Unknown error'}. Please check your API credentials or network connection.`;
+      document.getElementById('error').textContent = `Failed to initialize Google API: ${errorDetails || 'Unknown error'}. Please check your API key, client ID, spreadsheet access, or network connection.`;
       return false;
     }
   }
@@ -1082,8 +1090,15 @@
 
       throw new Error('Failed to sync after retries');
     } catch (error) {
-      console.error('Error syncing to Google Sheets:', error.message || error);
-      document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${error.message || 'Unknown error'}.`;
+      const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
+      console.error('Error syncing to Google Sheets:', {
+        message: error.message,
+        details: errorDetails,
+        status: error.status,
+        result: error.result,
+        stack: error.stack
+      });
+      document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again.`;
       return false;
     }
   }
@@ -1680,8 +1695,14 @@
         alert('Data exported to CSV, but Google Sheets sync failed.');
       }
     } catch (error) {
-      console.error('Error in exportToCSV:', error);
-      document.getElementById('error').textContent = `An error occurred while exporting data: ${error.message || 'Unknown error'}.`;
+      const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
+      console.error('Error in exportToCSV:', {
+        message: error.message,
+        details: errorDetails,
+        status: error.status,
+        result: error.result
+      });
+      document.getElementById('error').textContent = `An error occurred while exporting data: ${errorDetails || 'Unknown error'}.`;
     }
   }
 
