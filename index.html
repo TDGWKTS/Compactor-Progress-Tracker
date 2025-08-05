@@ -1504,43 +1504,76 @@
 // =============================================
 // Session Management Functions
 // =============================================
-function logout() {
-  // Clear session
-  sessionStorage.removeItem('loggedIn');
+function resetSessionTimer() {
+  // Clear any existing timeout
+  if (state.timers.sessionTimeout) {
+    clearTimeout(state.timers.sessionTimeout);
+  }
   
-  // Show login page and hide main content
-  document.getElementById('cover-page').style.display = 'flex';
-  document.getElementById('main-container').style.display = 'none';
-  
-  // Clear any existing data
-  cleanupTimers();
-  
-  // Reload the page to reset state
-  window.location.reload();
+  // Set new timeout
+  state.timers.sessionTimeout = setTimeout(() => {
+    showToast('Session timed out due to inactivity', 'info');
+    logout();
+  }, CONFIG.SESSION_TIMEOUT);
 }
-// =============================================
-// Sync Functions
-// =============================================
-function manualSync() {
-  const syncBtn = document.getElementById('manualSyncBtn');
-  
+
+function logout() {
   try {
-    setLoading(syncBtn, true);
+    // Clear session
+    sessionStorage.removeItem('loggedIn');
     
-    // Save to local storage
-    syncToLocalStorage();
+    // Show login page and hide main content
+    document.getElementById('cover-page').style.display = 'flex';
+    document.getElementById('main-container').style.display = 'none';
     
-    showToast('Data synced successfully!', 'success');
+    // Clear any existing data
+    cleanupTimers();
+    
+    // Reload the page to reset state
+    window.location.reload();
   } catch (error) {
-    console.error('Manual sync failed:', error);
-    showToast('Manual sync failed. See console for details.', 'error');
-  } finally {
-    setLoading(syncBtn, false);
+    console.error('Logout error:', error);
+    // Force reload if logout fails
+    window.location.reload();
   }
 }
 
+// =============================================
+// Initialization Functions
+// =============================================
+function initializeApp() {
+  try {
+    loadFromLocalStorage();
+    initializeUI();
+    startTimers();
+    setupEventListeners();
+    resetSessionTimer(); // Initialize the session timer
+    
+    showToast('Welcome to Compactor Tracker!', 'success');
+  } catch (error) {
+    console.error('Initialization error:', error);
+    showToast('Failed to initialize app', 'error');
+  }
+}
 
- // =============================================
+// =============================================
+// Timer Management Functions
+// =============================================
+function startTimers() {
+  // Start dynamic updates every 60 seconds
+  state.timers.updateInterval = setInterval(updateStatusTable, 60000);
+  
+  // Start data sync every 1 minute
+  state.timers.syncInterval = setInterval(syncToLocalStorage, 60000);
+}
+
+function cleanupTimers() {
+  clearInterval(state.timers.updateInterval);
+  clearInterval(state.timers.syncInterval);
+  clearTimeout(state.timers.sessionTimeout);
+}
+
+// =============================================
 // Event Listeners Setup
 // =============================================
 function setupEventListeners() {
@@ -1575,12 +1608,11 @@ function setupEventListeners() {
     });
   });
   
-  // Activity tracking
+  // Activity tracking - reset session timer on user activity
   ['mousemove', 'keypress', 'click'].forEach(event => {
     document.addEventListener(event, resetSessionTimer);
   });
 }
-
     async function handleLogin() {
       const passwordInput = document.getElementById('password-input');
       const loginBtn = document.getElementById('login-btn');
