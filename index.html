@@ -1501,46 +1501,85 @@
       }).replace("24:", "00:"); // Handle midnight
     }
 
-    // =============================================
-    // Event Handlers
-    // =============================================
-    function setupEventListeners() {
-      // Password protection
-      document.getElementById('login-btn').addEventListener('click', handleLogin);
-      document.getElementById('password-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleLogin();
-      });
+// =============================================
+// Session Management Functions
+// =============================================
+function logout() {
+  // Clear session
+  sessionStorage.removeItem('loggedIn');
+  
+  // Show login page and hide main content
+  document.getElementById('cover-page').style.display = 'flex';
+  document.getElementById('main-container').style.display = 'none';
+  
+  // Clear any existing data
+  cleanupTimers();
+  
+  // Reload the page to reset state
+  window.location.reload();
+}
+// =============================================
+// Sync Functions
+// =============================================
+function manualSync() {
+  const syncBtn = document.getElementById('manualSyncBtn');
+  
+  try {
+    setLoading(syncBtn, true);
+    
+    // Save to local storage
+    syncToLocalStorage();
+    
+    showToast('Data synced successfully!', 'success');
+  } catch (error) {
+    console.error('Manual sync failed:', error);
+    showToast('Manual sync failed. See console for details.', 'error');
+  } finally {
+    setLoading(syncBtn, false);
+  }
+}
+
+
+ // =============================================
+// Event Listeners Setup
+// =============================================
+function setupEventListeners() {
+  // Password protection
+  document.getElementById('login-btn').addEventListener('click', handleLogin);
+  document.getElementById('password-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleLogin();
+  });
+  
+  // Main buttons
+  document.getElementById('exportButton').addEventListener('click', exportToCSV);
+  document.getElementById('clearButton').addEventListener('click', confirmClearAllData);
+  document.getElementById('undoButton').addEventListener('click', undoLastAction);
+  document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
+  document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
+  document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
+  document.getElementById('manualSyncBtn').addEventListener('click', manualSync);
+  document.getElementById('logout-btn').addEventListener('click', logout);
+  
+  // Machine buttons with debouncing
+  document.querySelectorAll('.compactor-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      const machineNum = parseInt(button.getAttribute('data-machine'));
+      const now = Date.now();
       
-      // Main buttons
-      document.getElementById('exportButton').addEventListener('click', exportToCSV);
-      document.getElementById('clearButton').addEventListener('click', confirmClearAllData);
-      document.getElementById('undoButton').addEventListener('click', undoLastAction);
-      document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
-      document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
-      document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
-      document.getElementById('manualSyncBtn').addEventListener('click', manualSync);
-      document.getElementById('logout-btn').addEventListener('click', logout);
-      
-      // Machine buttons with debouncing
-      document.querySelectorAll('.compactor-btn').forEach(button => {
-        button.addEventListener('click', () => {
-          const machineNum = parseInt(button.getAttribute('data-machine'));
-          const now = Date.now();
-          
-          // Debounce rapid clicks (300ms cooldown)
-          if (!state.timers.buttonDebounce[machineNum] || 
-              now - state.timers.buttonDebounce[machineNum] > 300) {
-            state.timers.buttonDebounce[machineNum] = now;
-            handleMachineButtonClick(machineNum);
-          }
-        });
-      });
-      
-      // Activity tracking
-      ['mousemove', 'keypress', 'click'].forEach(event => {
-        document.addEventListener(event, resetSessionTimer);
-      });
-    }
+      // Debounce rapid clicks (300ms cooldown)
+      if (!state.timers.buttonDebounce[machineNum] || 
+          now - state.timers.buttonDebounce[machineNum] > 300) {
+        state.timers.buttonDebounce[machineNum] = now;
+        handleMachineButtonClick(machineNum);
+      }
+    });
+  });
+  
+  // Activity tracking
+  ['mousemove', 'keypress', 'click'].forEach(event => {
+    document.addEventListener(event, resetSessionTimer);
+  });
+}
 
     async function handleLogin() {
       const passwordInput = document.getElementById('password-input');
