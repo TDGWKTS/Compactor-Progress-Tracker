@@ -904,7 +904,6 @@
   </div>
 
   <script>
-
 // Password protection
 const CORRECT_PASSWORD = "compactor123";
 const coverPage = document.getElementById('cover-page');
@@ -933,6 +932,9 @@ let isBlinkingEnabled = true;
 let updateInterval = null;
 let syncInterval = null;
 
+// Flag to track if storage is accessible
+let isStorageAccessible = true;
+
 // Function to check if both gapi and gis are loaded
 function checkApiLoaded(callback) {
   if (typeof gapi !== 'undefined' && typeof google !== 'undefined') {
@@ -951,8 +953,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Debug: Ensure elements are found
   console.log('Elements:', { coverPage, mainContainer, passwordInput, loginBtn, loginError });
 
+  // Check storage accessibility
+  try {
+    sessionStorage.setItem('test', 'test');
+    sessionStorage.removeItem('test');
+  } catch (e) {
+    isStorageAccessible = false;
+    console.warn('Storage access blocked. Running in fallback mode.');
+    document.getElementById('error').textContent = 'Browser storage is blocked. Some features may not persist.';
+  }
+
   // Check if user is already logged in
-  if (sessionStorage.getItem('loggedIn') === 'true') {
+  if (isStorageAccessible && sessionStorage.getItem('loggedIn') === 'true') {
     console.log('User already logged in');
     coverPage.style.display = 'none';
     mainContainer.style.display = 'block';
@@ -965,8 +977,12 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('Password correct, logging in...');
       coverPage.style.display = 'none';
       mainContainer.style.display = 'block';
-      sessionStorage.setItem('loggedIn', 'true');
+      if (isStorageAccessible) {
+        sessionStorage.setItem('loggedIn', 'true');
+      }
       loginError.textContent = '';
+      // Load data and initialize UI after login
+      loadFromLocalStorage();
     } else {
       console.log('Password incorrect');
       loginError.textContent = 'Incorrect password. Please try again.';
@@ -987,9 +1003,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize Google API
   initializeGapi();
-
-  // Load data from local storage
-  loadFromLocalStorage();
 
   // Attach event listeners to buttons
   document.getElementById('exportButton').addEventListener('click', exportToCSV);
@@ -1050,7 +1063,7 @@ function initializeGapi() {
             syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
           },
         });
-        if (sessionStorage.getItem('loggedIn') === 'true') {
+        if (isStorageAccessible && sessionStorage.getItem('loggedIn') === 'true') {
           tokenClient.requestAccessToken({ prompt: '' });
         }
       });
@@ -1063,28 +1076,41 @@ function initializeGapi() {
 
 // Load data from local storage
 function loadFromLocalStorage() {
-  const savedLog = localStorage.getItem('compactorLog');
-  const savedHistory = localStorage.getItem('compactorActionHistory');
-  if (savedLog) {
-    log = JSON.parse(savedLog);
+  if (!isStorageAccessible) {
+    console.warn('Storage not accessible. Skipping local storage load.');
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    document.getElementById('undoButton').disabled = actionHistory.length === 0;
+    return;
   }
-  if (savedHistory) {
-    actionHistory = JSON.parse(savedHistory);
+  try {
+    const savedLog = localStorage.getItem('compactorLog');
+    const savedHistory = localStorage.getItem('compactorActionHistory');
+    if (savedLog) log = JSON.parse(savedLog);
+    if (savedHistory) actionHistory = JSON.parse(savedHistory);
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    document.getElementById('undoButton').disabled = actionHistory.length === 0;
+  } catch (error) {
+    console.error('Error loading from local storage:', error);
+    document.getElementById('error').textContent = 'Error loading data from local storage.';
   }
-  updateStatusTable();
-  updateHourlyTable();
-  updateMachineButtonStates();
-  document.getElementById('undoButton').disabled = actionHistory.length === 0;
 }
 
 // Save data to local storage
 function saveToLocalStorage() {
+  if (!isStorageAccessible) {
+    console.warn('Storage not accessible. Skipping local storage save.');
+    return;
+  }
   try {
     localStorage.setItem('compactorLog', JSON.stringify(log));
     localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
   } catch (error) {
     console.error('Error saving to local storage:', error);
-    document.getElementById('error').textContent = 'Error saving data locally. Please try again.';
+    document.getElementById('error').textContent = 'Error saving data locally.';
   }
 }
 
@@ -1246,7 +1272,6 @@ function updateStatusTable() {
     `;
     statusBody.appendChild(row);
 
-    // Add event listeners to avoid inline onclick
     const inTimeCell = row.querySelector('.in-time');
     const outTimeCell = row.querySelector('.out-time');
     const deleteIcon = row.querySelector('.delete-icon');
@@ -1810,7 +1835,14 @@ function exportToCSV() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `Compactor_Progress_${new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Hong_Kong' }).replace(/\//g, '-')}.csv`);
+    
+    // Simplified filename to avoid locale-specific issues
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    link.setAttribute('download', `Compactor_Progress_${year}-${month}-${day}.csv`);
+    
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -1821,8 +1853,11 @@ function exportToCSV() {
     } else {
       console.warn('Google API not initialized. Skipping sync.');
     }
-    localStorage.removeItem('compactorLog');
-    localStorage.removeItem('compactorActionHistory');
+    
+    if (isStorageAccessible) {
+      localStorage.removeItem('compactorLog');
+      localStorage.removeItem('compactorActionHistory');
+    }
     log = [];
     actionHistory = [];
     updateStatusTable();
@@ -1849,8 +1884,10 @@ function clearAllData() {
     });
 
     log = [];
-    localStorage.removeItem('compactorLog');
-    localStorage.removeItem('compactorActionHistory');
+    if (isStorageAccessible) {
+      localStorage.removeItem('compactorLog');
+      localStorage.removeItem('compactorActionHistory');
+    }
     updateStatusTable();
     updateHourlyTable();
     updateMachineButtonStates();
