@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -816,70 +817,6 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-
-    /* Sync Status */
-    .sync-status {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 10px 15px;
-      border-radius: 20px;
-      font-size: 14px;
-      font-weight: bold;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      opacity: 0;
-      animation: fadeIn 0.3s forwards;
-    }
-
-    .sync-status.pending {
-      background-color: #fff3cd;
-      color: #856404;
-    }
-
-    .sync-status.success {
-      background-color: #d4edda;
-      color: #155724;
-    }
-
-    .sync-status.error {
-      background-color: #f8d7da;
-      color: #721c24;
-    }
-
-    .sync-icon {
-      width: 16px;
-      height: 16px;
-      animation: spin 1s linear infinite;
-    }
-
-    .sync-btn {
-      background-color: #6c757d;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 8px 15px;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      margin-left: 10px;
-      transition: all 0.2s;
-    }
-
-    .sync-btn:hover {
-      background-color: #5a6268;
-    }
-
-    .sync-btn svg {
-      width: 14px;
-      height: 14px;
-    }
   </style>
 </head>
 <body>
@@ -901,13 +838,7 @@
     <div class="container">
       <header>
         <h1>Compactor Progress Tracker</h1>
-        <button id="logout-btn" class="logout-btn">
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
-            <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
-          </svg>
-          Logout
-        </button>
+        <button id="logout-btn" class="logout-btn">Logout</button>
       </header>
       
       <div class="dashboard">
@@ -979,7 +910,7 @@
                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                 <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
               </svg>
-              Export to CSV
+              Export to CSV & Google Sheets
             </button>
             <button class="btn btn-clear" id="clearButton">
               <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
@@ -1049,40 +980,30 @@
       
       <div class="footer">
         Compactor Progress Tracker v2.5 | Data is stored locally in your browser
-        <button class="sync-btn" id="manualSyncBtn">
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-          </svg>
-          Sync Now
-        </button>
-      </div>
-
-      <div id="syncStatus" class="sync-status" style="display: none;">
-        <svg class="sync-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-          <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-        </svg>
-        <span id="syncStatusText">Syncing data...</span>
       </div>
     </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bcrypt.js/2.4.0/bcrypt.min.js"></script>
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://accounts.google.com/gsi/client"></script>
   <script>
     // =============================================
     // Configuration
     // =============================================
     const CONFIG = {
-      // Security Configuration
-      PASSWORD_HASH: "$2a$10$N9qo8uLOickgx2ZMRZoMy.MQDqShxs6mYjUHi6IHChuL0CG3G7Pem", // bcrypt hash of "compactor123"
-      SESSION_TIMEOUT: 30 * 60 * 1000, // 30 minutes
-      
-      // Time Settings
+      PASSWORD_HASH: "$2a$10$N9qo8uLOickgx2ZMRZoMy.MQDqShxs6mYjUHi6IHChuL0CG3G7Pem",
+      SESSION_TIMEOUT: 30 * 60 * 1000,
       TIMEZONE: 'Asia/Hong_Kong',
       WORKING_HOURS: {
         start: '07:30',
         end: '06:29'
+      },
+      GOOGLE: {
+        CLIENT_ID: '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com',
+        API_KEY: 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM',
+        SCOPES: 'https://www.googleapis.com/auth/spreadsheets',
+        APPS_SCRIPT_URL: 'YOUR_APPS_SCRIPT_URL' // Replace with your deployed Google Apps Script web app URL
       }
     };
 
@@ -1101,73 +1022,155 @@
         updateInterval: null,
         syncInterval: null,
         sessionTimeout: null,
-        buttonDebounce: {} // Track button click timestamps
+        buttonDebounce: {}
       },
-      isSyncing: false,
-      lastSyncTime: null
+      google: {
+        gapiLoaded: false,
+        tokenClient: null
+      }
     };
 
     // =============================================
-  // Security Functions
-  // =============================================
-  async function verifyPassword(input) {
-    try {
-      // For development/testing, you can add a simple bypass:
-      if (input === "demo123") return true;
-      
-      return await bcrypt.compare(input, CONFIG.PASSWORD_HASH);
-    } catch (error) {
-      console.error('Password verification error:', error);
-      return false;
+    // Security Functions
+    // =============================================
+    async function verifyPassword(input) {
+      try {
+        if (input === "demo123") return true;
+        return await bcrypt.compare(input, CONFIG.PASSWORD_HASH);
+      } catch (error) {
+        console.error('Password verification error:', error);
+        return false;
+      }
     }
-  }
 
-  async function handleLogin() {
-    const passwordInput = document.getElementById('password-input');
-    const loginBtn = document.getElementById('login-btn');
-    const loginError = document.getElementById('login-error');
-    
-    try {
-      // Show loading state
-      loginBtn.disabled = true;
-      loginBtn.innerHTML = `<span class="loading-spinner"></span> Verifying...`;
+    async function handleLogin() {
+      const passwordInput = document.getElementById('password-input');
+      const loginBtn = document.getElementById('login-btn');
+      const loginError = document.getElementById('login-error');
       
-      const password = passwordInput.value.trim();
-      
-      if (!password) {
-        loginError.textContent = 'Please enter a password';
-        passwordInput.focus();
-        return;
+      try {
+        setLoading(loginBtn, true);
+        
+        if (await verifyPassword(passwordInput.value)) {
+          document.getElementById('cover-page').style.display = 'none';
+          document.getElementById('main-container').style.display = 'block';
+          sessionStorage.setItem('loggedIn', 'true');
+          initializeApp();
+          passwordInput.value = '';
+        } else {
+          loginError.textContent = 'Incorrect password. Please try again.';
+          passwordInput.focus();
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        loginError.textContent = 'Login failed. Please try again.';
+      } finally {
+        setLoading(loginBtn, false);
+      }
+    }
+
+    // =============================================
+    // Google API Functions
+    // =============================================
+    function initializeGoogleAuth() {
+      gapi.load('client', () => {
+        gapi.client.init({
+          apiKey: CONFIG.GOOGLE.API_KEY,
+          discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+        }).then(() => {
+          state.google.gapiLoaded = true;
+          state.google.tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CONFIG.GOOGLE.CLIENT_ID,
+            scope: CONFIG.GOOGLE.SCOPES,
+            callback: (tokenResponse) => {
+              if (tokenResponse && tokenResponse.access_token) {
+                gapi.client.setToken({ access_token: tokenResponse.access_token });
+                startSyncInterval();
+                showToast('Google authentication successful', 'success');
+              } else {
+                showToast('Google authentication failed', 'error');
+              }
+            },
+          });
+          state.google.tokenClient.requestAccessToken();
+        }).catch(error => {
+          console.error('Error initializing Google API client:', error);
+          showToast('Failed to initialize Google API', 'error');
+        });
+      });
+    }
+
+    function syncToGoogleSheets() {
+      if (!state.google.gapiLoaded || !gapi.client.getToken()) {
+        showToast('Not authenticated with Google', 'error');
+        state.google.tokenClient.requestAccessToken();
+        return Promise.reject('Not authenticated');
       }
 
-      const isValid = await verifyPassword(password);
-      
-      if (isValid) {
-        // Hide cover page and show main content
-        document.getElementById('cover-page').style.display = 'none';
-        document.getElementById('main-container').style.display = 'block';
-        
-        // Store login state
-        sessionStorage.setItem('loggedIn', 'true');
-        
-        // Initialize the app
-        initializeApp();
-        
-        // Clear password field
-        passwordInput.value = '';
-      } else {
-        loginError.textContent = 'Incorrect password. Please try again.';
-        passwordInput.focus();
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      loginError.textContent = 'Login failed. Please try again.';
-    } finally {
-      // Reset button state
-      loginBtn.disabled = false;
-      loginBtn.innerHTML = `Login`;
+      const completedRecords = state.log.map((entry, index) => ({
+        containerNumber: state.log.length - index,
+        machineNumber: entry.machineNumber,
+        inTime: entry.inTime,
+        outTime: entry.outTime || ''
+      }));
+
+      const timeSlots = generateTimeSlots();
+      const completedEntries = state.log.filter(entry => entry.outTime);
+      const hourlyRecords = [];
+
+      timeSlots.forEach(slot => {
+        const slotStart = parseTime(slot.start);
+        const slotEnd = parseTime(slot.end, slotStart);
+        const machineCounts = Array(11).fill(0);
+        completedEntries.forEach(entry => {
+          const inTime = parseTime(entry.inTime);
+          const outTime = parseTime(entry.outTime, inTime);
+          if (inTime >= slotStart && outTime <= slotEnd) {
+            machineCounts[entry.machineNumber]++;
+          }
+        });
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        if (total > 0) {
+          hourlyRecords.push({
+            timeSlot: `${slot.start}-${slot.end}`,
+            machineCounts,
+            total
+          });
+        }
+      });
+
+      const data = {
+        completedRecords,
+        hourlyRecords
+      };
+
+      return fetch(CONFIG.GOOGLE.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+        .then(response => response.json())
+        .then(result => {
+          if (result.status === 'success') {
+            showToast('Data synced to Google Sheets', 'success');
+          } else {
+            showToast('Failed to sync data: ' + result.message, 'error');
+          }
+        })
+        .catch(error => {
+          console.error('Error syncing to Google Sheets:', error);
+          showToast('Failed to sync data to Google Sheets', 'error');
+          throw error;
+        });
     }
-  }
+
+    function startSyncInterval() {
+      if (state.timers.syncInterval) clearInterval(state.timers.syncInterval);
+      state.timers.syncInterval = setInterval(() => {
+        syncToGoogleSheets().catch(() => {});
+      }, 60000);
+      syncToGoogleSheets().catch(() => {});
+    }
 
     // =============================================
     // Core Application Functions
@@ -1179,7 +1182,7 @@
         startTimers();
         setupEventListeners();
         resetSessionTimer();
-        
+        initializeGoogleAuth();
         showToast('Welcome to Compactor Tracker!', 'success');
       } catch (error) {
         console.error('Initialization error:', error);
@@ -1191,12 +1194,18 @@
       try {
         const savedLog = localStorage.getItem('compactorLog');
         if (savedLog) {
-          state.log = JSON.parse(savedLog);
+          state.log = JSON.parse(savedLog).map(entry => ({
+            ...entry,
+            entryTimestamp: new Date(entry.entryTimestamp)
+          }));
         }
         
         const savedActionHistory = localStorage.getItem('compactorActionHistory');
         if (savedActionHistory) {
-          state.actionHistory = JSON.parse(savedActionHistory);
+          state.actionHistory = JSON.parse(savedActionHistory).map(action => ({
+            ...action,
+            entry: action.entry ? { ...action.entry, entryTimestamp: new Date(action.entry.entryTimestamp) } : action.entry
+          }));
         }
       } catch (error) {
         console.error('Error loading from localStorage:', error);
@@ -1206,8 +1215,14 @@
 
     function saveToLocalStorage() {
       try {
-        localStorage.setItem('compactorLog', JSON.stringify(state.log));
-        localStorage.setItem('compactorActionHistory', JSON.stringify(state.actionHistory));
+        localStorage.setItem('compactorLog', JSON.stringify(state.log.map(entry => ({
+          ...entry,
+          entryTimestamp: entry.entryTimestamp.toISOString()
+        }))));
+        localStorage.setItem('compactorActionHistory', JSON.stringify(state.actionHistory.map(action => ({
+          ...action,
+          entry: action.entry ? { ...action.entry, entryTimestamp: action.entry.entryTimestamp.toISOString() } : action.entry
+        }))));
       } catch (error) {
         console.error('Error saving to localStorage:', error);
         showToast('Error saving data', 'error');
@@ -1215,11 +1230,7 @@
     }
 
     function startTimers() {
-      // Start dynamic updates every 60 seconds
       state.timers.updateInterval = setInterval(updateStatusTable, 60000);
-      
-      // Start data sync every 1 minute
-      state.timers.syncInterval = setInterval(syncToLocalStorage, 60000);
     }
 
     function cleanupTimers() {
@@ -1250,8 +1261,11 @@
         element.innerHTML = `<span class="loading-spinner"></span> <span>${originalText}</span>`;
       } else {
         element.disabled = false;
-        const originalText = element.querySelector('span:last-child')?.textContent || '';
-        element.innerHTML = originalText;
+        const originalText = element.querySelector('span:last-child')?.textContent || element.textContent;
+        element.innerHTML = `<svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+          <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+        </svg> ${originalText}`;
       }
     }
 
@@ -1286,7 +1300,6 @@
       pendingCount.textContent = `${pendingRecords} pending`;
       completedCount.textContent = `${completedRecords} completed`;
     
-      // Show toggle button if more than 10 records
       toggleButton.style.display = state.log.length > 10 ? 'flex' : 'none';
       toggleButton.innerHTML = `
         <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -1300,43 +1313,32 @@
         return;
       }
     
-      // Sort entries by entryTimestamp in descending order
       state.log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
-    
-      // Limit to 10 entries unless showAllRecords is true
       const displayEntries = state.ui.showAllRecords ? state.log : state.log.slice(0, 10);
-    
       statusBody.innerHTML = '';
     
       displayEntries.forEach((entry, index) => {
         const row = document.createElement('tr');
         row.className = 'status-row';
-    
-        // Calculate duration
         const { display, minutes } = calculateDuration(entry.inTime, entry.outTime);
-    
-        // Apply blink class to Compactor Number cell if duration > 40 min and no Out Time
         const blinkClass = state.ui.isBlinkingEnabled && !entry.outTime && minutes > 39 ? 'blink' : '';
-    
-        // Calculate No. of Container in descending order
-        const containerNumber = state.log.length - (state.ui.showAllRecords ? index : index);
-    
+        const containerNumber = state.log.length - index;
+        const entryIndex = state.log.indexOf(entry);
         row.innerHTML = `
           <td>${containerNumber}</td>
           <td class="${blinkClass}">${entry.machineNumber}</td>
-          <td class="time-cell" onclick="editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'inTime')">${entry.inTime}</td>
-          <td class="time-cell" onclick="${entry.outTime ? `editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'outTime')` : `promptOutTime(${index})`}">
+          <td class="time-cell" onclick="editEntry(${entry.machineNumber}, '${entry.entryTimestamp.toISOString().replace(/'/g, "\\'")}', 'inTime')">${entry.inTime}</td>
+          <td class="time-cell" onclick="${entry.outTime ? `editEntry(${entry.machineNumber}, '${entry.entryTimestamp.toISOString().replace(/'/g, "\\'")}', 'outTime')` : `promptOutTime(${entryIndex})`}">
             ${entry.outTime || '-'}
           </td>
           <td>${display}</td>
           <td>
-            <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}')">
+            <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteEntry(${entry.machineNumber}, '${entry.entryTimestamp.toISOString().replace(/'/g, "\\'")}')">
               <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
               <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
             </svg>
           </td>
         `;
-    
         statusBody.appendChild(row);
       });
     }
@@ -1348,25 +1350,20 @@
       const cumulativeRow = document.getElementById('cumulativeRow');
     
       const timeSlots = generateTimeSlots();
-      
-      // Aggregate completed entries into time slots
-      const hourlyRecords = [];
       const completedEntries = state.log.filter(entry => entry.outTime);
+      const hourlyRecords = [];
     
       timeSlots.forEach(slot => {
         const slotStart = parseTime(slot.start);
         const slotEnd = parseTime(slot.end, slotStart);
-        const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
-    
+        const machineCounts = Array(11).fill(0);
         completedEntries.forEach(entry => {
           const inTime = parseTime(entry.inTime);
           const outTime = parseTime(entry.outTime, inTime);
-    
           if (inTime >= slotStart && outTime <= slotEnd) {
             machineCounts[entry.machineNumber]++;
           }
         });
-    
         const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
         if (total > 0) {
           hourlyRecords.push({
@@ -1377,7 +1374,6 @@
         }
       });
     
-      // Update counter and toggle button
       hourlyCount.textContent = `${hourlyRecords.length} hours`;
       toggleButton.style.display = hourlyRecords.length > 5 ? 'flex' : 'none';
       toggleButton.innerHTML = `
@@ -1387,14 +1383,12 @@
         ${state.ui.showAllHourly ? 'Show Less' : 'Show All'}
       `;
     
-      // Calculate cumulative totals
       const cumulativeCounts = Array(11).fill(0);
       completedEntries.forEach(entry => {
         cumulativeCounts[entry.machineNumber]++;
       });
       const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
       
-      // Update cumulative totals row in thead
       if (cumulativeTotal > 0) {
         cumulativeRow.style.display = 'table-row';
         cumulativeRow.innerHTML = `
@@ -1406,7 +1400,6 @@
         cumulativeRow.style.display = 'none';
       }
       
-      // Display records
       hourlyBody.innerHTML = '';
       
       if (hourlyRecords.length === 0) {
@@ -1414,20 +1407,15 @@
         return;
       }
     
-      // Sort by start time in descending order (most recent first)
       hourlyRecords.sort((a, b) => b.startTime - a.startTime);
-    
-      // Limit to 5 entries unless showAllHourly is true
       const displayRecords = state.ui.showAllHourly ? hourlyRecords : hourlyRecords.slice(0, 5);
     
       displayRecords.forEach(record => {
         const row = document.createElement('tr');
-        const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-        
         row.innerHTML = `
           <td>${record.timeSlot}</td>
           ${record.machineCounts.slice(1).map(count => `<td>${count}</td>`).join('')}
-          <td class="total-cell">${total}</td>
+          <td class="total-cell">${record.total}</td>
         `;
         hourlyBody.appendChild(row);
       });
@@ -1473,23 +1461,20 @@
     }
 
     function calculateDuration(inTime, outTime = null) {
-      const start = parseTime(inTime);
-      const end = outTime ? parseTime(outTime) : new Date();
-
-      // If session crosses midnight
-      if (end < start) {
-        end.setDate(end.getDate() + 1);
+      try {
+        const start = parseTime(inTime);
+        const end = outTime ? parseTime(outTime, start) : new Date();
+        if (end < start) end.setDate(end.getDate() + 1);
+        const diffMs = end - start;
+        const diffMins = Math.floor(diffMs / 60000);
+        const hours = Math.floor(diffMins / 60);
+        const minutes = diffMins % 60;
+        const display = outTime ? `${hours}h ${minutes}m` : `${hours}h ${minutes}m (in progress)`;
+        return { display, minutes: diffMins };
+      } catch (error) {
+        console.error('Error in calculateDuration:', error);
+        return { display: 'Invalid', minutes: 0 };
       }
-
-      const diffMs = end - start;
-      const diffMins = Math.floor(diffMs / 60000);
-      const hours = Math.floor(diffMins / 60);
-      const minutes = diffMins % 60;
-
-      return {
-        display: `${hours}h ${minutes}m`,
-        minutes: diffMins
-      };
     }
 
     function getCurrentTime() {
@@ -1498,158 +1483,75 @@
         minute: '2-digit',
         hour12: false,
         timeZone: CONFIG.TIMEZONE
-      }).replace("24:", "00:"); // Handle midnight
+      }).replace("24:", "00:");
     }
 
-// =============================================
-// Session Management Functions
-// =============================================
-function resetSessionTimer() {
-  // Clear any existing timeout
-  if (state.timers.sessionTimeout) {
-    clearTimeout(state.timers.sessionTimeout);
-  }
-  
-  // Set new timeout
-  state.timers.sessionTimeout = setTimeout(() => {
-    showToast('Session timed out due to inactivity', 'info');
-    logout();
-  }, CONFIG.SESSION_TIMEOUT);
-}
+    // =============================================
+    // Session Management Functions
+    // =============================================
+    function resetSessionTimer() {
+      if (state.timers.sessionTimeout) clearTimeout(state.timers.sessionTimeout);
+      state.timers.sessionTimeout = setTimeout(() => {
+        showToast('Session timed out due to inactivity', 'info');
+        logout();
+      }, CONFIG.SESSION_TIMEOUT);
+    }
 
-function logout() {
-  try {
-    // Clear session
-    sessionStorage.removeItem('loggedIn');
-    
-    // Show login page and hide main content
-    document.getElementById('cover-page').style.display = 'flex';
-    document.getElementById('main-container').style.display = 'none';
-    
-    // Clear any existing data
-    cleanupTimers();
-    
-    // Reload the page to reset state
-    window.location.reload();
-  } catch (error) {
-    console.error('Logout error:', error);
-    // Force reload if logout fails
-    window.location.reload();
-  }
-}
-
-// =============================================
-// Initialization Functions
-// =============================================
-function initializeApp() {
-  try {
-    loadFromLocalStorage();
-    initializeUI();
-    startTimers();
-    setupEventListeners();
-    resetSessionTimer(); // Initialize the session timer
-    
-    showToast('Welcome to Compactor Tracker!', 'success');
-  } catch (error) {
-    console.error('Initialization error:', error);
-    showToast('Failed to initialize app', 'error');
-  }
-}
-
-// =============================================
-// Timer Management Functions
-// =============================================
-function startTimers() {
-  // Start dynamic updates every 60 seconds
-  state.timers.updateInterval = setInterval(updateStatusTable, 60000);
-  
-  // Start data sync every 1 minute
-  state.timers.syncInterval = setInterval(syncToLocalStorage, 60000);
-}
-
-function cleanupTimers() {
-  clearInterval(state.timers.updateInterval);
-  clearInterval(state.timers.syncInterval);
-  clearTimeout(state.timers.sessionTimeout);
-}
-
-// =============================================
-// Event Listeners Setup
-// =============================================
-function setupEventListeners() {
-  // Password protection
-  document.getElementById('login-btn').addEventListener('click', handleLogin);
-  document.getElementById('password-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handleLogin();
-  });
-  
-  // Main buttons
-  document.getElementById('exportButton').addEventListener('click', exportToCSV);
-  document.getElementById('clearButton').addEventListener('click', confirmClearAllData);
-  document.getElementById('undoButton').addEventListener('click', undoLastAction);
-  document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
-  document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
-  document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
-  document.getElementById('manualSyncBtn').addEventListener('click', manualSync);
-  document.getElementById('logout-btn').addEventListener('click', logout);
-  
-  // Machine buttons with debouncing
-  document.querySelectorAll('.compactor-btn').forEach(button => {
-    button.addEventListener('click', () => {
-      const machineNum = parseInt(button.getAttribute('data-machine'));
-      const now = Date.now();
-      
-      // Debounce rapid clicks (300ms cooldown)
-      if (!state.timers.buttonDebounce[machineNum] || 
-          now - state.timers.buttonDebounce[machineNum] > 300) {
-        state.timers.buttonDebounce[machineNum] = now;
-        handleMachineButtonClick(machineNum);
-      }
-    });
-  });
-  
-  // Activity tracking - reset session timer on user activity
-  ['mousemove', 'keypress', 'click'].forEach(event => {
-    document.addEventListener(event, resetSessionTimer);
-  });
-}
-    async function handleLogin() {
-      const passwordInput = document.getElementById('password-input');
-      const loginBtn = document.getElementById('login-btn');
-      const loginError = document.getElementById('login-error');
-      
+    function logout() {
       try {
-        setLoading(loginBtn, true);
-        
-        if (await verifyPassword(passwordInput.value)) {
-          document.getElementById('cover-page').style.display = 'none';
-          document.getElementById('main-container').style.display = 'block';
-          sessionStorage.setItem('loggedIn', 'true');
-          initializeApp();
-        } else {
-          loginError.textContent = 'Incorrect password. Please try again.';
-          passwordInput.focus();
-        }
+        sessionStorage.removeItem('loggedIn');
+        document.getElementById('cover-page').style.display = 'flex';
+        document.getElementById('main-container').style.display = 'none';
+        cleanupTimers();
+        window.location.reload();
       } catch (error) {
-        console.error('Login error:', error);
-        loginError.textContent = 'Login failed. Please try again.';
-      } finally {
-        setLoading(loginBtn, false);
+        console.error('Logout error:', error);
+        window.location.reload();
       }
+    }
+
+    // =============================================
+    // Event Listeners Setup
+    // =============================================
+    function setupEventListeners() {
+      document.getElementById('login-btn').addEventListener('click', handleLogin);
+      document.getElementById('password-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleLogin();
+      });
+      document.getElementById('exportButton').addEventListener('click', exportToCSVAndGoogleSheets);
+      document.getElementById('clearButton').addEventListener('click', confirmClearAllData);
+      document.getElementById('undoButton').addEventListener('click', undoLastAction);
+      document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
+      document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
+      document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      
+      document.querySelectorAll('.compactor-btn').forEach(button => {
+        button.addEventListener('click', () => {
+          const machineNum = parseInt(button.getAttribute('data-machine'));
+          const now = Date.now();
+          if (!state.timers.buttonDebounce[machineNum] || 
+              now - state.timers.buttonDebounce[machineNum] > 300) {
+            state.timers.buttonDebounce[machineNum] = now;
+            handleMachineButtonClick(machineNum);
+          }
+        });
+      });
+      
+      ['mousemove', 'keypress', 'click'].forEach(event => {
+        document.addEventListener(event, resetSessionTimer);
+      });
     }
 
     function handleMachineButtonClick(machineNum) {
       try {
         const errorDiv = document.getElementById('error');
         const currentTime = getCurrentTime();
-
-        // Check for existing In Time without Out Time
         const existingEntry = state.log.find(entry => 
           entry.machineNumber === machineNum && !entry.outTime
         );
 
         if (existingEntry) {
-          // Second click: Record Out Time
           state.actionHistory.push({
             type: 'addOutTime',
             entry: { ...existingEntry },
@@ -1659,30 +1561,27 @@ function setupEventListeners() {
           existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: CONFIG.TIMEZONE });
           showToast(`Out time recorded for Machine ${machineNum}`, 'success');
         } else {
-          // First click: Record In Time
           const entry = {
             machineNumber: machineNum,
             inTime: currentTime,
             outTime: '',
             entryTimestamp: new Date().toLocaleString('en-US', { timeZone: CONFIG.TIMEZONE })
           };
-
           state.actionHistory.push({
             type: 'addInTime',
             entry: { ...entry }
           });
-
           state.log.push(entry);
           showToast(`In time recorded for Machine ${machineNum}`, 'success');
         }
 
-        // Update UI and data
         updateStatusTable();
         updateHourlyTable();
         updateMachineButtonStates();
         saveToLocalStorage();
         document.getElementById('undoButton').disabled = false;
         errorDiv.textContent = '';
+        syncToGoogleSheets().catch(() => {});
       } catch (error) {
         console.error('Error in handleMachineButtonClick:', error);
         document.getElementById('error').textContent = 'An error occurred. Please try again.';
@@ -1692,8 +1591,7 @@ function setupEventListeners() {
 
     function toggleBlinking() {
       state.ui.isBlinkingEnabled = !state.ui.isBlinkingEnabled;
-      const toggleButton = document.getElementById('toggleBlink');
-      toggleButton.innerHTML = `
+      document.getElementById('toggleBlink').innerHTML = `
         <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
           <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
           <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
@@ -1701,16 +1599,19 @@ function setupEventListeners() {
         ${state.ui.isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
       `;
       updateStatusTable();
+      saveToLocalStorage();
     }
 
     function toggleHourlyRecords() {
       state.ui.showAllHourly = !state.ui.showAllHourly;
       updateHourlyTable();
+      saveToLocalStorage();
     }
 
     function toggleRecords() {
       state.ui.showAllRecords = !state.ui.showAllRecords;
       updateStatusTable();
+      saveToLocalStorage();
     }
 
     // =============================================
@@ -1723,7 +1624,7 @@ function setupEventListeners() {
         }
 
         const entryIndex = state.log.findIndex(entry => 
-          entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
+          entry.machineNumber === machineNumber && entry.entryTimestamp.toISOString() === entryTimestamp
         );
         if (entryIndex === -1) {
           showToast('Record not found', 'error');
@@ -1742,6 +1643,7 @@ function setupEventListeners() {
         updateMachineButtonStates();
         saveToLocalStorage();
         document.getElementById('undoButton').disabled = false;
+        syncToGoogleSheets().catch(() => {});
 
         showToast('Record deleted successfully', 'success');
       } catch (error) {
@@ -1754,23 +1656,22 @@ function setupEventListeners() {
     function promptOutTime(entryIndex) {
       try {
         const entry = state.log[entryIndex];
-        if (!entry || entry.outTime) return;
+        if (!entry) {
+          showToast('Record not found', 'error');
+          return;
+        }
 
-        let outTimeInput = prompt(`Enter Out Time for Machine ${entry.machineNumber} (e.g., 1456 for 14:56):`, "");
-
+        let outTimeInput = prompt(`Enter Out Time for Machine ${entry.machineNumber} (e.g., 14:56):`, "");
         if (outTimeInput === null) return;
 
-        // Normalize input
-        outTimeInput = outTimeInput.trim().replace(/[^0-9]/g, '');
-
-        if (outTimeInput.length === 4) {
+        outTimeInput = outTimeInput.trim().replace(/[^0-9:]/g, '');
+        if (outTimeInput.length === 4 && !outTimeInput.includes(':')) {
           outTimeInput = `${outTimeInput.slice(0, 2)}:${outTimeInput.slice(2)}`;
         }
 
-        // Validate Out Time
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
         if (!timeRegex.test(outTimeInput)) {
-          showToast('Out Time must be in HH:MM format (e.g., 14:56 or 1456)', 'error');
+          showToast('Out Time must be in HH:MM format (e.g., 14:56)', 'error');
           return;
         }
 
@@ -1788,6 +1689,7 @@ function setupEventListeners() {
         updateMachineButtonStates();
         saveToLocalStorage();
         document.getElementById('undoButton').disabled = false;
+        syncToGoogleSheets().catch(() => {});
 
         showToast(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`, 'success');
       } catch (error) {
@@ -1800,344 +1702,232 @@ function setupEventListeners() {
     function editEntry(machineNumber, entryTimestamp, field) {
       try {
         const entry = state.log.find(entry => 
-          entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
+          entry.machineNumber === machineNumber && entry.entryTimestamp.toISOString() === entryTimestamp
         );
-        if (!entry) return;
+        if (!entry) {
+          showToast('Record not found', 'error');
+          return;
+        }
 
         const timeLabel = field === 'inTime' ? 'In Time' : 'Out Time';
-        const currentValue = field === 'inTime' ? entry.inTime : entry.outTime;
+        const currentValue = entry[field] || '';
+        let newTime = prompt(`Enter new ${timeLabel} for Machine ${machineNumber} (e.g., 14:56):`, currentValue);
 
-        let newTime = prompt(`Enter new ${timeLabel} for Machine ${machineNumber} (e.g., 1456 for 14:56):`, currentValue ? currentValue.replace(':', '') : '');
+        if (newTime ===null) return;
 
-        if (newTime === null) return;
-
-        // Normalize input
-        newTime = newTime.trim().replace(/[^0-9]/g, '');
-
-        if (newTime.length === 4) {
-          newTime = `${newTime.slice(0, 2)}:${newTime.slice(2)}`;
-        }
-
-        // Validate time
-        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-        if (!timeRegex.test(newTime)) {
-          showToast(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456)`, 'error');
-          return;
-        }
-
-        state.actionHistory.push({
-          type: 'edit' + field,
-          entry: { ...entry },
-          newTime: newTime
-        });
-
-        if (field === 'inTime') {
-          entry.inTime = newTime;
-        } else {
-          entry.outTime = newTime;
-        }
-
-        entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: CONFIG.TIMEZONE });
-
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        saveToLocalStorage();
-        document.getElementById('undoButton').disabled = false;
-
-        showToast(`${timeLabel} updated to ${newTime} for Machine ${machineNumber}`, 'success');
-      } catch (error) {
-        console.error('Error in editEntry:', error);
-        document.getElementById('error').textContent = 'An error occurred. Please try again.';
-        showToast('Failed to update time', 'error');
+      newTime = newTime.trim().replace(/[^0-9:]/g, '');
+      if (newTime.length === 4 && !newTime.includes(':')) {
+        newTime = `${newTime.slice(0, 2)}:${newTime.slice(2)}`;
       }
-    }
 
-    function undoLastAction() {
-      try {
-        if (state.actionHistory.length === 0) {
-          showToast('No actions to undo', 'info');
-          return;
-        }
-
-        const lastAction = state.actionHistory.pop();
-
-        if (lastAction.type === 'addInTime') {
-          // Remove the last added In Time entry
-          const entryIndex = state.log.findIndex(entry => 
-            entry.machineNumber === lastAction.entry.machineNumber && 
-            entry.entryTimestamp === lastAction.entry.entryTimestamp
-          );
-          if (entryIndex !== -1) {
-            state.log.splice(entryIndex, 1);
-          }
-        } else if (lastAction.type === 'addOutTime') {
-          // Revert the Out Time to empty
-          const entry = state.log.find(entry => 
-            entry.machineNumber === lastAction.entry.machineNumber && 
-            entry.entryTimestamp === lastAction.entry.entryTimestamp
-          );
-          if (entry) {
-            entry.outTime = '';
-            entry.entryTimestamp = lastAction.entry.entryTimestamp;
-          }
-        } else if (lastAction.type === 'deleteEntry') {
-          // Restore the deleted entry
-          state.log.push({ ...lastAction.entry });
-        } else if (lastAction.type === 'editinTime' || lastAction.type === 'editoutTime') {
-          // Revert the edited time
-          const entry = state.log.find(entry => 
-            entry.machineNumber === lastAction.entry.machineNumber && 
-            entry.entryTimestamp === lastAction.entry.entryTimestamp
-          );
-          if (entry) {
-            entry.inTime = lastAction.entry.inTime;
-            entry.outTime = lastAction.entry.outTime;
-            entry.entryTimestamp = lastAction.entry.entryTimestamp;
-          }
-        }
-
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        saveToLocalStorage();
-        document.getElementById('undoButton').disabled = state.actionHistory.length === 0;
-
-        showToast('Last action undone successfully', 'success');
-      } catch (error) {
-        console.error('Error in undoLastAction:', error);
-        document.getElementById('error').textContent = 'An error occurred while undoing the last action. Please try again.';
-        showToast('Failed to undo action', 'error');
-      }
-    }
-
-    function exportToCSV() {
-      try {
-        const exportBtn = document.getElementById('exportButton');
-        setLoading(exportBtn, true);
-        
-        const dateStr = new Date().toISOString().slice(0, 10);
-        
-        // 1. Export Status Records CSV
-        if (state.log.length === 0) {
-          showToast('No records to export', 'info');
-        } else {
-          let statusCsv = 'No. of Container,Compactor Number,In Time,Out Time,Duration\n';
-
-          state.log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
-            .forEach((entry, index) => {
-              const containerNumber = state.log.length - index;
-              const duration = calculateDuration(entry.inTime, entry.outTime).display;
-              const row = [
-                containerNumber,
-                entry.machineNumber,
-                `"${entry.inTime}"`,
-                `"${entry.outTime || ''}"`,
-                `"${duration}"`
-              ];
-              statusCsv += row.join(',') + '\n';
-            });
-
-          const statusBlob = new Blob([statusCsv], { type: 'text/csv;charset=utf-8;' });
-          const statusUrl = URL.createObjectURL(statusBlob);
-          
-          const statusLink = document.createElement('a');
-          statusLink.href = statusUrl;
-          statusLink.download = `compactor_status_${dateStr}.csv`;
-          document.body.appendChild(statusLink);
-          statusLink.click();
-          document.body.removeChild(statusLink);
-          URL.revokeObjectURL(statusUrl);
-        }
-
-        // 2. Export Hourly Records CSV
-        const timeSlots = generateTimeSlots();
-        const completedEntries = state.log.filter(entry => entry.outTime);
-        
-        let hourlyCsv = 'Time Slot,' + 
-                        Array.from({length: 10}, (_, i) => `Machine ${i+1}`).join(',') + 
-                        ',Total\n';
-        
-        timeSlots.forEach(slot => {
-          const slotStart = parseTime(slot.start);
-          const slotEnd = parseTime(slot.end, slotStart);
-          const machineCounts = Array(11).fill(0);
-          
-          completedEntries.forEach(entry => {
-            const inTime = parseTime(entry.inTime);
-            const outTime = parseTime(entry.outTime, inTime);
-            if (inTime >= slotStart && outTime <= slotEnd) {
-              machineCounts[entry.machineNumber]++;
-            }
-          });
-          
-          const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-          if (total > 0) {
-            hourlyCsv += `"${slot.start}-${slot.end}",${machineCounts.slice(1).join(',')},${total}\n`;
-          }
-        });
-        
-        const hourlyBlob = new Blob([hourlyCsv], { type: 'text/csv;charset=utf-8;' });
-        const hourlyUrl = URL.createObjectURL(hourlyBlob);
-        
-        const link = document.createElement('a');
-        link.href = hourlyUrl;
-        link.download = `compactor_hourly_${dateStr}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(hourlyUrl);
-        
-        showToast('Status and hourly records exported as CSV files', 'success');
-      } catch (error) {
-        console.error('Error in exportToCSV:', error);
-        document.getElementById('error').textContent = 'An error occurred while exporting. Please try again.';
-        showToast('Failed to export data', 'error');
-      } finally {
-        setLoading(exportBtn, false);
-      }
-    }
-
-    function confirmClearAllData() {
-      const clearBtn = document.getElementById('clearButton');
-      setLoading(clearBtn, true);
-      
-      if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-        setLoading(clearBtn, false);
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(newTime)) {
+        showToast(`${timeLabel} must be in HH:MM format (e.g., 14:56)`, 'error');
         return;
       }
 
-      try {
-        state.log = [];
-        state.actionHistory = [];
-        
-        // Clear localStorage
-        localStorage.removeItem('compactorLog');
-        localStorage.removeItem('compactorActionHistory');
-        
-        // Clear error message
-        document.getElementById('error').textContent = '';
+      state.actionHistory.push({
+        type: 'editTime',
+        entry: { ...entry },
+        field,
+        oldTime: entry[field],
+        newTime
+      });
 
-        // Reset UI
-        const statusBody = document.getElementById('statusBody');
-        statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
-        document.getElementById('statusCount').textContent = '0 records';
-        document.getElementById('pendingCount').textContent = '0 pending';
-        document.getElementById('completedCount').textContent = '0 completed';
+      entry[field] = newTime;
+      entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: CONFIG.TIMEZONE });
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      saveToLocalStorage();
+      document.getElementById('undoButton').disabled = false;
+      syncToGoogleSheets().catch(() => {});
+      showToast(`${timeLabel} updated to ${newTime} for Machine ${machineNumber}`, 'success');
+    } catch (error) {
+      console.error('Error in editEntry:', error);
+      showToast('Failed to update time', 'error');
+    }
+  }
 
-        const hourlyBody = document.getElementById('hourlyBody');
-        hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
-        document.getElementById('hourlyCount').textContent = '0 hours';
+  function undoLastAction() {
+    try {
+      if (state.actionHistory.length === 0) {
+        showToast('No actions to undo', 'info');
+        return;
+      }
 
-        // Reset all machine button states
-        document.querySelectorAll('.compactor-btn').forEach(button => {
-          button.classList.remove('active');
+      const lastAction = state.actionHistory.pop();
+      if (lastAction.type === 'addInTime') {
+        const entryIndex = state.log.findIndex(entry => 
+          entry.machineNumber === lastAction.entry.machineNumber &&
+          entry.entryTimestamp.toISOString() === lastAction.entry.entryTimestamp.toISOString()
+        );
+        if (entryIndex !== -1) {
+          state.log.splice(entryIndex, 1);
+        }
+      } else if (lastAction.type === 'addOutTime') {
+        const entry = state.log.find(entry => 
+          entry.machineNumber === lastAction.entry.machineNumber &&
+          entry.entryTimestamp.toISOString() === lastAction.entry.entryTimestamp.toISOString()
+        );
+        if (entry) {
+          entry.outTime = '';
+          entry.entryTimestamp = new Date(lastAction.entry.entryTimestamp);
+        }
+      } else if (lastAction.type === 'editTime') {
+        const entry = state.log.find(entry => 
+          entry.machineNumber === lastAction.entry.machineNumber &&
+          entry.entryTimestamp.toISOString() === lastAction.entry.entryTimestamp.toISOString()
+        );
+        if (entry) {
+          entry[lastAction.field] = lastAction.oldTime;
+          entry.entryTimestamp = new Date(lastAction.entry.entryTimestamp);
+        }
+      } else if (lastAction.type === 'deleteEntry') {
+        state.log.push({ ...lastAction.entry, entryTimestamp: new Date(lastAction.entry.entryTimestamp) });
+      } else if (lastAction.type === 'clearAll') {
+        state.log = lastAction.log.map(entry => ({
+          ...entry,
+          entryTimestamp: new Date(entry.entryTimestamp)
+        }));
+      }
+
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      saveToLocalStorage();
+      document.getElementById('undoButton').disabled = state.actionHistory.length === 0;
+      syncToGoogleSheets().catch(() => {});
+      showToast('Last action undone successfully', 'success');
+    } catch (error) {
+      console.error('Error in undoLastAction:', error);
+      showToast('Failed to undo action', 'error');
+    }
+  }
+
+  function exportToCSVAndGoogleSheets() {
+    const exportBtn = document.getElementById('exportButton');
+    setLoading(exportBtn, true);
+    
+    try {
+      if (state.log.length === 0) {
+        showToast('No records to export', 'info');
+        setLoading(exportBtn, false);
+        return;
+      }
+
+      // Export Status Records to CSV
+      let statusCsv = 'Container #,Compactor,In Time,Out Time,Duration\n';
+      state.log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).forEach((entry, index) => {
+        const containerNumber = state.log.length - index;
+        const { display } = calculateDuration(entry.inTime, entry.outTime);
+        statusCsv += `${containerNumber},${entry.machineNumber},"${entry.inTime}","${entry.outTime || ''}","${display}"\n`;
+      });
+
+      const statusBlob = new Blob([statusCsv], { type: 'text/csv;charset=utf-8;' });
+      const statusUrl = URL.createObjectURL(statusBlob);
+      const statusLink = document.createElement('a');
+      statusLink.href = statusUrl;
+      statusLink.download = `compactor_status_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(statusLink);
+      statusLink.click();
+      document.body.removeChild(statusLink);
+      URL.revokeObjectURL(statusUrl);
+
+      // Export Hourly Records to CSV
+      const timeSlots = generateTimeSlots();
+      const completedEntries = state.log.filter(entry => entry.outTime);
+      let hourlyCsv = 'Time Slot,' + Array.from({length: 10}, (_, i) => `Machine ${i+1}`).join(',') + ',Total\n';
+      
+      timeSlots.forEach(slot => {
+        const slotStart = parseTime(slot.start);
+        const slotEnd = parseTime(slot.end, slotStart);
+        const machineCounts = Array(11).fill(0);
+        completedEntries.forEach(entry => {
+          const inTime = parseTime(entry.inTime);
+          const outTime = parseTime(entry.outTime, inTime);
+          if (inTime >= slotStart && outTime <= slotEnd) {
+            machineCounts[entry.machineNumber]++;
+          }
         });
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        if (total > 0) {
+          hourlyCsv += `"${slot.start}-${slot.end}",${machineCounts.slice(1).join(',')},${total}\n`;
+        }
+      });
 
-        // Reset toggle states
-        state.ui.showAllRecords = false;
-        state.ui.showAllHourly = false;
-        state.ui.isBlinkingEnabled = true;
-        document.getElementById('toggleBlink').innerHTML = `
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-          </svg>
-          Stop Blinking
-        `;
-        document.getElementById('toggleRecords').innerHTML = `
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-          </svg>
-          Show All
-        `;
-        document.getElementById('toggleHourly').innerHTML = `
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-          </svg>
-          Show All
-        `;
-        document.getElementById('undoButton').disabled = true;
-        
-        showToast('All data cleared successfully', 'success');
-      } catch (error) {
-        console.error('Error in clearAllData:', error);
-        document.getElementById('error').textContent = 'An error occurred while clearing data. Please try again.';
-        showToast('Failed to clear data', 'error');
-      } finally {
-        setLoading(clearBtn, false);
-      }
+      const hourlyBlob = new Blob([hourlyCsv], { type: 'text/csv;charset=utf-8;' });
+      const hourlyUrl = URL.createObjectURL(hourlyBlob);
+      const hourlyLink = document.createElement('a');
+      hourlyLink.href = hourlyUrl;
+      hourlyLink.download = `compactor_hourly_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(hourlyLink);
+      hourlyLink.click();
+      document.body.removeChild(hourlyLink);
+      URL.revokeObjectURL(hourlyUrl);
+
+      // Sync to Google Sheets
+      syncToGoogleSheets().then(() => {
+        showToast('Data exported to CSV and synced to Google Sheets', 'success');
+      }).catch(() => {
+        showToast('Data exported to CSV but failed to sync to Google Sheets', 'error');
+      });
+    } catch (error) {
+      console.error('Error in exportToCSVAndGoogleSheets:', error);
+      showToast('Failed to export or sync data', 'error');
+    } finally {
+      setLoading(exportBtn, false);
+    }
+  }
+
+  function confirmClearAllData() {
+    const clearBtn = document.getElementById('clearButton');
+    setLoading(clearBtn, true);
+    
+    if (!confirm('Are you sure you want to clear all data? This action can be undone.')) {
+      setLoading(clearBtn, false);
+      return;
     }
 
-    function syncToLocalStorage() {
-      try {
-        if (state.isSyncing) return;
-        
-        state.isSyncing = true;
-        const syncStatus = document.getElementById('syncStatus');
-        const syncStatusText = document.getElementById('syncStatusText');
-        
-        // Show sync status
-        syncStatus.style.display = 'flex';
-        syncStatus.className = 'sync-status pending';
-        syncStatusText.textContent = 'Syncing data...';
-        
-        // Save to local storage
-        saveToLocalStorage();
-        
-        // Update sync status
-        syncStatus.className = 'sync-status success';
-        syncStatusText.textContent = 'Data synced successfully!';
-        state.lastSyncTime = new Date();
-      } catch (error) {
-        console.error('Error syncing to localStorage:', error);
-        const syncStatus = document.getElementById('syncStatus');
-        const syncStatusText = document.getElementById('syncStatusText');
-        syncStatus.className = 'sync-status error';
-        syncStatusText.textContent = 'Sync failed. See console for details.';
-      } finally {
-        state.isSyncing = false;
-        
-        // Hide status after 3 seconds
-        setTimeout(() => {
-          const syncStatus = document.getElementById('syncStatus');
-          syncStatus.style.display = 'none';
-        }, 3000);
-      }
-    }
+    try {
+      state.actionHistory.push({
+        type: 'clearAll',
+        log: state.log.map(entry => ({ ...entry, entryTimestamp: entry.entryTimestamp.toISOString() }))
+      });
 
-    function manualSync() {
-      try {
-        const syncBtn = document.getElementById('manualSyncBtn');
-        setLoading(syncBtn, true);
-        
-        // Save to local storage
-        syncToLocalStorage();
-        
-        showToast('Data synced successfully!', 'success');
-      } catch (error) {
-        console.error('Manual sync failed:', error);
-        showToast('Manual sync failed. See console for details.', 'error');
-      } finally {
-        setLoading(syncBtn, false);
-      }
+      state.log = [];
+      localStorage.removeItem('compactorLog');
+      localStorage.removeItem('compactorActionHistory');
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      state.ui.showAllRecords = false;
+      state.ui.showAllHourly = false;
+      state.ui.isBlinkingEnabled = true;
+      document.getElementById('toggleBlink').innerHTML = `
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+        </svg>
+        Stop Blinking
+      `;
+      document.getElementById('toggleRecords').style.display = 'none';
+      document.getElementById('toggleHourly').style.display = 'none';
+      document.getElementById('undoButton').disabled = false;
+      syncToGoogleSheets().catch(() => {});
+      showToast('All data cleared successfully', 'success');
+    } catch (error) {
+      console.error('Error in confirmClearAllData:', error);
+      showToast('Failed to clear data', 'error');
+    } finally {
+      setLoading(clearBtn, false);
     }
+  }
 
-    // =============================================
+  // =============================================
   // Initialization
   // =============================================
   document.addEventListener('DOMContentLoaded', () => {
-    // Setup event listeners
-    document.getElementById('login-btn').addEventListener('click', handleLogin);
-    
-    // Handle Enter key in password field
-    document.getElementById('password-input').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        handleLogin();
-      }
-    });
-
-    // Check if already logged in
     if (sessionStorage.getItem('loggedIn') === 'true') {
       document.getElementById('cover-page').style.display = 'none';
       document.getElementById('main-container').style.display = 'block';
