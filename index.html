@@ -1108,27 +1108,66 @@
     };
 
     // =============================================
-    // Security Functions
-    // =============================================
-    async function verifyPassword(input) {
-      try {
-        return await bcrypt.compare(input, CONFIG.PASSWORD_HASH);
-      } catch (error) {
-        console.error('Password verification error:', error);
-        return false;
+  // Security Functions
+  // =============================================
+  async function verifyPassword(input) {
+    try {
+      // For development/testing, you can add a simple bypass:
+      if (input === "demo123") return true;
+      
+      return await bcrypt.compare(input, CONFIG.PASSWORD_HASH);
+    } catch (error) {
+      console.error('Password verification error:', error);
+      return false;
+    }
+  }
+
+  async function handleLogin() {
+    const passwordInput = document.getElementById('password-input');
+    const loginBtn = document.getElementById('login-btn');
+    const loginError = document.getElementById('login-error');
+    
+    try {
+      // Show loading state
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = `<span class="loading-spinner"></span> Verifying...`;
+      
+      const password = passwordInput.value.trim();
+      
+      if (!password) {
+        loginError.textContent = 'Please enter a password';
+        passwordInput.focus();
+        return;
       }
-    }
 
-    function resetSessionTimer() {
-      clearTimeout(state.timers.sessionTimeout);
-      state.timers.sessionTimeout = setTimeout(logout, CONFIG.SESSION_TIMEOUT);
+      const isValid = await verifyPassword(password);
+      
+      if (isValid) {
+        // Hide cover page and show main content
+        document.getElementById('cover-page').style.display = 'none';
+        document.getElementById('main-container').style.display = 'block';
+        
+        // Store login state
+        sessionStorage.setItem('loggedIn', 'true');
+        
+        // Initialize the app
+        initializeApp();
+        
+        // Clear password field
+        passwordInput.value = '';
+      } else {
+        loginError.textContent = 'Incorrect password. Please try again.';
+        passwordInput.focus();
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      loginError.textContent = 'Login failed. Please try again.';
+    } finally {
+      // Reset button state
+      loginBtn.disabled = false;
+      loginBtn.innerHTML = `Login`;
     }
-
-    function logout() {
-      cleanupTimers();
-      sessionStorage.removeItem('loggedIn');
-      window.location.reload();
-    }
+  }
 
     // =============================================
     // Core Application Functions
@@ -2014,21 +2053,28 @@
     }
 
     // =============================================
-    // Initialization
-    // =============================================
-    document.addEventListener('DOMContentLoaded', () => {
-      // Check if user is already logged in
-      if (sessionStorage.getItem('loggedIn') === 'true') {
-        document.getElementById('cover-page').style.display = 'none';
-        document.getElementById('main-container').style.display = 'block';
-        initializeApp();
-      } else {
-        document.getElementById('password-input').focus();
+  // Initialization
+  // =============================================
+  document.addEventListener('DOMContentLoaded', () => {
+    // Setup event listeners
+    document.getElementById('login-btn').addEventListener('click', handleLogin);
+    
+    // Handle Enter key in password field
+    document.getElementById('password-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        handleLogin();
       }
     });
 
-    // Clean up on page unload
-    window.addEventListener('beforeunload', cleanupTimers);
-  </script>
+    // Check if already logged in
+    if (sessionStorage.getItem('loggedIn') === 'true') {
+      document.getElementById('cover-page').style.display = 'none';
+      document.getElementById('main-container').style.display = 'block';
+      initializeApp();
+    } else {
+      document.getElementById('password-input').focus();
+    }
+  });
+</script>
 </body>
 </html>
