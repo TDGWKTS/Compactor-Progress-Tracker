@@ -5,573 +5,325 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Compactor Progress Tracker</title>
   <style>
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-
-  html {
-    height: 100%;
-  }
-
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    padding: clamp(10px, 2vw, 15px);
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    min-height: 100vh;
-    height: auto;
-    color: #333;
-    line-height: 1.5;
-    font-size: clamp(14px, 2.5vw, 16px);
-    display: flex;
-    flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  /* Cover Page Styles */
-  #cover-page {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    padding: 20px;
-  }
-
-  .login-container {
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-    padding: 30px;
-    width: 100%;
-    max-width: 400px;
-    text-align: center;
-  }
-
-  .login-container h1 {
-    color: #2c3e50;
-    margin-bottom: 20px;
-    font-size: 1.8rem;
-  }
-
-  .login-container p {
-    color: #6c757d;
-    margin-bottom: 30px;
-  }
-
-  .password-input {
-    width: 100%;
-    padding: 12px 15px;
-    margin-bottom: 20px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 16px;
-    transition: border-color 0.3s;
-  }
-
-  .password-input:focus {
-    border-color: #4CAF50;
-    outline: none;
-  }
-
-  .login-btn {
-    width: 100%;
-    padding: 12px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s;
-  }
-
-  .login-btn:hover {
-    background-color: #45a049;
-  }
-
-  .error-message {
-    color: #e74c3c;
-    margin-top: 10px;
-    font-weight: bold;
-    min-height: 20px;
-  }
-
-  /* Main Container Styles (hidden initially) */
-  #main-container {
-    display: none;
-  }
-
-  .container {
-    max-width: min(1400px, 95vw);
-    margin: 0 auto;
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-    padding: clamp(15px, 2.5vw, 20px);
-    position: relative;
-    flex-grow: 1;
-    height: auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-  }
-
-  .container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 6px;
-    background: linear-gradient(90deg, #4CAF50, #2196F3, #FF9800);
-  }
-
-  header {
-    text-align: center;
-    margin-bottom: clamp(15px, 3vw, 25px);
-  }
-
-  h1 {
-    color: #2c3e50;
-    margin: clamp(10px, 2vw, 15px) 0;
-    font-weight: 600;
-    position: relative;
-    padding-bottom: 15px;
-    font-size: clamp(1.5rem, 5vw, 2rem);
-  }
-
-  h1::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: clamp(60px, 10vw, 80px);
-    height: 4px;
-    background: linear-gradient(90deg, #4CAF50, #2196F3);
-    border-radius: 2px;
-  }
-
-  .dashboard {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(15px, 3vw, 25px);
-    margin-bottom: clamp(15px, 3vw, 25px);
-    flex-grow: 1;
-  }
-
-  @media (min-width: 768px) {
-    .dashboard {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
-  .card {
-    background: #f8f9fa;
-    border-radius: 10px;
-    padding: clamp(10px, 2vw, 20px);
-    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05);
-    width: 100%;
-    overflow: visible;
-    flex-grow: 0;
-    min-height: 0;
-    overflow-y: auto;
-  }
-
-  .card-header {
-    font-size: clamp(1rem, 3vw, 1.25rem);
-    font-weight: 600;
-    margin-bottom: clamp(10px, 2vw, 15px);
-    color: #2c3e50;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #e9ecef;
-  }
-
-  .compactor-grid {
-    display: grid;
-    grid-template-rows: repeat(2, auto);
-    grid-template-columns: repeat(5, minmax(50px, 1fr));
-    grid-template-areas: 
-      "b1 b2 b3 b4 b5"
-      "b6 b7 b8 b9 b10";
-    gap: clamp(8px, 1.5vw, 12px);
-    margin-bottom: clamp(10px, 2vw, 20px);
-  }
-
-  .compactor-btn[data-machine="1"] { grid-area: b1; }
-  .compactor-btn[data-machine="2"] { grid-area: b2; }
-  .compactor-btn[data-machine="3"] { grid-area: b3; }
-  .compactor-btn[data-machine="4"] { grid-area: b4; }
-  .compactor-btn[data-machine="5"] { grid-area: b5; }
-  .compactor-btn[data-machine="6"] { grid-area: b6; }
-  .compactor-btn[data-machine="7"] { grid-area: b7; }
-  .compactor-btn[data-machine="8"] { grid-area: b8; }
-  .compactor-btn[data-machine="9"] { grid-area: b9; }
-  .compactor-btn[data-machine="10"] { grid-area: b10; }
-
-  .compactor-btn {
-    padding: clamp(8px, 1.5vw, 12px);
-    border: none;
-    border-radius: 8px;
-    font-size: clamp(14px, 2.5vw, 18px);
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background-color: #4CAF50;
-    color: white;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-    touch-action: manipulation;
-  }
-
-  .compactor-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 10px rgba(0,0,0,0.15);
-  }
-
-  .compactor-btn.active {
-    background-color: #6c757d;
-    transform: none;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-
-  .error {
-    color: #e74c3c;
-    font-size: clamp(0.9rem, 2vw, 1rem);
-    margin: clamp(10px, 1vw, 10px) 0;
-    min-height: 24px;
-    font-weight: bold;
-    text-align: center;
-  }
-
-  .table-container {
-    overflow-x: hidden; /* Prevent horizontal scrolling */
-    overflow-y: auto;
-    margin-top: clamp(10px, 2vw, 20px);
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    width: 100%;
-    max-height: 400px;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    background-color: white;
-    table-layout: fixed; /* Ensure columns fit within table width */
-  }
-
-  th {
-    background-color: #f1f5f9;
-    padding: clamp(4px, 1vw, 8px); /* Reduced padding */
-    text-align: center;
-    font-weight: 600;
-    color: #2c3e50;
-    border: 1px solid #d1d5db;
-    font-size: clamp(0.7rem, 1.5vw, 0.8rem); /* Reduced font size */
-    width: auto;
-  }
-
-  td {
-    padding: clamp(4px, 1vw, 8px); /* Reduced padding */
-    border: 1px solid #d1d5db;
-    color: #4a5568;
-    text-align: center;
-    font-size: clamp(0.7rem, 1.5vw, 0.8rem); /* Reduced font size */
-    width: auto;
-    white-space: nowrap; /* Prevent text wrapping */
-    overflow: hidden;
-    text-overflow: ellipsis; /* Truncate long text */
-  }
-
-  /* Specific styling for Time Slot column */
-  #hourlyTable th:nth-child(1),
-  #hourlyTable td:nth-child(1) {
-    width: clamp(80px, 15vw, 100px); /* Increased width for Time Slot */
-    white-space: normal; /* Allow text wrapping */
-    overflow: visible; /* Prevent truncation */
-    text-overflow: unset; /* Remove ellipsis */
-  }
-
-  /* Adjust other columns to fit within remaining space */
-  #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-  #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-    width: calc((100% - clamp(80px, 15vw, 100px)) / 11 * 0.9); /* Distribute remaining width */
-  }
-
-  tr:hover {
-    background-color: #f8fafc;
-  }
-
-  .cumulative-row {
-    background-color: #d4edda !important;
-  }
-
-  .cumulative-row th,
-  .cumulative-row td {
-    background-color: #d4edda !important;
-    font-weight: 700;
-    color: #155724;
-  }
-
-  .time-cell {
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .time-cell:hover {
-    background-color: #e3f2fd;
-  }
-
-  .blink {
-    animation: blink-animation 1s ease-in-out infinite;
-  }
-
-  @keyframes blink-animation {
-    0%, 100% { background-color: #f8f9fa; }
-    50% { background-color: #ffcccb; }
-  }
-
-  .table-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: clamp(10px, 2vw, 15px);
-    flex-wrap: wrap;
-    gap: clamp(5px, 1vw, 10px);
-  }
-
-  .table-header h3 {
-    margin: 0;
-    flex: 1 1 auto;
-    font-size: clamp(1rem, 3vw, 1.2rem);
-  }
-
-  .table-header > div {
-    display: flex;
-    align-items: center;
-    gap: clamp(5px, 1vw, 10px);
-    flex: 0 1 auto;
-  }
-
-  .counter {
-    background-color: #e3f2fd;
-    color: #1976d2;
-    padding: clamp(4px, 1vw, 6px) clamp(8px, 1.5vw, 12px);
-    border-radius: 20px;
-    font-weight: bold;
-    flex: 0 0 auto;
-    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-  }
-
-  .btn-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(10px, 2vw, 15px);
-    margin-top: clamp(15px, 3vw, 25px);
-  }
-
-  .btn {
-    flex: 1;
-    padding: clamp(8px, 1.5vw, 12px);
-    border: none;
-    border-radius: 8px;
-    font-size: clamp(0.85rem, 2.2vw, 0.95rem);
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(5px, 1vw, 8px);
-    min-width: 100px;
-    touch-action: manipulation;
-  }
-
-  .btn-export {
-    background-color: #2196F3;
-    color: white;
-  }
-
-  .btn-export:hover {
-    background-color: #0b7dda;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
-  }
-
-  .btn-clear {
-    background-color: #e74c3c;
-    color: white;
-  }
-
-  .btn-clear:hover {
-    background-color: #c0392b;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
-  }
-
-  .btn-undo {
-    background-color: #f0ad4e;
-    color: white;
-  }
-
-  .btn-undo:hover {
-    background-color: #ec971f;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(240, 173, 78, 0.3);
-  }
-
-  .btn-undo:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-
-  .delete-icon {
-    cursor: pointer;
-    color: #e74c3c;
-    transition: all 0.2s;
-    width: clamp(14px, 2vw, 16px);
-    height: clamp(14px, 2vw, 16px);
-  }
-
-  .delete-icon:hover {
-    color: #c0392b;
-    transform: scale(1.1);
-  }
-
-  .highlight {
-    background: #fff9c4;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: bold;
-  }
-
-  .footer {
-    text-align: center;
-    margin-top: clamp(15px, 3vw, 25px);
-    color: #6c757d;
-    padding-top: clamp(10px, 2vw, 15px);
-    border-top: 1px solid #e9ecef;
-    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-  }
-
-  .status-counters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(10px, 2vw, 15px);
-    margin-bottom: clamp(10px, 2vw, 15px);
-    justify-content: center;
-  }
-
-  .counter-badge {
-    background: #e3f2fd;
-    padding: clamp(6px, 1vw, 8px) clamp(10px, 2vw, 15px);
-    border-radius: 20px;
-    font-weight: bold;
-    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-  }
-
-  .counter-badge.pending {
-    background-color: #fff3cd;
-    color: #856404;
-  }
-
-  .counter-badge.completed {
-    background-color: #d4edda;
-    color: #155724;
-  }
-
-  .toggle-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #1976d2;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: clamp(3px, 0.5vw, 5px);
-    padding: clamp(3px, 0.5vw, 5px) clamp(5px, 1vw, 10px);
-    border-radius: 4px;
-    transition: all 0.2s;
-    flex: 0 0 auto;
-    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-    touch-action: manipulation;
-  }
-
-  .toggle-btn:hover {
-    background-color: #e3f2fd;
-  }
-
-  .blink-toggle {
-    color: #e74c3c;
-  }
-
-  .blink-toggle:hover {
-    color: #c0392b;
-  }
-
-  .status-row {
-    transition: background-color 0.3s;
-  }
-
-  .status-row:hover {
-    background-color: #ebf8ff;
-  }
-
-  /* Tablet-specific media query (768px to 1024px) */
-  @media (min-width: 768px) and (max-width: 1024px) {
-    .table-container {
-      overflow-x: hidden; /* Prevent horizontal scrolling */
-      margin-left: 0;
-      margin-right: 0;
+    * {
+      box-sizing: border-box;
+      margin: 0;
       padding: 0;
     }
 
-    table {
-      table-layout: fixed; /* Force fixed layout to control column widths */
-      width: 100%;
+    html {
+      height: 100%;
     }
 
-    th, td {
-      padding: clamp(2px, 0.5vw, 4px); /* Further reduced padding */
-      font-size: clamp(0.6rem, 1.2vw, 0.7rem); /* Smaller font size */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: clamp(10px, 2vw, 15px);
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 100vh;
+      height: auto;
+      color: #333;
+      line-height: 1.5;
+      font-size: clamp(14px, 2.5vw, 16px);
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    /* Cover Page Styles */
+    #cover-page {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .login-container {
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+      padding: 30px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .login-container h1 {
+      color: #2c3e50;
+      margin-bottom: 20px;
+      font-size: 1.8rem;
+    }
+
+    .login-container p {
+      color: #6c757d;
+      margin-bottom: 30px;
+    }
+
+    .password-input {
+      width: 100%;
+      padding: 12px 15px;
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+
+    .password-input:focus {
+      border-color: #4CAF50;
+      outline: none;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .login-btn:hover {
+      background-color: #45a049;
+    }
+
+    .error-message {
+      color: #e74c3c;
+      margin-top: 10px;
+      font-weight: bold;
+      min-height: 20px;
+    }
+
+    /* Main Container Styles */
+    #main-container {
+      display: none;
+    }
+
+    .container {
+      max-width: min(1400px, 95vw);
+      margin: 0 auto;
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+      padding: clamp(15px, 2.5vw, 20px);
+      position: relative;
+      flex-grow: 1;
+      height: auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background: linear-gradient(90deg, #4CAF50, #2196F3, #FF9800);
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: clamp(15px, 3vw, 25px);
+      position: relative;
+    }
+
+    h1 {
+      color: #2c3e50;
+      margin: clamp(10px, 2vw, 15px) 0;
+      font-weight: 600;
+      position: relative;
+      padding-bottom: 15px;
+      font-size: clamp(1.5rem, 5vw, 2rem);
+    }
+
+    h1::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: clamp(60px, 10vw, 80px);
+      height: 4px;
+      background: linear-gradient(90deg, #4CAF50, #2196F3);
+      border-radius: 2px;
+    }
+
+    .logout-btn {
+      background: none;
+      border: 1px solid #e74c3c;
+      color: #e74c3c;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .logout-btn:hover {
+      background-color: #e74c3c;
+      color: white;
+    }
+
+    .dashboard {
+      display: flex;
+      flex-direction: column;
+      gap: clamp(15px, 3vw, 25px);
+      margin-bottom: clamp(15px, 3vw, 25px);
+      flex-grow: 1;
+    }
+
+    @media (min-width: 768px) {
+      .dashboard {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .card {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: clamp(10px, 2vw, 20px);
+      box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05);
+      width: 100%;
+      overflow: visible;
+      flex-grow: 0;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .card-header {
+      font-size: clamp(1rem, 3vw, 1.25rem);
+      font-weight: 600;
+      margin-bottom: clamp(10px, 2vw, 15px);
+      color: #2c3e50;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e9ecef;
+    }
+
+    .compactor-grid {
+      display: grid;
+      grid-template-rows: repeat(2, auto);
+      grid-template-columns: repeat(5, minmax(50px, 1fr));
+      grid-template-areas: 
+        "b1 b2 b3 b4 b5"
+        "b6 b7 b8 b9 b10";
+      gap: clamp(8px, 1.5vw, 12px);
+      margin-bottom: clamp(10px, 2vw, 20px);
+    }
+
+    .compactor-btn[data-machine="1"] { grid-area: b1; }
+    .compactor-btn[data-machine="2"] { grid-area: b2; }
+    .compactor-btn[data-machine="3"] { grid-area: b3; }
+    .compactor-btn[data-machine="4"] { grid-area: b4; }
+    .compactor-btn[data-machine="5"] { grid-area: b5; }
+    .compactor-btn[data-machine="6"] { grid-area: b6; }
+    .compactor-btn[data-machine="7"] { grid-area: b7; }
+    .compactor-btn[data-machine="8"] { grid-area: b8; }
+    .compactor-btn[data-machine="9"] { grid-area: b9; }
+    .compactor-btn[data-machine="10"] { grid-area: b10; }
+
+    .compactor-btn {
+      padding: clamp(8px, 1.5vw, 12px);
+      border: none;
+      border-radius: 8px;
+      font-size: clamp(14px, 2.5vw, 18px);
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background-color: #4CAF50;
+      color: white;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+      touch-action: manipulation;
+    }
+
+    .compactor-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 10px rgba(0,0,0,0.15);
+    }
+
+    .compactor-btn.active {
+      background-color: #6c757d;
+      transform: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .error {
+      color: #e74c3c;
+      font-size: clamp(0.9rem, 2vw, 1rem);
+      margin: clamp(10px, 1vw, 10px) 0;
+      min-height: 24px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      overflow-y: auto;
+      margin-top: clamp(10px, 2vw, 20px);
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      width: 100%;
+      max-height: 400px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: white;
+      table-layout: fixed;
+      min-width: 600px;
+    }
+
+    th {
+      background-color: #f1f5f9;
+      padding: clamp(4px, 1vw, 8px);
+      text-align: center;
+      font-weight: 600;
+      color: #2c3e50;
+      border: 1px solid #d1d5db;
+      font-size: clamp(0.7rem, 1.5vw, 0.8rem);
       width: auto;
     }
 
-    /* Status Records table adjustments */
-    #statusTable th:nth-child(1),
-    #statusTable th:nth-child(2),
-    #statusTable th:nth-child(3),
-    #statusTable th:nth-child(4),
-    #statusTable th:nth-child(5),
-    #statusTable th:nth-child(6),
-    #statusTable td:nth-child(1),
-    #statusTable td:nth-child(2),
-    #statusTable td:nth-child(3),
-    #statusTable td:nth-child(4),
-    #statusTable td:nth-child(5),
-    #statusTable td:nth-child(6) {
-      width: calc(100% / 6 * 0.9); /* Slightly reduced width for 6 columns */
+    td {
+      padding: clamp(4px, 1vw, 8px);
+      border: 1px solid #d1d5db;
+      color: #4a5568;
+      text-align: center;
+      font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+      width: auto;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* Hourly Records table adjustments */
     #hourlyTable th:nth-child(1),
     #hourlyTable td:nth-child(1) {
-      width: clamp(70px, 12vw, 90px); /* Slightly smaller for tablets */
+      width: clamp(80px, 15vw, 100px);
       white-space: normal;
       overflow: visible;
       text-overflow: unset;
@@ -579,241 +331,567 @@
 
     #hourlyTable th:nth-child(n+2):nth-child(-n+11),
     #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-      width: calc((100% - clamp(70px, 12vw, 90px)) / 11 * 0.8); /* Adjust for remaining columns */
-    }
-  }
-
-  @media (max-width: 1024px) {
-    .card {
-      padding: clamp(8px, 1.5vw, 15px);
-    }
-    
-    .table-container {
-      margin-left: calc(-1vw);
-      margin-right: calc(-1vw);
-      padding: 0 1vw;
-    }
-    
-    table {
-      min-width: 0; /* Ensure no minimum width forces scrolling */
-    }
-    
-    body {
-      padding: clamp(5px, 1vw, 10px);
-    }
-    
-    .container {
-      padding: clamp(10px, 2vw, 15px);
-    }
-  }
-
-  @media (max-width: 768px) {
-    .compactor-grid {
-      grid-template-columns: repeat(5, minmax(45px, 1fr));
-      gap: clamp(6px, 1vw, 10px);
-    }
-    
-    .btn {
-      min-width: 90px;
-      padding: clamp(6px, 1.5vw, 10px);
-    }
-    
-    .table-container {
-      margin-left: calc(-2vw);
-      margin-right: calc(-2vw);
-      padding: 0 2vw;
-    }
-    
-    .dashboard {
-      flex-direction: column;
-    }
-    
-    .card {
-      width: 100%;
-      margin-bottom: clamp(10px, 2vw, 15px);
-    }
-    
-    body {
-      min-height: 100%;
-      height: auto;
-      padding: clamp(5px, 1vw, 8px);
-    }
-    
-    .container {
-      min-height: 100%;
-      height: auto;
-      padding: clamp(8px, 1.5vw, 12px);
+      width: calc((100% - clamp(80px, 15vw, 100px)) / 11 * 0.9);
     }
 
-    /* Hourly Records table adjustments for mobile */
-    #hourlyTable th:nth-child(1),
-    #hourlyTable td:nth-child(1) {
-      width: clamp(60px, 20vw, 80px); /* Adjusted for smaller screens */
-      white-space: normal;
-      overflow: visible;
-      text-overflow: unset;
+    tr:hover {
+      background-color: #f8fafc;
     }
 
-    #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-    #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-      width: calc((100% - clamp(60px, 20vw, 80px)) / 11 * 0.8); /* Adjust for remaining columns */
+    .cumulative-row {
+      background-color: #d4edda !important;
     }
-  }
 
-  @media (max-width: 600px) {
-    .compactor-grid {
-      grid-template-columns: repeat(5, minmax(40px, 1fr));
-      gap: clamp(5px, 1vw, 8px);
+    .cumulative-row th,
+    .cumulative-row td {
+      background-color: #d4edda !important;
+      font-weight: 700;
+      color: #155724;
     }
-    
-    .compactor-btn {
-      font-size: clamp(12px, 2.2vw, 16px);
-      padding: clamp(6px, 1.2vw, 12px);
+
+    .time-cell {
+      cursor: pointer;
+      transition: background-color 0.2s;
     }
-    
-    table {
-      min-width: 0;
-      font-size: clamp(0.6rem, 1.4vw, 0.7rem);
+
+    .time-cell:hover {
+      background-color: #e3f2fd;
     }
-    
-    th, td {
-      padding: clamp(2px, 0.5vw, 4px);
+
+    .blink {
+      animation: blink-animation 1s ease-in-out infinite;
     }
-    
-    .btn {
-      min-width: 80px;
-      font-size: clamp(0.75rem, 2vw, 0.85rem);
+
+    @keyframes blink-animation {
+      0%, 100% { background-color: #f8f9fa; }
+      50% { background-color: #ffcccb; }
     }
-    
+
     .table-header {
-      flex-direction: column;
-      align-items: flex-start;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: clamp(10px, 2vw, 15px);
+      flex-wrap: wrap;
+      gap: clamp(5px, 1vw, 10px);
     }
-    
+
+    .table-header h3 {
+      margin: 0;
+      flex: 1 1 auto;
+      font-size: clamp(1rem, 3vw, 1.2rem);
+    }
+
     .table-header > div {
-      width: 100%;
-      justify-content: flex-end;
+      display: flex;
+      align-items: center;
+      gap: clamp(5px, 1vw, 10px);
+      flex: 0 1 auto;
     }
 
-    /* Hourly Records table adjustments for extra small screens */
-    #hourlyTable th:nth-child(1),
-    #hourlyTable td:nth-child(1) {
-      width: clamp(50px, 18vw, 70px); /* Further adjusted for very small screens */
-      white-space: normal;
-      overflow: visible;
-      text-overflow: unset;
-      font-size: clamp(0.65rem, 1.6vw, 0.75rem); /* Slightly larger font for readability */
+    .counter {
+      background-color: #e3f2fd;
+      color: #1976d2;
+      padding: clamp(4px, 1vw, 6px) clamp(8px, 1.5vw, 12px);
+      border-radius: 20px;
+      font-weight: bold;
+      flex: 0 0 auto;
+      font-size: clamp(0.75rem, 1.8vw, 0.85rem);
     }
 
-    #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-    #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-      width: calc((100% - clamp(50px, 18vw, 70px)) / 11 * 0.7); /* Adjust for remaining columns */
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: clamp(10px, 2vw, 15px);
+      margin-top: clamp(15px, 3vw, 25px);
     }
-  }
 
-  @media (max-width: 400px) {
-    body {
-      padding: clamp(5px, 1vw, 8px);
-    }
-    
-    .container {
+    .btn {
+      flex: 1;
       padding: clamp(8px, 1.5vw, 12px);
+      border: none;
+      border-radius: 8px;
+      font-size: clamp(0.85rem, 2.2vw, 0.95rem);
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(5px, 1vw, 8px);
+      min-width: 100px;
+      touch-action: manipulation;
     }
-    
-    h1 {
-      font-size: clamp(1.2rem, 4vw, 1.5rem);
+
+    .btn-export {
+      background-color: #2196F3;
+      color: white;
     }
-    
-    .compactor-grid {
-      grid-template-columns: repeat(5, minmax(35px, 1fr));
-      gap: clamp(4px, 0.8vw, 6px);
+
+    .btn-export:hover {
+      background-color: #0b7dda;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
     }
-    
-    .compactor-btn {
-      font-size: clamp(10px, 2vw, 14px);
-      padding: clamp(5px, 1vw, 10px);
+
+    .btn-clear {
+      background-color: #e74c3c;
+      color: white;
     }
-    
-    table {
-      min-width: 0;
+
+    .btn-clear:hover {
+      background-color: #c0392b;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
     }
-  }
 
+    .btn-undo {
+      background-color: #f0ad4e;
+      color: white;
+    }
 
-.sync-status {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 10px 15px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: bold;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+    .btn-undo:hover {
+      background-color: #ec971f;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(240, 173, 78, 0.3);
+    }
 
-  .sync-status.pending {
-    background-color: #fff3cd;
-    color: #856404;
-  }
+    .btn-undo:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
 
-  .sync-status.success {
-    background-color: #d4edda;
-    color: #155724;
-  }
+    .delete-icon {
+      cursor: pointer;
+      color: #e74c3c;
+      transition: all 0.2s;
+      width: clamp(14px, 2vw, 16px);
+      height: clamp(14px, 2vw, 16px);
+    }
 
-  .sync-status.error {
-    background-color: #f8d7da;
-    color: #721c24;
-  }
+    .delete-icon:hover {
+      color: #c0392b;
+      transform: scale(1.1);
+    }
 
-  .sync-icon {
-    width: 16px;
-    height: 16px;
-    animation: spin 1s linear infinite;
-  }
+    .highlight {
+      background: #fff9c4;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
 
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
+    .footer {
+      text-align: center;
+      margin-top: clamp(15px, 3vw, 25px);
+      color: #6c757d;
+      padding-top: clamp(10px, 2vw, 15px);
+      border-top: 1px solid #e9ecef;
+      font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+    }
 
-  .sync-btn {
-    background-color: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 15px;
-    font-size: 14px;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin-left: 10px;
-  }
+    .status-counters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: clamp(10px, 2vw, 15px);
+      margin-bottom: clamp(10px, 2vw, 15px);
+      justify-content: center;
+    }
 
-  .sync-btn:hover {
-    background-color: #5a6268;
-  }
+    .counter-badge {
+      background: #e3f2fd;
+      padding: clamp(6px, 1vw, 8px) clamp(10px, 2vw, 15px);
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+    }
 
-  .sync-btn svg {
-    width: 14px;
-    height: 14px;
-  }
+    .counter-badge.pending {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
+    .counter-badge.completed {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .toggle-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #1976d2;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: clamp(3px, 0.5vw, 5px);
+      padding: clamp(3px, 0.5vw, 5px) clamp(5px, 1vw, 10px);
+      border-radius: 4px;
+      transition: all 0.2s;
+      flex: 0 0 auto;
+      font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+      touch-action: manipulation;
+    }
+
+    .toggle-btn:hover {
+      background-color: #e3f2fd;
+    }
+
+    .blink-toggle {
+      color: #e74c3c;
+    }
+
+    .blink-toggle:hover {
+      color: #c0392b;
+    }
+
+    .status-row {
+      transition: background-color 0.3s;
+    }
+
+    .status-row:hover {
+      background-color: #ebf8ff;
+    }
+
+    /* Tablet-specific media query (768px to 1024px) */
+    @media (min-width: 768px) and (max-width: 1024px) {
+      .table-container {
+        overflow-x: auto;
+        margin-left: 0;
+        margin-right: 0;
+        padding: 0;
+      }
+
+      table {
+        table-layout: fixed;
+        width: 100%;
+      }
+
+      th, td {
+        padding: clamp(2px, 0.5vw, 4px);
+        font-size: clamp(0.6rem, 1.2vw, 0.7rem);
+        width: auto;
+      }
+
+      #statusTable th:nth-child(1),
+      #statusTable th:nth-child(2),
+      #statusTable th:nth-child(3),
+      #statusTable th:nth-child(4),
+      #statusTable th:nth-child(5),
+      #statusTable th:nth-child(6),
+      #statusTable td:nth-child(1),
+      #statusTable td:nth-child(2),
+      #statusTable td:nth-child(3),
+      #statusTable td:nth-child(4),
+      #statusTable td:nth-child(5),
+      #statusTable td:nth-child(6) {
+        width: calc(100% / 6 * 0.9);
+      }
+
+      #hourlyTable th:nth-child(1),
+      #hourlyTable td:nth-child(1) {
+        width: clamp(70px, 12vw, 90px);
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+      }
+
+      #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+      #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+        width: calc((100% - clamp(70px, 12vw, 90px)) / 11 * 0.8);
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .card {
+        padding: clamp(8px, 1.5vw, 15px);
+      }
+      
+      .table-container {
+        margin-left: calc(-1vw);
+        margin-right: calc(-1vw);
+        padding: 0 1vw;
+      }
+      
+      table {
+        min-width: 0;
+      }
+      
+      body {
+        padding: clamp(5px, 1vw, 10px);
+      }
+      
+      .container {
+        padding: clamp(10px, 2vw, 15px);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .compactor-grid {
+        grid-template-columns: repeat(5, minmax(45px, 1fr));
+        gap: clamp(6px, 1vw, 10px);
+      }
+      
+      .btn {
+        min-width: 90px;
+        padding: clamp(6px, 1.5vw, 10px);
+      }
+      
+      .table-container {
+        margin-left: calc(-2vw);
+        margin-right: calc(-2vw);
+        padding: 0 2vw;
+      }
+      
+      .dashboard {
+        flex-direction: column;
+      }
+      
+      .card {
+        width: 100%;
+        margin-bottom: clamp(10px, 2vw, 15px);
+      }
+      
+      body {
+        min-height: 100%;
+        height: auto;
+        padding: clamp(5px, 1vw, 8px);
+      }
+      
+      .container {
+        min-height: 100%;
+        height: auto;
+        padding: clamp(8px, 1.5vw, 12px);
+      }
+
+      #hourlyTable th:nth-child(1),
+      #hourlyTable td:nth-child(1) {
+        width: clamp(60px, 20vw, 80px);
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+      }
+
+      #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+      #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+        width: calc((100% - clamp(60px, 20vw, 80px)) / 11 * 0.8);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .compactor-grid {
+        grid-template-columns: repeat(5, minmax(40px, 1fr));
+        gap: clamp(5px, 1vw, 8px);
+      }
+      
+      .compactor-btn {
+        font-size: clamp(12px, 2.2vw, 16px);
+        padding: clamp(6px, 1.2vw, 12px);
+      }
+      
+      table {
+        min-width: 0;
+        font-size: clamp(0.6rem, 1.4vw, 0.7rem);
+      }
+      
+      th, td {
+        padding: clamp(2px, 0.5vw, 4px);
+      }
+      
+      .btn {
+        min-width: 80px;
+        font-size: clamp(0.75rem, 2vw, 0.85rem);
+      }
+      
+      .table-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .table-header > div {
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      #hourlyTable th:nth-child(1),
+      #hourlyTable td:nth-child(1) {
+        width: clamp(50px, 18vw, 70px);
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+        font-size: clamp(0.65rem, 1.6vw, 0.75rem);
+      }
+
+      #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+      #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+        width: calc((100% - clamp(50px, 18vw, 70px)) / 11 * 0.7);
+      }
+    }
+
+    @media (max-width: 400px) {
+      body {
+        padding: clamp(5px, 1vw, 8px);
+      }
+      
+      .container {
+        padding: clamp(8px, 1.5vw, 12px);
+      }
+      
+      h1 {
+        font-size: clamp(1.2rem, 4vw, 1.5rem);
+      }
+      
+      .compactor-grid {
+        grid-template-columns: repeat(5, minmax(35px, 1fr));
+        gap: clamp(4px, 0.8vw, 6px);
+      }
+      
+      .compactor-btn {
+        font-size: clamp(10px, 2vw, 14px);
+        padding: clamp(5px, 1vw, 10px);
+      }
+      
+      table {
+        min-width: 0;
+      }
+    }
+
+    /* Toast Notifications */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 1000;
+      font-weight: 500;
+      opacity: 0;
+      animation: fadeIn 0.3s forwards;
+    }
+
+    .toast.success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .toast.error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .toast.info {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .toast.fade-out {
+      animation: fadeOut 0.3s forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; bottom: 0; }
+      to { opacity: 1; bottom: 20px; }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; bottom: 20px; }
+      to { opacity: 0; bottom: 0; }
+    }
+
+    /* Loading Spinner */
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Sync Status */
+    .sync-status {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 15px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: bold;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      animation: fadeIn 0.3s forwards;
+    }
+
+    .sync-status.pending {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
+    .sync-status.success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .sync-status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .sync-icon {
+      width: 16px;
+      height: 16px;
+      animation: spin 1s linear infinite;
+    }
+
+    .sync-btn {
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 15px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-left: 10px;
+      transition: all 0.2s;
+    }
+
+    .sync-btn:hover {
+      background-color: #5a6268;
+    }
+
+    .sync-btn svg {
+      width: 14px;
+      height: 14px;
+    }
   </style>
 </head>
 <body>
-   <!-- Cover Page with Password Protection -->
+  <!-- Cover Page with Password Protection -->
   <div id="cover-page">
     <div class="login-container">
       <h1>Compactor Progress Tracker</h1>
       <p>Please enter the password to access the system</p>
       <input type="password" id="password-input" class="password-input" placeholder="Enter password">
-      <button id="login-btn" class="login-btn">Login</button>
+      <button id="login-btn" class="login-btn">
+        <span id="login-btn-text">Login</span>
+      </button>
       <div id="login-error" class="error-message"></div>
     </div>
   </div>
@@ -823,6 +901,13 @@
     <div class="container">
       <header>
         <h1>Compactor Progress Tracker</h1>
+        <button id="logout-btn" class="logout-btn">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+            <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+          </svg>
+          Logout
+        </button>
       </header>
       
       <div class="dashboard">
@@ -963,41 +1048,35 @@
       </div>
       
       <div class="footer">
-    Compactor Progress Tracker v2.5 | Data is stored locally in your browser
-    <button class="sync-btn" id="manualSyncBtn">
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-      </svg>
-      Sync Now
-    </button>
+        Compactor Progress Tracker v2.5 | Data is stored locally in your browser
+        <button class="sync-btn" id="manualSyncBtn">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+          </svg>
+          Sync Now
+        </button>
+      </div>
+
+      <div id="syncStatus" class="sync-status" style="display: none;">
+        <svg class="sync-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+          <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+        </svg>
+        <span id="syncStatusText">Syncing data...</span>
+      </div>
+    </div>
   </div>
 
-  <div id="syncStatus" class="sync-status" style="display: none;">
-    <svg class="sync-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-      <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-      <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-    </svg>
-    <span id="syncStatusText">Syncing data...</span>
-  </div>
-</div>
-
-   // =============================================
-    // Configuration and Constants
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bcrypt.js/2.4.0/bcrypt.min.js"></script>
+  <script>
+    // =============================================
+    // Configuration
     // =============================================
     const CONFIG = {
       // Security Configuration
-      PASSWORD_HASH: "1892542089", // Hash of "compactor123"
-      SESSION_TIMEOUT: 30 * 60 * 1000, // 30 minutes in milliseconds
-      
-      // Google Sheets Configuration (should be moved to server-side in production)
-      API_KEY: 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM',
-      CLIENT_ID: '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com',
-      SPREADSHEET_ID: '1JnmxsmhqBGbQsU45PlgDmALU_vCdov5MlsHIon6992g',
-      COMPLETED_SHEET_NAME: 'Completed Records',
-      HOURLY_SHEET_NAME: 'Hourly Records',
-      SCOPES: 'https://www.googleapis.com/auth/spreadsheets',
-      DISCOVERY_DOC: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
+      PASSWORD_HASH: "$2a$10$N9qo8uLOickgx2ZMRZoMy.MQDqShxs6mYjUHi6IHChuL0CG3G7Pem", // bcrypt hash of "compactor123"
+      SESSION_TIMEOUT: 30 * 60 * 1000, // 30 minutes
       
       // Time Settings
       TIMEZONE: 'Asia/Hong_Kong',
@@ -1021,27 +1100,23 @@
       timers: {
         updateInterval: null,
         syncInterval: null,
-        sessionTimeout: null
+        sessionTimeout: null,
+        buttonDebounce: {} // Track button click timestamps
       },
-      gapiLoaded: false,
-      isSyncing: false
+      isSyncing: false,
+      lastSyncTime: null
     };
 
     // =============================================
     // Security Functions
     // =============================================
-    function simpleHash(str) {
-      let hash = 0;
-      if (!str || str.length === 0) return hash;
-      for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash) + str.charCodeAt(i);
-        hash |= 0; // Convert to 32bit integer
+    async function verifyPassword(input) {
+      try {
+        return await bcrypt.compare(input, CONFIG.PASSWORD_HASH);
+      } catch (error) {
+        console.error('Password verification error:', error);
+        return false;
       }
-      return hash.toString();
-    }
-
-    function checkPassword(input) {
-      return simpleHash(input) === CONFIG.PASSWORD_HASH;
     }
 
     function resetSessionTimer() {
@@ -1050,6 +1125,7 @@
     }
 
     function logout() {
+      cleanupTimers();
       sessionStorage.removeItem('loggedIn');
       window.location.reload();
     }
@@ -1058,37 +1134,53 @@
     // Core Application Functions
     // =============================================
     function initializeApp() {
-      loadFromLocalStorage();
-      initializeUI();
-      initializeGapiClient();
-      startTimers();
-      setupEventListeners();
-      resetSessionTimer();
+      try {
+        loadFromLocalStorage();
+        initializeUI();
+        startTimers();
+        setupEventListeners();
+        resetSessionTimer();
+        
+        showToast('Welcome to Compactor Tracker!', 'success');
+      } catch (error) {
+        console.error('Initialization error:', error);
+        showToast('Failed to initialize app', 'error');
+      }
     }
 
     function loadFromLocalStorage() {
-      const savedLog = localStorage.getItem('compactorLog');
-      if (savedLog) {
-        state.log = JSON.parse(savedLog);
-      }
-      
-      const savedActionHistory = localStorage.getItem('compactorActionHistory');
-      if (savedActionHistory) {
-        state.actionHistory = JSON.parse(savedActionHistory);
+      try {
+        const savedLog = localStorage.getItem('compactorLog');
+        if (savedLog) {
+          state.log = JSON.parse(savedLog);
+        }
+        
+        const savedActionHistory = localStorage.getItem('compactorActionHistory');
+        if (savedActionHistory) {
+          state.actionHistory = JSON.parse(savedActionHistory);
+        }
+      } catch (error) {
+        console.error('Error loading from localStorage:', error);
+        showToast('Error loading saved data', 'error');
       }
     }
 
     function saveToLocalStorage() {
-      localStorage.setItem('compactorLog', JSON.stringify(state.log));
-      localStorage.setItem('compactorActionHistory', JSON.stringify(state.actionHistory));
+      try {
+        localStorage.setItem('compactorLog', JSON.stringify(state.log));
+        localStorage.setItem('compactorActionHistory', JSON.stringify(state.actionHistory));
+      } catch (error) {
+        console.error('Error saving to localStorage:', error);
+        showToast('Error saving data', 'error');
+      }
     }
 
     function startTimers() {
       // Start dynamic updates every 60 seconds
       state.timers.updateInterval = setInterval(updateStatusTable, 60000);
       
-      // Start Google Sheets sync every 1 minute
-      state.timers.syncInterval = setInterval(syncToGoogleSheets, 60000);
+      // Start data sync every 1 minute
+      state.timers.syncInterval = setInterval(syncToLocalStorage, 60000);
     }
 
     function cleanupTimers() {
@@ -1098,140 +1190,32 @@
     }
 
     // =============================================
-    // Google Sheets Integration
-    // =============================================
-    function initializeGapiClient() {
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.onload = () => {
-        gapi.load('client:auth2', () => {
-          gapi.client.init({
-            apiKey: CONFIG.API_KEY,
-            clientId: CONFIG.CLIENT_ID,
-            discoveryDocs: [CONFIG.DISCOVERY_DOC],
-            scope: CONFIG.SCOPES
-          }).then(() => {
-            state.gapiLoaded = true;
-            console.log('Google API client initialized');
-            // Attempt silent sign-in
-            gapi.auth2.getAuthInstance().signIn().then(() => {
-              console.log('User signed in');
-              // Initial sync
-              syncToGoogleSheets();
-            }).catch(err => {
-              console.log('Silent sign-in failed', err);
-            });
-          }).catch(err => {
-            console.error('Error initializing Google API client', err);
-          });
-        });
-      };
-      document.body.appendChild(script);
-    }
-
-    async function updateSheet(sheetName, data) {
-      if (!state.gapiLoaded) return;
-      
-      try {
-        await gapi.client.sheets.spreadsheets.values.update({
-          spreadsheetId: CONFIG.SPREADSHEET_ID,
-          range: `${sheetName}!A1`,
-          valueInputOption: 'RAW',
-          resource: {
-            values: data
-          }
-        });
-      } catch (error) {
-        console.error('Error updating sheet:', error);
-        throw error;
-      }
-    }
-
-    async function syncToGoogleSheets() {
-      if (!state.gapiLoaded || state.log.length === 0 || state.isSyncing) return;
-      
-      state.isSyncing = true;
-      const syncStatus = document.getElementById('syncStatus');
-      const syncStatusText = document.getElementById('syncStatusText');
-      
-      try {
-        // Show sync status
-        syncStatus.style.display = 'flex';
-        syncStatus.className = 'sync-status pending';
-        syncStatusText.textContent = 'Syncing data to Google Sheets...';
-        
-        // Prepare completed records data
-        const completedRecords = state.log.filter(entry => entry.outTime);
-        const completedData = [
-          ['No. of Container', 'Compactor Number', 'In Time', 'Out Time', 'Duration']
-        ];
-        
-        completedRecords.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
-          .forEach((entry, index) => {
-            const containerNumber = completedRecords.length - index;
-            const duration = calculateDuration(entry.inTime, entry.outTime).display;
-            completedData.push([
-              containerNumber,
-              entry.machineNumber,
-              entry.inTime,
-              entry.outTime,
-              duration
-            ]);
-          });
-        
-        // Prepare hourly records data
-        const timeSlots = generateTimeSlots();
-        const hourlyData = [
-          ['Time Slot', ...Array.from({length: 10}, (_, i) => `Machine ${i+1}`), 'Total']
-        ];
-        
-        const completedEntries = state.log.filter(entry => entry.outTime);
-        
-        timeSlots.forEach(slot => {
-          const slotStart = parseTime(slot.start);
-          const slotEnd = parseTime(slot.end, slotStart);
-          const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
-          
-          completedEntries.forEach(entry => {
-            const inTime = parseTime(entry.inTime);
-            const outTime = parseTime(entry.outTime, inTime);
-            if (inTime >= slotStart && outTime <= slotEnd) {
-              machineCounts[entry.machineNumber]++;
-            }
-          });
-          
-          const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-          if (total > 0) {
-            hourlyData.push([`${slot.start}-${slot.end}`, ...machineCounts.slice(1), total]);
-          }
-        });
-        
-        // Update Google Sheets
-        await updateSheet(CONFIG.COMPLETED_SHEET_NAME, completedData);
-        await updateSheet(CONFIG.HOURLY_SHEET_NAME, hourlyData);
-        
-        // Update sync status
-        syncStatus.className = 'sync-status success';
-        syncStatusText.textContent = 'Data synced successfully!';
-        
-        console.log('Data synced to Google Sheets');
-      } catch (error) {
-        console.error('Error syncing to Google Sheets:', error);
-        syncStatus.className = 'sync-status error';
-        syncStatusText.textContent = 'Sync failed. See console for details.';
-      } finally {
-        state.isSyncing = false;
-        
-        // Hide status after 3 seconds
-        setTimeout(() => {
-          syncStatus.style.display = 'none';
-        }, 3000);
-      }
-    }
-
-    // =============================================
     // UI Functions
     // =============================================
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 500);
+      }, 3000);
+    }
+
+    function setLoading(element, isLoading) {
+      if (isLoading) {
+        element.disabled = true;
+        const originalText = element.querySelector('span') ? element.querySelector('span').textContent : element.textContent;
+        element.innerHTML = `<span class="loading-spinner"></span> <span>${originalText}</span>`;
+      } else {
+        element.disabled = false;
+        const originalText = element.querySelector('span:last-child')?.textContent || '';
+        element.innerHTML = originalText;
+      }
+    }
+
     function initializeUI() {
       updateStatusTable();
       updateHourlyTable();
@@ -1483,49 +1467,64 @@
     // =============================================
     function setupEventListeners() {
       // Password protection
-      const passwordInput = document.getElementById('password-input');
-      const loginBtn = document.getElementById('login-btn');
-      
-      loginBtn.addEventListener('click', handleLogin);
-      passwordInput.addEventListener('keypress', (e) => {
+      document.getElementById('login-btn').addEventListener('click', handleLogin);
+      document.getElementById('password-input').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleLogin();
       });
       
-      // Main application buttons
+      // Main buttons
       document.getElementById('exportButton').addEventListener('click', exportToCSV);
-      document.getElementById('clearButton').addEventListener('click', clearAllData);
+      document.getElementById('clearButton').addEventListener('click', confirmClearAllData);
       document.getElementById('undoButton').addEventListener('click', undoLastAction);
       document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
       document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
       document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
       document.getElementById('manualSyncBtn').addEventListener('click', manualSync);
+      document.getElementById('logout-btn').addEventListener('click', logout);
       
-      // Machine buttons
+      // Machine buttons with debouncing
       document.querySelectorAll('.compactor-btn').forEach(button => {
         button.addEventListener('click', () => {
           const machineNum = parseInt(button.getAttribute('data-machine'));
-          handleMachineButtonClick(machineNum);
+          const now = Date.now();
+          
+          // Debounce rapid clicks (300ms cooldown)
+          if (!state.timers.buttonDebounce[machineNum] || 
+              now - state.timers.buttonDebounce[machineNum] > 300) {
+            state.timers.buttonDebounce[machineNum] = now;
+            handleMachineButtonClick(machineNum);
+          }
         });
       });
       
-      // Activity tracking for session timeout
-      document.addEventListener('mousemove', resetSessionTimer);
-      document.addEventListener('keypress', resetSessionTimer);
-      document.addEventListener('click', resetSessionTimer);
+      // Activity tracking
+      ['mousemove', 'keypress', 'click'].forEach(event => {
+        document.addEventListener(event, resetSessionTimer);
+      });
     }
 
-    function handleLogin() {
+    async function handleLogin() {
       const passwordInput = document.getElementById('password-input');
+      const loginBtn = document.getElementById('login-btn');
       const loginError = document.getElementById('login-error');
       
-      if (checkPassword(passwordInput.value)) {
-        document.getElementById('cover-page').style.display = 'none';
-        document.getElementById('main-container').style.display = 'block';
-        sessionStorage.setItem('loggedIn', 'true');
-        initializeApp();
-      } else {
-        loginError.textContent = 'Incorrect password. Please try again.';
-        passwordInput.focus();
+      try {
+        setLoading(loginBtn, true);
+        
+        if (await verifyPassword(passwordInput.value)) {
+          document.getElementById('cover-page').style.display = 'none';
+          document.getElementById('main-container').style.display = 'block';
+          sessionStorage.setItem('loggedIn', 'true');
+          initializeApp();
+        } else {
+          loginError.textContent = 'Incorrect password. Please try again.';
+          passwordInput.focus();
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        loginError.textContent = 'Login failed. Please try again.';
+      } finally {
+        setLoading(loginBtn, false);
       }
     }
 
@@ -1548,6 +1547,7 @@
           });
           existingEntry.outTime = currentTime;
           existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: CONFIG.TIMEZONE });
+          showToast(`Out time recorded for Machine ${machineNum}`, 'success');
         } else {
           // First click: Record In Time
           const entry = {
@@ -1563,6 +1563,7 @@
           });
 
           state.log.push(entry);
+          showToast(`In time recorded for Machine ${machineNum}`, 'success');
         }
 
         // Update UI and data
@@ -1570,12 +1571,12 @@
         updateHourlyTable();
         updateMachineButtonStates();
         saveToLocalStorage();
-        syncToGoogleSheets();
         document.getElementById('undoButton').disabled = false;
         errorDiv.textContent = '';
       } catch (error) {
         console.error('Error in handleMachineButtonClick:', error);
         document.getElementById('error').textContent = 'An error occurred. Please try again.';
+        showToast('Failed to record compactor time', 'error');
       }
     }
 
@@ -1615,7 +1616,7 @@
           entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
         );
         if (entryIndex === -1) {
-          alert('Record not found.');
+          showToast('Record not found', 'error');
           return;
         }
 
@@ -1630,13 +1631,13 @@
         updateHourlyTable();
         updateMachineButtonStates();
         saveToLocalStorage();
-        syncToGoogleSheets();
         document.getElementById('undoButton').disabled = false;
 
-        alert('Record deleted successfully.');
+        showToast('Record deleted successfully', 'success');
       } catch (error) {
         console.error('Error in deleteEntry:', error);
         document.getElementById('error').textContent = 'An error occurred while deleting the record. Please try again.';
+        showToast('Failed to delete record', 'error');
       }
     }
 
@@ -1659,7 +1660,7 @@
         // Validate Out Time
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
         if (!timeRegex.test(outTimeInput)) {
-          alert('Out Time must be in HH:MM format (e.g., 14:56 or 1456).');
+          showToast('Out Time must be in HH:MM format (e.g., 14:56 or 1456)', 'error');
           return;
         }
 
@@ -1676,13 +1677,13 @@
         updateHourlyTable();
         updateMachineButtonStates();
         saveToLocalStorage();
-        syncToGoogleSheets();
         document.getElementById('undoButton').disabled = false;
 
-        alert(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`);
+        showToast(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`, 'success');
       } catch (error) {
         console.error('Error in promptOutTime:', error);
         document.getElementById('error').textContent = 'An error occurred. Please try again.';
+        showToast('Failed to record out time', 'error');
       }
     }
 
@@ -1710,7 +1711,7 @@
         // Validate time
         const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
         if (!timeRegex.test(newTime)) {
-          alert(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456).`);
+          showToast(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456)`, 'error');
           return;
         }
 
@@ -1732,20 +1733,20 @@
         updateHourlyTable();
         updateMachineButtonStates();
         saveToLocalStorage();
-        syncToGoogleSheets();
         document.getElementById('undoButton').disabled = false;
 
-        alert(`${timeLabel} updated to ${newTime} for Machine ${machineNumber}`);
+        showToast(`${timeLabel} updated to ${newTime} for Machine ${machineNumber}`, 'success');
       } catch (error) {
         console.error('Error in editEntry:', error);
         document.getElementById('error').textContent = 'An error occurred. Please try again.';
+        showToast('Failed to update time', 'error');
       }
     }
 
     function undoLastAction() {
       try {
         if (state.actionHistory.length === 0) {
-          alert('No actions to undo.');
+          showToast('No actions to undo', 'info');
           return;
         }
 
@@ -1790,23 +1791,26 @@
         updateHourlyTable();
         updateMachineButtonStates();
         saveToLocalStorage();
-        syncToGoogleSheets();
         document.getElementById('undoButton').disabled = state.actionHistory.length === 0;
 
-        alert('Last action undone successfully.');
+        showToast('Last action undone successfully', 'success');
       } catch (error) {
         console.error('Error in undoLastAction:', error);
         document.getElementById('error').textContent = 'An error occurred while undoing the last action. Please try again.';
+        showToast('Failed to undo action', 'error');
       }
     }
 
     function exportToCSV() {
       try {
+        const exportBtn = document.getElementById('exportButton');
+        setLoading(exportBtn, true);
+        
         const dateStr = new Date().toISOString().slice(0, 10);
         
         // 1. Export Status Records CSV
         if (state.log.length === 0) {
-          alert('No records to export.');
+          showToast('No records to export', 'info');
         } else {
           let statusCsv = 'No. of Container,Compactor Number,In Time,Out Time,Duration\n';
 
@@ -1874,23 +1878,26 @@
         document.body.removeChild(link);
         URL.revokeObjectURL(hourlyUrl);
         
-        // Clear localStorage after successful export
-        localStorage.removeItem('compactorLog');
-        localStorage.removeItem('compactorActionHistory');
-        
-        alert('Status and hourly records exported as CSV files. Local storage cleared.');
+        showToast('Status and hourly records exported as CSV files', 'success');
       } catch (error) {
         console.error('Error in exportToCSV:', error);
         document.getElementById('error').textContent = 'An error occurred while exporting. Please try again.';
+        showToast('Failed to export data', 'error');
+      } finally {
+        setLoading(exportBtn, false);
       }
     }
 
-    function clearAllData() {
-      try {
-        if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-          return;
-        }
+    function confirmClearAllData() {
+      const clearBtn = document.getElementById('clearButton');
+      setLoading(clearBtn, true);
+      
+      if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+        setLoading(clearBtn, false);
+        return;
+      }
 
+      try {
         state.log = [];
         state.actionHistory = [];
         
@@ -1898,12 +1905,6 @@
         localStorage.removeItem('compactorLog');
         localStorage.removeItem('compactorActionHistory');
         
-        // Clear Google Sheets
-        if (state.gapiLoaded) {
-          updateSheet(CONFIG.COMPLETED_SHEET_NAME, [['No. of Container', 'Compactor Number', 'In Time', 'Out Time', 'Duration']]);
-          updateSheet(CONFIG.HOURLY_SHEET_NAME, [['Time Slot', ...Array.from({length: 10}, (_, i) => `Machine ${i+1}`), 'Total']]);
-        }
-
         // Clear error message
         document.getElementById('error').textContent = '';
 
@@ -1948,25 +1949,67 @@
         `;
         document.getElementById('undoButton').disabled = true;
         
-        alert('All data cleared successfully.');
+        showToast('All data cleared successfully', 'success');
       } catch (error) {
         console.error('Error in clearAllData:', error);
         document.getElementById('error').textContent = 'An error occurred while clearing data. Please try again.';
+        showToast('Failed to clear data', 'error');
+      } finally {
+        setLoading(clearBtn, false);
+      }
+    }
+
+    function syncToLocalStorage() {
+      try {
+        if (state.isSyncing) return;
+        
+        state.isSyncing = true;
+        const syncStatus = document.getElementById('syncStatus');
+        const syncStatusText = document.getElementById('syncStatusText');
+        
+        // Show sync status
+        syncStatus.style.display = 'flex';
+        syncStatus.className = 'sync-status pending';
+        syncStatusText.textContent = 'Syncing data...';
+        
+        // Save to local storage
+        saveToLocalStorage();
+        
+        // Update sync status
+        syncStatus.className = 'sync-status success';
+        syncStatusText.textContent = 'Data synced successfully!';
+        state.lastSyncTime = new Date();
+      } catch (error) {
+        console.error('Error syncing to localStorage:', error);
+        const syncStatus = document.getElementById('syncStatus');
+        const syncStatusText = document.getElementById('syncStatusText');
+        syncStatus.className = 'sync-status error';
+        syncStatusText.textContent = 'Sync failed. See console for details.';
+      } finally {
+        state.isSyncing = false;
+        
+        // Hide status after 3 seconds
+        setTimeout(() => {
+          const syncStatus = document.getElementById('syncStatus');
+          syncStatus.style.display = 'none';
+        }, 3000);
       }
     }
 
     function manualSync() {
       try {
-        // Save to local storage first
-        saveToLocalStorage();
+        const syncBtn = document.getElementById('manualSyncBtn');
+        setLoading(syncBtn, true);
         
-        // Then sync to Google Sheets
-        syncToGoogleSheets();
+        // Save to local storage
+        syncToLocalStorage();
         
-        alert('Data synced to both Google Sheets and local storage successfully!');
+        showToast('Data synced successfully!', 'success');
       } catch (error) {
         console.error('Manual sync failed:', error);
-        alert('Manual sync failed. See console for details.');
+        showToast('Manual sync failed. See console for details.', 'error');
+      } finally {
+        setLoading(syncBtn, false);
       }
     }
 
@@ -1985,7 +2028,7 @@
     });
 
     // Clean up on page unload
-    window.addEventListener('unload', cleanupTimers);
+    window.addEventListener('beforeunload', cleanupTimers);
   </script>
 </body>
 </html>
