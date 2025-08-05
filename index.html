@@ -918,8 +918,10 @@ const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
 const SPREADSHEET_ID = '1JnmxsmhqBGbQsU45PlgDmALU_vCdov5MlsHIon6992g';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 let gapiInitialized = false;
-let tokenClient;
 let gisLoaded = false;
+let tokenClient;
+let initializationAttempts = 0;
+const MAX_INIT_ATTEMPTS = 5;
 
 // In-memory log to track entries and action history for undo
 let log = [];
@@ -934,8 +936,13 @@ let syncInterval = null;
 function checkApiLoaded(callback) {
   if (typeof gapi !== 'undefined' && typeof google !== 'undefined') {
     callback();
+  } else if (initializationAttempts < MAX_INIT_ATTEMPTS) {
+    initializationAttempts++;
+    console.log(`API not loaded, retrying (${initializationAttempts}/${MAX_INIT_ATTEMPTS})...`);
+    setTimeout(() => checkApiLoaded(callback), 500);
   } else {
-    setTimeout(() => checkApiLoaded(callback), 100);
+    console.error('Failed to load Google APIs after maximum attempts');
+    document.getElementById('error').textContent = 'Failed to load Google APIs. Some features may be unavailable.';
   }
 }
 
@@ -959,8 +966,6 @@ document.addEventListener('DOMContentLoaded', () => {
       mainContainer.style.display = 'block';
       sessionStorage.setItem('loggedIn', 'true');
       loginError.textContent = '';
-      // Initialize Google API after successful login
-      initializeGapi();
     } else {
       console.log('Password incorrect');
       loginError.textContent = 'Incorrect password. Please try again.';
@@ -978,6 +983,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Focus password input
   passwordInput.focus();
+
+  // Initialize Google API
+  initializeGapi();
 
   // Load data from local storage
   loadFromLocalStorage();
@@ -1012,6 +1020,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // Initialize Google API client
 function initializeGapi() {
   // Load gapi client
+  if (typeof gapi === 'undefined') {
+    console.warn('gapi not loaded yet. Waiting...');
+    setTimeout(initializeGapi, 500);
+    return;
+  }
+
   gapi.load('client', () => {
     gapi.client.init({
       apiKey: API_KEY,
@@ -1021,6 +1035,7 @@ function initializeGapi() {
       checkApiLoaded(() => {
         gapiInitialized = true;
         gisLoaded = true;
+        console.log('Google APIs initialized successfully');
         // Initialize Google Identity Services for OAuth
         tokenClient = google.accounts.oauth2.initTokenClient({
           client_id: CLIENT_ID,
@@ -1032,6 +1047,7 @@ function initializeGapi() {
               return;
             }
             gapi.client.setToken({ access_token: response.access_token });
+            console.log('OAuth token acquired');
             // Start syncing after authentication
             syncToGoogleSheets();
             syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000); // Sync every 5 minutes
@@ -1550,7 +1566,7 @@ function editEntry(machineNumber, entryTimestamp, field) {
     // Validate time
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!timeRegex.test(newTime)) {
-      alert(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456).`);
+      alert(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456).');
       return;
     }
 
