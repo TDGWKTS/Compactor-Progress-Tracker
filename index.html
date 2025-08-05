@@ -904,6 +904,7 @@
   </div>
 
   <script>
+
 // Password protection
 const CORRECT_PASSWORD = "compactor123";
 const coverPage = document.getElementById('cover-page');
@@ -1019,7 +1020,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Initialize Google API client
 function initializeGapi() {
-  // Load gapi client
   if (typeof gapi === 'undefined') {
     console.warn('gapi not loaded yet. Waiting...');
     setTimeout(initializeGapi, 500);
@@ -1031,12 +1031,10 @@ function initializeGapi() {
       apiKey: API_KEY,
       discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
     }).then(() => {
-      // Wait for Google Identity Services to load
       checkApiLoaded(() => {
         gapiInitialized = true;
         gisLoaded = true;
         console.log('Google APIs initialized successfully');
-        // Initialize Google Identity Services for OAuth
         tokenClient = google.accounts.oauth2.initTokenClient({
           client_id: CLIENT_ID,
           scope: SCOPES,
@@ -1048,12 +1046,10 @@ function initializeGapi() {
             }
             gapi.client.setToken({ access_token: response.access_token });
             console.log('OAuth token acquired');
-            // Start syncing after authentication
             syncToGoogleSheets();
-            syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000); // Sync every 5 minutes
+            syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
           },
         });
-        // Request token if user is logged in
         if (sessionStorage.getItem('loggedIn') === 'true') {
           tokenClient.requestAccessToken({ prompt: '' });
         }
@@ -1101,7 +1097,6 @@ function initializeSampleData() {
   updateHourlyTable();
   updateMachineButtonStates();
   document.getElementById('undoButton').disabled = true;
-  // Start dynamic updates every 60 seconds
   updateInterval = setInterval(updateStatusTable, 60000);
 }
 
@@ -1142,13 +1137,11 @@ function handleMachineButtonClick(machineNum) {
       timeZone: 'Asia/Hong_Kong'
     }).replace("24:", "00:"); // Handle midnight
 
-    // Check for existing In Time without Out Time
     const existingEntry = log.find(entry => 
       entry.machineNumber === machineNum && !entry.outTime
     );
 
     if (existingEntry) {
-      // Second click: Record Out Time
       actionHistory.push({
         type: 'addOutTime',
         entry: { ...existingEntry },
@@ -1156,45 +1149,30 @@ function handleMachineButtonClick(machineNum) {
       });
       existingEntry.outTime = currentTime;
       existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-
-      // Update UI
       updateStatusTable();
       updateHourlyTable();
       updateMachineButtonStates();
       saveToLocalStorage();
-
-      // Enable undo button
       document.getElementById('undoButton').disabled = false;
     } else {
-      // First click: Record In Time
       const entry = {
         machineNumber: machineNum,
         inTime: currentTime,
         outTime: '',
         entryTimestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' })
       };
-
       actionHistory.push({
         type: 'addInTime',
         entry: { ...entry }
       });
-
-      // Add to log
       log.push(entry);
-
-      // Update UI
       updateStatusTable();
       updateHourlyTable();
       updateMachineButtonStates();
       saveToLocalStorage();
-
-      // Enable undo button
       document.getElementById('undoButton').disabled = false;
     }
-
-    // Clear error
     errorDiv.textContent = '';
-
   } catch (error) {
     console.error('Error in handleMachineButtonClick:', error);
     document.getElementById('error').textContent = 'An error occurred. Please try again.';
@@ -1227,7 +1205,6 @@ function updateStatusTable() {
   pendingCount.textContent = `${pendingRecords} pending`;
   completedCount.textContent = `${completedRecords} completed`;
 
-  // Show toggle button if more than 10 records
   toggleButton.style.display = log.length > 10 ? 'flex' : 'none';
   toggleButton.innerHTML = `
     <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -1241,47 +1218,46 @@ function updateStatusTable() {
     return;
   }
 
-  // Sort entries by entryTimestamp in descending order
   log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
-
-  // Limit to 10 entries unless showAllRecords is true
   const displayEntries = showAllRecords ? log : log.slice(0, 10);
-
   statusBody.innerHTML = '';
 
-  // Display in descending order for No. of Container
   displayEntries.forEach((entry, index) => {
     const row = document.createElement('tr');
     row.className = 'status-row';
 
-    // Calculate duration
     const { display, minutes } = calculateDuration(entry.inTime, entry.outTime);
-
-    // Apply blink class to Compactor Number cell if duration > 40 min and no Out Time
     const blinkClass = isBlinkingEnabled && !entry.outTime && minutes > 39 ? 'blink' : '';
-
-    // Calculate No. of Container in descending order
     const containerNumber = log.length - (showAllRecords ? index : index);
-
-    // Use index for promptOutTime to avoid syntax issues
     const entryIndex = log.indexOf(entry);
+
     row.innerHTML = `
       <td>${containerNumber}</td>
       <td class="${blinkClass}">${entry.machineNumber}</td>
-      <td class="time-cell" onclick="editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'inTime')">${entry.inTime}</td>
-      <td class="time-cell" onclick="${entry.outTime ? `editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'outTime')` : `promptOutTime(${entryIndex})`}">
-        ${entry.outTime || '-'}
-      </td>
+      <td class="time-cell in-time">${entry.inTime}</td>
+      <td class="time-cell out-time">${entry.outTime || '-'}</td>
       <td>${display}</td>
       <td>
-        <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}')">
+        <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
           <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
           <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
         </svg>
       </td>
     `;
-
     statusBody.appendChild(row);
+
+    // Add event listeners to avoid inline onclick
+    const inTimeCell = row.querySelector('.in-time');
+    const outTimeCell = row.querySelector('.out-time');
+    const deleteIcon = row.querySelector('.delete-icon');
+
+    inTimeCell.addEventListener('click', () => editEntry(entry.machineNumber, entry.entryTimestamp, 'inTime'));
+    if (entry.outTime) {
+      outTimeCell.addEventListener('click', () => editEntry(entry.machineNumber, entry.entryTimestamp, 'outTime'));
+    } else {
+      outTimeCell.addEventListener('click', () => promptOutTime(entryIndex));
+    }
+    deleteIcon.addEventListener('click', () => deleteEntry(entry.machineNumber, entry.entryTimestamp));
   });
 }
 
@@ -1292,7 +1268,6 @@ function updateHourlyTable() {
   const toggleButton = document.getElementById('toggleHourly');
   const cumulativeRow = document.getElementById('cumulativeRow');
 
-  // Define time slots from 07:30 to 06:29 next day
   const timeSlots = [
     { start: '07:30', end: '08:29' },
     { start: '08:30', end: '09:29' },
@@ -1319,35 +1294,30 @@ function updateHourlyTable() {
     { start: '05:30', end: '06:29' }
   ];
 
-  // Parse time string to Date object for comparison
   const parseTime = (timeStr, referenceDate = new Date()) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     const date = new Date(referenceDate);
     date.setHours(hours, minutes, 0, 0);
-    if (hours < 7) date.setDate(date.getDate() + 1); // Handle post-midnight slots
+    if (hours < 7) date.setDate(date.getDate() + 1);
     return date;
   };
 
-  // Aggregate completed entries into time slots
   const hourlyRecords = [];
   const completedEntries = log.filter(entry => entry.outTime);
 
   timeSlots.forEach(slot => {
     const slotStart = parseTime(slot.start);
     const slotEnd = parseTime(slot.end, slotStart);
-    const machineCounts = Array(11).fill(0); // Index 0 unused, 1-10 for machines
+    const machineCounts = Array(11).fill(0);
 
     completedEntries.forEach(entry => {
       const inTime = parseTime(entry.inTime);
       const outTime = parseTime(entry.outTime, inTime);
-
-      // Check if both inTime and outTime are within the time slot
       if (inTime >= slotStart && outTime <= slotEnd) {
         machineCounts[entry.machineNumber]++;
       }
     });
 
-    // Only include time slots with at least one completed record
     if (machineCounts.some(count => count > 0)) {
       hourlyRecords.push({
         timeSlot: `${slot.start}-${slot.end}`,
@@ -1357,7 +1327,6 @@ function updateHourlyTable() {
     }
   });
 
-  // Update counter and toggle button
   hourlyCount.textContent = `${hourlyRecords.length} hours`;
   toggleButton.style.display = hourlyRecords.length > 5 ? 'flex' : 'none';
   toggleButton.innerHTML = `
@@ -1367,14 +1336,12 @@ function updateHourlyTable() {
     ${showAllHourly ? 'Show Less' : 'Show All'}
   `;
 
-  // Calculate cumulative totals
   const cumulativeCounts = Array(11).fill(0);
   completedEntries.forEach(entry => {
     cumulativeCounts[entry.machineNumber]++;
   });
   const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
 
-  // Update cumulative totals row in thead
   if (cumulativeTotal > 0) {
     cumulativeRow.style.display = 'table-row';
     cumulativeRow.innerHTML = `
@@ -1386,26 +1353,18 @@ function updateHourlyTable() {
     cumulativeRow.style.display = 'none';
   }
 
-  // Display records
   hourlyBody.innerHTML = '';
-
   if (hourlyRecords.length === 0) {
     hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td></tr>`;
     return;
   }
 
-  // Sort by start time in descending order (most recent first)
   hourlyRecords.sort((a, b) => b.startTime - a.startTime);
-
-  // Limit to 5 entries unless showAllHourly is true
   const displayRecords = showAllHourly ? hourlyRecords : hourlyRecords.slice(0, 5);
 
   displayRecords.forEach(record => {
     const row = document.createElement('tr');
-
-    // Calculate total for this time slot
     const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-
     row.innerHTML = `
       <td>${record.timeSlot}</td>
       ${record.machineCounts.slice(1).map(count => `<td>${count}</td>`).join('')}
@@ -1422,7 +1381,6 @@ function deleteEntry(machineNumber, entryTimestamp) {
       return;
     }
 
-    // Find the entry to delete
     const entryIndex = log.findIndex(entry => 
       entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
     );
@@ -1431,24 +1389,17 @@ function deleteEntry(machineNumber, entryTimestamp) {
       return;
     }
 
-    // Store the deleted entry in action history
     actionHistory.push({
       type: 'deleteEntry',
       entry: { ...log[entryIndex] }
     });
 
-    // Remove the entry from the log
     log.splice(entryIndex, 1);
-
-    // Update UI
     updateStatusTable();
     updateHourlyTable();
     updateMachineButtonStates();
     saveToLocalStorage();
-
-    // Enable undo button
     document.getElementById('undoButton').disabled = false;
-
     alert('Record deleted successfully.');
   } catch (error) {
     console.error('Error in deleteEntry:', error);
@@ -1468,17 +1419,13 @@ function calculateDuration(inTime, outTime = null) {
   try {
     const start = parseTime(inTime);
     const end = outTime ? parseTime(outTime) : new Date();
-
-    // If session crosses midnight
     if (end < start) {
       end.setDate(end.getDate() + 1);
     }
-
     const diffMs = end - start;
     const diffMins = Math.floor(diffMs / 60000);
     const hours = Math.floor(diffMins / 60);
     const minutes = diffMins % 60;
-
     return {
       display: `${hours}h ${minutes}m`,
       minutes: diffMins
@@ -1494,47 +1441,34 @@ function promptOutTime(entryIndex) {
     const entry = log[entryIndex];
     if (!entry || entry.outTime) return;
 
-    // Prompt for Out Time
     let outTimeInput = prompt(`Enter Out Time for Machine ${entry.machineNumber} (e.g., 1456 for 14:56):`, "");
+    if (outTimeInput === null) return;
 
-    if (outTimeInput === null) return; // User cancelled
-
-    // Normalize input
     outTimeInput = outTimeInput.trim().replace(/[^0-9]/g, '');
-
     if (outTimeInput.length === 4) {
       outTimeInput = `${outTimeInput.slice(0, 2)}:${outTimeInput.slice(2)}`;
     }
 
-    // Validate Out Time
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!timeRegex.test(outTimeInput)) {
       alert('Out Time must be in HH:MM format (e.g., 14:56 or 1456).');
       return;
     }
 
-    // Store the original entry state before updating
     actionHistory.push({
       type: 'addOutTime',
       entry: { ...entry },
       newOutTime: outTimeInput
     });
 
-    // Update entry
     entry.outTime = outTimeInput;
     entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-
-    // Update UI
     updateStatusTable();
     updateHourlyTable();
     updateMachineButtonStates();
     saveToLocalStorage();
-
-    // Enable undo button
     document.getElementById('undoButton').disabled = false;
-
     alert(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`);
-
   } catch (error) {
     console.error('Error in promptOutTime:', error);
     document.getElementById('error').textContent = 'An error occurred. Please try again.';
@@ -1553,50 +1487,37 @@ function editEntry(machineNumber, entryTimestamp, field) {
     const currentValue = field === 'inTime' ? entry.inTime : entry.outTime;
 
     let newTime = prompt(`Enter new ${timeLabel} for Machine ${machineNumber} (e.g., 1456 for 14:56):`, currentValue ? currentValue.replace(':', '') : '');
+    if (newTime === null) return;
 
-    if (newTime === null) return; // User cancelled
-
-    // Normalize input
     newTime = newTime.trim().replace(/[^0-9]/g, '');
-
     if (newTime.length === 4) {
       newTime = `${newTime.slice(0, 2)}:${newTime.slice(2)}`;
     }
 
-    // Validate time
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!timeRegex.test(newTime)) {
       alert(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456).');
       return;
     }
 
-    // Store the original entry state before updating
     actionHistory.push({
       type: 'edit' + field,
       entry: { ...entry },
       newTime: newTime
     });
 
-    // Update entry
     if (field === 'inTime') {
       entry.inTime = newTime;
     } else {
       entry.outTime = newTime;
     }
-
     entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-
-    // Update UI
     updateStatusTable();
     updateHourlyTable();
     updateMachineButtonStates();
     saveToLocalStorage();
-
-    // Enable undo button
     document.getElementById('undoButton').disabled = false;
-
     alert(`${timeLabel} updated to ${newTime} for Machine ${machineNumber}`);
-
   } catch (error) {
     console.error('Error in editEntry:', error);
     document.getElementById('error').textContent = 'An error occurred. Please try again.';
@@ -1612,9 +1533,7 @@ function undoLastAction() {
     }
 
     const lastAction = actionHistory.pop();
-
     if (lastAction.type === 'addInTime') {
-      // Remove the last added In Time entry
       const entryIndex = log.findIndex(entry => 
         entry.machineNumber === lastAction.entry.machineNumber && 
         entry.entryTimestamp === lastAction.entry.entryTimestamp
@@ -1623,7 +1542,6 @@ function undoLastAction() {
         log.splice(entryIndex, 1);
       }
     } else if (lastAction.type === 'addOutTime') {
-      // Revert the Out Time to empty
       const entry = log.find(entry => 
         entry.machineNumber === lastAction.entry.machineNumber && 
         entry.entryTimestamp === lastAction.entry.entryTimestamp
@@ -1633,10 +1551,8 @@ function undoLastAction() {
         entry.entryTimestamp = lastAction.entry.entryTimestamp;
       }
     } else if (lastAction.type === 'deleteEntry') {
-      // Restore the deleted entry
       log.push({ ...lastAction.entry });
     } else if (lastAction.type === 'editinTime' || lastAction.type === 'editoutTime') {
-      // Revert the edited time
       const entry = log.find(entry => 
         entry.machineNumber === lastAction.entry.machineNumber && 
         entry.entryTimestamp === lastAction.entry.entryTimestamp
@@ -1648,15 +1564,11 @@ function undoLastAction() {
       }
     }
 
-    // Update UI
     updateStatusTable();
     updateHourlyTable();
     updateMachineButtonStates();
     saveToLocalStorage();
-
-    // Disable undo button if no actions remain
     document.getElementById('undoButton').disabled = actionHistory.length === 0;
-
     alert('Last action undone successfully.');
   } catch (error) {
     console.error('Error in undoLastAction:', error);
@@ -1673,13 +1585,11 @@ function syncToGoogleSheets() {
   }
 
   try {
-    // Check if token is still valid
     if (!gapi.client.getToken()) {
       tokenClient.requestAccessToken({ prompt: '' });
       return;
     }
 
-    // 1. Sync Completed Records
     const completedEntries = log.filter(entry => entry.outTime);
     let statusValues = [['No. of Container', 'Compactor Number', 'In Time', 'Out Time', 'Duration']];
     completedEntries.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
@@ -1695,12 +1605,11 @@ function syncToGoogleSheets() {
         ]);
       });
 
-    // Clear and update Completed Records sheet
     gapi.client.sheets.spreadsheets.values.clear({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Completed Records!A1:E'
     }).then(() => {
-      if (statusValues.length > 1) { // Only append if there are records
+      if (statusValues.length > 1) {
         gapi.client.sheets.spreadsheets.values.append({
           spreadsheetId: SPREADSHEET_ID,
           range: 'Completed Records!A1:E',
@@ -1718,7 +1627,6 @@ function syncToGoogleSheets() {
       document.getElementById('error').textContent = 'Error clearing Completed Records in Google Sheets.';
     });
 
-    // 2. Sync Hourly Records
     const timeSlots = [
       { start: '07:30', end: '08:29' },
       { start: '08:30', end: '09:29' },
@@ -1749,7 +1657,7 @@ function syncToGoogleSheets() {
       const [hours, minutes] = timeStr.split(':').map(Number);
       const date = new Date(referenceDate);
       date.setHours(hours, minutes, 0, 0);
-      if (hours < 7) date.setDate(date.getDate() + 1); // Handle post-midnight slots
+      if (hours < 7) date.setDate(date.getDate() + 1);
       return date;
     };
 
@@ -1757,11 +1665,9 @@ function syncToGoogleSheets() {
     completedEntries.forEach(entry => {
       const inTime = parseTime(entry.inTime);
       const outTime = parseTime(entry.outTime, inTime);
-
       timeSlots.forEach(slot => {
         const slotStart = parseTime(slot.start);
         const slotEnd = parseTime(slot.end, slotStart);
-
         if (inTime >= slotStart && outTime <= slotEnd) {
           let record = hourlyRecords.find(r => r.timeSlot === `${slot.start}-${slot.end}`);
           if (!record) {
@@ -1773,7 +1679,6 @@ function syncToGoogleSheets() {
       });
     });
 
-    // Prepare values for Hourly Records sheet
     let hourlyValues = [['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total']];
     hourlyRecords.sort((a, b) => b.startTime - a.startTime).forEach(record => {
       const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
@@ -1784,7 +1689,6 @@ function syncToGoogleSheets() {
       ]);
     });
 
-    // Calculate cumulative totals
     const cumulativeCounts = Array(11).fill(0);
     completedEntries.forEach(entry => {
       cumulativeCounts[entry.machineNumber]++;
@@ -1794,12 +1698,11 @@ function syncToGoogleSheets() {
       hourlyValues.push(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
     }
 
-    // Clear and update Hourly Records sheet
     gapi.client.sheets.spreadsheets.values.clear({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Hourly Records!A1:L'
     }).then(() => {
-      if (hourlyValues.length > 1) { // Only append if there are records
+      if (hourlyValues.length > 1) {
         gapi.client.sheets.spreadsheets.values.append({
           spreadsheetId: SPREADSHEET_ID,
           range: 'Hourly Records!A1:L',
@@ -1816,7 +1719,6 @@ function syncToGoogleSheets() {
       console.error('Error clearing Hourly Records:', error);
       document.getElementById('error').textContent = 'Error clearing Hourly Records in Google Sheets.';
     });
-
   } catch (error) {
     console.error('Error in syncToGoogleSheets:', error);
     document.getElementById('error').textContent = 'An error occurred while syncing to Google Sheets.';
@@ -1826,7 +1728,6 @@ function syncToGoogleSheets() {
 // Export data to CSV
 function exportToCSV() {
   try {
-    // 1. Completed Records CSV
     let completedCsvContent = 'No. of Container,Compactor Number,In Time,Out Time,Duration\n';
     const completedEntries = log.filter(entry => entry.outTime);
     completedEntries.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
@@ -1836,7 +1737,6 @@ function exportToCSV() {
         completedCsvContent += `${containerNumber},${entry.machineNumber},${entry.inTime},${entry.outTime},${duration}\n`;
       });
 
-    // 2. Hourly Records CSV
     let hourlyCsvContent = 'Time Slot,1,2,3,4,5,6,7,8,9,10,Total\n';
     const timeSlots = [
       { start: '07:30', end: '08:29' },
@@ -1876,11 +1776,9 @@ function exportToCSV() {
     completedEntries.forEach(entry => {
       const inTime = parseTime(entry.inTime);
       const outTime = parseTime(entry.outTime, inTime);
-
       timeSlots.forEach(slot => {
         const slotStart = parseTime(slot.start);
         const slotEnd = parseTime(slot.end, slotStart);
-
         if (inTime >= slotStart && outTime <= slotEnd) {
           let record = hourlyRecords.find(r => r.timeSlot === `${slot.start}-${slot.end}`);
           if (!record) {
@@ -1892,14 +1790,12 @@ function exportToCSV() {
       });
     });
 
-    // Sort by start time in descending order
     hourlyRecords.sort((a, b) => b.startTime - a.startTime);
     hourlyRecords.forEach(record => {
       const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
       hourlyCsvContent += `${record.timeSlot},${record.machineCounts.slice(1).join(',')},${total}\n`;
     });
 
-    // Add cumulative totals
     const cumulativeCounts = Array(11).fill(0);
     completedEntries.forEach(entry => {
       cumulativeCounts[entry.machineNumber]++;
@@ -1909,10 +1805,7 @@ function exportToCSV() {
       hourlyCsvContent += `Cumulative Total,${cumulativeCounts.slice(1).join(',')},${cumulativeTotal}\n`;
     }
 
-    // Combine both CSVs into a single file
     const combinedCsvContent = `Completed Records\n${completedCsvContent}\n\nHourly Records\n${hourlyCsvContent}`;
-
-    // Create and download the CSV
     const blob = new Blob([combinedCsvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -1923,7 +1816,6 @@ function exportToCSV() {
     link.click();
     document.body.removeChild(link);
 
-    // Sync to Google Sheets and clear local storage upon successful export
     if (gapiInitialized && gisLoaded && tokenClient) {
       syncToGoogleSheets();
     } else {
@@ -1937,9 +1829,7 @@ function exportToCSV() {
     updateHourlyTable();
     updateMachineButtonStates();
     document.getElementById('undoButton').disabled = true;
-
     alert('Data exported to CSV successfully. Local data cleared.');
-
   } catch (error) {
     console.error('Error in exportToCSV:', error);
     document.getElementById('error').textContent = 'An error occurred while exporting to CSV. Please try again.';
@@ -1953,24 +1843,19 @@ function clearAllData() {
       return;
     }
 
-    // Store current state for undo
     actionHistory.push({
       type: 'clearAll',
       log: [...log]
     });
 
-    // Clear data
     log = [];
     localStorage.removeItem('compactorLog');
     localStorage.removeItem('compactorActionHistory');
-
-    // Update UI
     updateStatusTable();
     updateHourlyTable();
     updateMachineButtonStates();
     document.getElementById('undoButton').disabled = false;
 
-    // Clear Google Sheets
     if (gapiInitialized && gisLoaded && tokenClient && gapi.client.getToken()) {
       gapi.client.sheets.spreadsheets.values.clear({
         spreadsheetId: SPREADSHEET_ID,
@@ -1994,7 +1879,6 @@ function clearAllData() {
       console.warn('Google API not initialized. Clearing local storage only.');
       alert('All data cleared successfully from local storage.');
     }
-
   } catch (error) {
     console.error('Error in clearAllData:', error);
     document.getElementById('error').textContent = 'An error occurred while clearing data. Please try again.';
