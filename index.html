@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://apis.google.com https://www.gstatic.com https://accounts.google.com 'unsafe-inline' 'unsafe-eval';">
-  <script src="https://apis.google.com/js/api.js" async defer></script>
   <title>Compactor Progress Tracker</title>
+  <script src="https://apis.google.com/js/api.js"></script>
   <style>
   * {
     box-sizing: border-box;
@@ -33,7 +32,6 @@
     overflow-y: auto;
   }
 
-  /* Cover Page Styles */
   #cover-page {
     position: fixed;
     top: 0;
@@ -109,7 +107,6 @@
     min-height: 20px;
   }
 
-  /* Main Container Styles (hidden initially) */
   #main-container {
     display: none;
   }
@@ -353,12 +350,6 @@
     gap: clamp(5px, 1vw, 10px);
   }
 
-  .table-header h3 {
-    margin: 0;
-    flex: 1 1 auto;
-    font-size: clamp(1rem, 3vw, 1.2rem);
-  }
-
   .table-header > div {
     display: flex;
     align-items: center;
@@ -530,6 +521,31 @@
 
   .status-row:hover {
     background-color: #ebf8ff;
+  }
+
+  .status-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 15px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+    color: #495057;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    width: 100%;
+    text-align: center;
+    margin-top: clamp(10px, 2vw, 15px);
+  }
+
+  .status-success {
+    background-color: #d4edda;
+    color: #155724;
+  }
+
+  .status-error {
+    background-color: #ffebee;
+    color: #c0392b;
   }
 
   @media (min-width: 768px) and (max-width: 1024px) {
@@ -736,7 +752,6 @@
   </style>
 </head>
 <body>
-  <!-- Cover Page with Password Protection -->
   <div id="cover-page">
     <div class="login-container">
       <h1>Compactor Progress Tracker</h1>
@@ -747,7 +762,6 @@
     </div>
   </div>
 
-  <!-- Main Content (hidden initially) -->
   <div id="main-container">
     <div class="container">
       <header>
@@ -772,6 +786,8 @@
           </div>
           
           <div class="error" id="error"></div>
+          
+          <div class="status-message" id="statusMessage"></div>
           
           <div class="table-header">
             <h3>Hourly Records</h3>
@@ -892,12 +908,12 @@
       </div>
       
       <div class="footer">
-        Compactor Progress Tracker v2.4 | Data is stored locally in your browser
+        Compactor Progress Tracker v2.4 | Data is stored locally and synced to Google Sheets
       </div>
     </div>
   </div>
 
-<script>
+ <script>
   // Password protection
   const CORRECT_PASSWORD = "compactor123";
   const coverPage = document.getElementById('cover-page');
@@ -907,9 +923,9 @@
   const loginError = document.getElementById('login-error');
 
   // Google Sheets API configuration
-  const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
-  const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
-  const SPREADSHEET_ID = '1JnmxsmhqBGbQsU45PlgDmALU_vCdov5MlsHIon6992g';
+  const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM'; // Replace with your actual API key
+  const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com'; // Replace with your actual OAuth client ID
+  const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo'; // Replace with your actual spreadsheet ID
   const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 
   // Global variables
@@ -967,7 +983,7 @@
             resolve();
           },
           onerror: () => reject(new Error('Failed to load gapi client:auth2')),
-          timeout: 10000, // Increased timeout to 10 seconds
+          timeout: 15000, // Increased timeout to 15 seconds
           ontimeout: () => reject(new Error('Google API load timeout'))
         });
       });
@@ -989,9 +1005,9 @@
 
       return true;
     } catch (error) {
-      console.error('Error initializing Google API:', error);
+      console.error('Error initializing Google API:', error.message || error);
       authInitialized = false;
-      document.getElementById('error').textContent = 'Failed to initialize Google API. Please check your network or API credentials.';
+      document.getElementById('error').textContent = `Failed to initialize Google API: ${error.message || 'Unknown error'}. Please check your API credentials or network connection.`;
       return false;
     }
   }
@@ -1066,8 +1082,8 @@
 
       throw new Error('Failed to sync after retries');
     } catch (error) {
-      console.error('Error syncing to Google Sheets:', error);
-      document.getElementById('error').textContent = 'Failed to sync data to Google Sheets. Please try again later.';
+      console.error('Error syncing to Google Sheets:', error.message || error);
+      document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${error.message || 'Unknown error'}.`;
       return false;
     }
   }
@@ -1665,7 +1681,7 @@
       }
     } catch (error) {
       console.error('Error in exportToCSV:', error);
-      document.getElementById('error').textContent = 'An error occurred while exporting data. Please try again.';
+      document.getElementById('error').textContent = `An error occurred while exporting data: ${error.message || 'Unknown error'}.`;
     }
   }
 
