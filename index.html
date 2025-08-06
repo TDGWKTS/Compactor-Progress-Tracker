@@ -881,9 +881,7 @@ function initializeApp() {
 async function initClient() {
   try {
     if (!window.gapi) {
-      console.error('Google API script not loaded');
-      document.getElementById('error').textContent = 'Google API script failed to load. Some features may not work.';
-      return false;
+      throw new Error('Google API script not loaded');
     }
 
     await new Promise((resolve, reject) => {
@@ -938,6 +936,9 @@ function requestAccessToken() {
         accessToken = response.access_token;
         console.log('Access token received:', accessToken);
         document.getElementById('error').textContent = '';
+        sessionStorage.setItem('loggedIn', 'true');
+        document.getElementById('signInBtn').classList.add('hidden');
+        initializeApp();
       }
     },
   });
@@ -949,12 +950,8 @@ async function syncToGoogleSheets() {
   try {
     if (!accessToken) {
       console.warn('No access token. Requesting authentication...');
-      requestAccessToken();
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      if (!accessToken) {
-        document.getElementById('error').textContent = 'Authentication failed. Cannot sync data to Google Sheets.';
-        return false;
-      }
+      document.getElementById('error').textContent = 'Please sign in to sync data to Google Sheets.';
+      return false;
     }
 
     gapi.client.setToken({ access_token: accessToken });
@@ -994,15 +991,11 @@ async function syncToGoogleSheets() {
           retries--;
         } else if (error.status === 401) {
           console.warn('Access token invalid or expired. Requesting new token...');
-          requestAccessToken();
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          if (accessToken) {
-            gapi.client.setToken({ access_token: accessToken });
-            retries--;
-            continue;
-          } else {
-            throw new Error('Failed to obtain new access token');
-          }
+          document.getElementById('signInBtn').classList.remove('hidden');
+          accessToken = null;
+          sessionStorage.removeItem('loggedIn');
+          document.getElementById('error').textContent = 'Session expired. Please sign in again.';
+          return false;
         } else {
           throw error;
         }
@@ -1585,9 +1578,14 @@ function exportToCSV() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
+  const signInBtn = document.getElementById('signInBtn');
+  signInBtn.addEventListener('click', () => {
+    requestAccessToken();
+  });
+
+  // Check if already logged in
   if (sessionStorage.getItem('loggedIn') === 'true') {
-    document.getElementById('cover-page').style.display = 'none';
-    document.getElementById('main-container').style.display = 'block';
+    signInBtn.classList.add('hidden');
     initializeApp();
   }
 
@@ -1610,6 +1608,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('toggleBlink').addEventListener('click', () => {
     isBlinkingEnabled = !isBlinkingEnabled;
+    const toggleButton = document.getElementById('toggleBlink');
     toggleButton.innerHTML = `
       <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
         <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
