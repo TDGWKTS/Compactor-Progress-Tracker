@@ -1,913 +1,876 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://apis.google.com https://www.gstatic.com https://accounts.google.com https://*.googleapis.com 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://accounts.google.com https://sheets.googleapis.com;">
-  <script src="https://apis.google.com/js/api.js" async defer></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <title>Compactor Progress Tracker</title>
-  <style>
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-
-  html {
-    height: 100%;
-  }
-
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    padding: clamp(10px, 2vw, 15px);
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    min-height: 100vh;
-    height: auto;
-    color: #333;
-    line-height: 1.5;
-    font-size: clamp(14px, 2.5vw, 16px);
-    display: flex;
-    flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  /* Cover Page Styles */
-  #cover-page {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    padding: 20px;
-  }
-
-  .login-container {
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-    padding: 30px;
-    width: 100%;
-    max-width: 400px;
-    text-align: center;
-  }
-
-  .login-container h1 {
-    color: #2c3e50;
-    margin-bottom: 20px;
-    font-size: 1.8rem;
-  }
-
-  .login-container p {
-    color: #6c757d;
-    margin-bottom: 30px;
-  }
-
-  .password-input {
-    width: 100%;
-    padding: 12px 15px;
-    margin-bottom: 20px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 16px;
-    transition: border-color 0.3s;
-  }
-
-  .password-input:focus {
-    border-color: #4CAF50;
-    outline: none;
-  }
-
-  .login-btn {
-    width: 100%;
-    padding: 12px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s;
-  }
-
-  .login-btn:hover {
-    background-color: #45a049;
-  }
-
-  .error-message {
-    color: #e74c3c;
-    margin-top: 10px;
-    font-weight: bold;
-    min-height: 20px;
-  }
-
-  /* Main Container Styles (hidden initially) */
-  #main-container {
-    display: none;
-  }
-
-  .container {
-    max-width: min(1400px, 95vw);
-    margin: 0 auto;
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-    padding: clamp(15px, 2.5vw, 20px);
-    position: relative;
-    flex-grow: 1;
-    height: auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-  }
-
-  .container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 6px;
-    background: linear-gradient(90deg, #4CAF50, #2196F3, #FF9800);
-  }
-
-  header {
-    text-align: center;
-    margin-bottom: clamp(15px, 3vw, 25px);
-  }
-
-  h1 {
-    color: #2c3e50;
-    margin: clamp(10px, 2vw, 15px) 0;
-    font-weight: 600;
-    position: relative;
-    padding-bottom: 15px;
-    font-size: clamp(1.5rem, 5vw, 2rem);
-  }
-
-  h1::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: clamp(60px, 10vw, 80px);
-    height: 4px;
-    background: linear-gradient(90deg, #4CAF50, #2196F3);
-    border-radius: 2px;
-  }
-
-  .dashboard {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(15px, 3vw, 25px);
-    margin-bottom: clamp(15px, 3vw, 25px);
-    flex-grow: 1;
-  }
-
-  @media (min-width: 768px) {
-    .dashboard {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
-  .card {
-    background: #f8f9fa;
-    border-radius: 10px;
-    padding: clamp(10px, 2vw, 20px);
-    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05);
-    width: 100%;
-    overflow: visible;
-    flex-grow: 0;
-    min-height: 0;
-    overflow-y: auto;
-  }
-
-  .card-header {
-    font-size: clamp(1rem, 3vw, 1.25rem);
-    font-weight: 600;
-    margin-bottom: clamp(10px, 2vw, 15px);
-    color: #2c3e50;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #e9ecef;
-  }
-
-  .compactor-grid {
-    display: grid;
-    grid-template-rows: repeat(2, auto);
-    grid-template-columns: repeat(5, minmax(50px, 1fr));
-    grid-template-areas: 
-      "b1 b2 b3 b4 b5"
-      "b6 b7 b8 b9 b10";
-    gap: clamp(8px, 1.5vw, 12px);
-    margin-bottom: clamp(10px, 2vw, 20px);
-  }
-
-  .compactor-btn[data-machine="1"] { grid-area: b1; }
-  .compactor-btn[data-machine="2"] { grid-area: b2; }
-  .compactor-btn[data-machine="3"] { grid-area: b3; }
-  .compactor-btn[data-machine="4"] { grid-area: b4; }
-  .compactor-btn[data-machine="5"] { grid-area: b5; }
-  .compactor-btn[data-machine="6"] { grid-area: b6; }
-  .compactor-btn[data-machine="7"] { grid-area: b7; }
-  .compactor-btn[data-machine="8"] { grid-area: b8; }
-  .compactor-btn[data-machine="9"] { grid-area: b9; }
-  .compactor-btn[data-machine="10"] { grid-area: b10; }
-
-  .compactor-btn {
-    padding: clamp(8px, 1.5vw, 12px);
-    border: none;
-    border-radius: 8px;
-    font-size: clamp(14px, 2.5vw, 18px);
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background-color: #4CAF50;
-    color: white;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-    touch-action: manipulation;
-  }
-
-  .compactor-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 10px rgba(0,0,0,0.15);
-  }
-
-  .compactor-btn.active {
-    background-color: #6c757d;
-    transform: none;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-
-  .error {
-    color: #e74c3c;
-    font-size: clamp(0.9rem, 2vw, 1rem);
-    margin: clamp(10px, 1vw, 10px) 0;
-    min-height: 24px;
-    font-weight: bold;
-    text-align: center;
-  }
-
-  .table-container {
-    overflow-x: hidden;
-    overflow-y: auto;
-    margin-top: clamp(10px, 2vw, 20px);
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    width: 100%;
-    max-height: 400px;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    background-color: white;
-    table-layout: fixed;
-  }
-
-  th {
-    background-color: #f1f5f9;
-    padding: clamp(4px, 1vw, 8px);
-    text-align: center;
-    font-weight: 600;
-    color: #2c3e50;
-    border: 1px solid #d1d5db;
-    font-size: clamp(0.7rem, 1.5vw, 0.8rem);
-    width: auto;
-  }
-
-  td {
-    padding: clamp(4px, 1vw, 8px);
-    border: 1px solid #d1d5db;
-    color: #4a5568;
-    text-align: center;
-    font-size: clamp(0.7rem, 1.5vw, 0.8rem);
-    width: auto;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  #hourlyTable th:nth-child(1),
-  #hourlyTable td:nth-child(1) {
-    width: clamp(80px, 15vw, 100px);
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
-  }
-
-  #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-  #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-    width: calc((100% - clamp(80px, 15vw, 100px)) / 11 * 0.9);
-  }
-
-  tr:hover {
-    background-color: #f8fafc;
-  }
-
-  .cumulative-row {
-    background-color: #d4edda !important;
-  }
-
-  .cumulative-row th,
-  .cumulative-row td {
-    background-color: #d4edda !important;
-    font-weight: 700;
-    color: #155724;
-  }
-
-  .time-cell {
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .time-cell:hover {
-    background-color: #e3f2fd;
-  }
-
-  .blink {
-    animation: blink-animation 1s ease-in-out infinite;
-  }
-
-  @keyframes blink-animation {
-    0%, 100% { background-color: #f8f9fa; }
-    50% { background-color: #ffcccb; }
-  }
-
-  .table-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: clamp(10px, 2vw, 15px);
-    flex-wrap: wrap;
-    gap: clamp(5px, 1vw, 10px);
-  }
-
-  .table-header h3 {
-    margin: 0;
-    flex: 1 1 auto;
-    font-size: clamp(1rem, 3vw, 1.2rem);
-  }
-
-  .table-header > div {
-    display: flex;
-    align-items: center;
-    gap: clamp(5px, 1vw, 10px);
-    flex: 0 1 auto;
-  }
-
-  .counter {
-    background-color: #e3f2fd;
-    color: #1976d2;
-    padding: clamp(4px, 1vw, 6px) clamp(8px, 1.5vw, 12px);
-    border-radius: 20px;
-    font-weight: bold;
-    flex: 0 0 auto;
-    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-  }
-
-  .btn-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(10px, 2vw, 15px);
-    margin-top: clamp(15px, 3vw, 25px);
-  }
-
-  .btn {
-    flex: 1;
-    padding: clamp(8px, 1.5vw, 12px);
-    border: none;
-    border-radius: 8px;
-    font-size: clamp(0.85rem, 2.2vw, 0.95rem);
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(5px, 1vw, 8px);
-    min-width: 100px;
-    touch-action: manipulation;
-  }
-
-  .btn-export {
-    background-color: #2196F3;
-    color: white;
-  }
-
-  .btn-export:hover {
-    background-color: #0b7dda;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
-  }
-
-  .btn-clear {
-    background-color: #e74c3c;
-    color: white;
-  }
-
-  .btn-clear:hover {
-    background-color: #c0392b;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
-  }
-
-  .btn-undo {
-    background-color: #f0ad4e;
-    color: white;
-  }
-
-  .btn-undo:hover {
-    background-color: #ec971f;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(240, 173, 78, 0.3);
-  }
-
-  .btn-undo:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-
-  .delete-icon {
-    cursor: pointer;
-    color: #e74c3c;
-    transition: all 0.2s;
-    width: clamp(14px, 2vw, 16px);
-    height: clamp(14px, 2vw, 16px);
-  }
-
-  .delete-icon:hover {
-    color: #c0392b;
-    transform: scale(1.1);
-  }
-
-  .highlight {
-    background: #fff9c4;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: bold;
-  }
-
-  .footer {
-    text-align: center;
-    margin-top: clamp(15px, 3vw, 25px);
-    color: #6c757d;
-    padding-top: clamp(10px, 2vw, 15px);
-    border-top: 1px solid #e9ecef;
-    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-  }
-
-  .status-counters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(10px, 2vw, 15px);
-    margin-bottom: clamp(10px, 2vw, 15px);
-    justify-content: center;
-  }
-
-  .counter-badge {
-    background: #e3f2fd;
-    padding: clamp(6px, 1vw, 8px) clamp(10px, 2vw, 15px);
-    border-radius: 20px;
-    font-weight: bold;
-    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-  }
-
-  .counter-badge.pending {
-    background-color: #fff3cd;
-    color: #856404;
-  }
-
-  .counter-badge.completed {
-    background-color: #d4edda;
-    color: #155724;
-  }
-
-  .toggle-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #1976d2;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: clamp(3px, 0.5vw, 5px);
-    padding: clamp(3px, 0.5vw, 5px) clamp(5px, 1vw, 10px);
-    border-radius: 4px;
-    transition: all 0.2s;
-    flex: 0 0 auto;
-    font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-    touch-action: manipulation;
-  }
-
-  .toggle-btn:hover {
-    background-color: #e3f2fd;
-  }
-
-  .blink-toggle {
-    color: #e74c3c;
-  }
-
-  .blink-toggle:hover {
-    color: #c0392b;
-  }
-
-  .status-row {
-    transition: background-color 0.3s;
-  }
-
-  .status-row:hover {
-    background-color: #ebf8ff;
-  }
-
-  @media (min-width: 768px) and (max-width: 1024px) {
-    .table-container {
-      overflow-x: hidden;
-      margin-left: 0;
-      margin-right: 0;
-      padding: 0;
-    }
-
-    table {
-      table-layout: fixed;
-      width: 100%;
-    }
-
-    th, td {
-      padding: clamp(2px, 0.5vw, 4px);
-      font-size: clamp(0.6rem, 1.2vw, 0.7rem);
-      width: auto;
-    }
-
-    #statusTable th:nth-child(1),
-    #statusTable th:nth-child(2),
-    #statusTable th:nth-child(3),
-    #statusTable th:nth-child(4),
-    #statusTable th:nth-child(5),
-    #statusTable th:nth-child(6),
-    #statusTable td:nth-child(1),
-    #statusTable td:nth-child(2),
-    #statusTable td:nth-child(3),
-    #statusTable td:nth-child(4),
-    #statusTable td:nth-child(5),
-    #statusTable td:nth-child(6) {
-      width: calc(100% / 6 * 0.9);
-    }
-
-    #hourlyTable th:nth-child(1),
-    #hourlyTable td:nth-child(1) {
-      width: clamp(70px, 12vw, 90px);
-      white-space: normal;
-      overflow: visible;
-      text-overflow: unset;
-    }
-
-    #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-    #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-      width: calc((100% - clamp(70px, 12vw, 90px)) / 11 * 0.8);
-    }
-  }
-
-  @media (max-width: 1024px) {
-    .card {
-      padding: clamp(8px, 1.5vw, 15px);
-    }
-    
-    .table-container {
-      margin-left: calc(-1vw);
-      margin-right: calc(-1vw);
-      padding: 0 1vw;
-    }
-    
-    table {
-      min-width: 0;
-    }
-    
-    body {
-      padding: clamp(5px, 1vw, 10px);
-    }
-    
-    .container {
-      padding: clamp(10px, 2vw, 15px);
-    }
-  }
-
-  @media (max-width: 768px) {
-    .compactor-grid {
-      grid-template-columns: repeat(5, minmax(45px, 1fr));
-      gap: clamp(6px, 1vw, 10px);
-    }
-    
-    .btn {
-      min-width: 90px;
-      padding: clamp(6px, 1.5vw, 10px);
-    }
-    
-    .table-container {
-      margin-left: calc(-2vw);
-      margin-right: calc(-2vw);
-      padding: 0 2vw;
-    }
-    
-    .dashboard {
-      flex-direction: column;
-    }
-    
-    .card {
-      width: 100%;
-      margin-bottom: clamp(10px, 2vw, 15px);
-    }
-    
-    body {
-      min-height: 100%;
-      height: auto;
-      padding: clamp(5px, 1vw, 8px);
-    }
-    
-    .container {
-      min-height: 100%;
-      height: auto;
-      padding: clamp(8px, 1.5vw, 12px);
-    }
-
-    #hourlyTable th:nth-child(1),
-    #hourlyTable td:nth-child(1) {
-      width: clamp(60px, 20vw, 80px);
-      white-space: normal;
-      overflow: visible;
-      text-overflow: unset;
-    }
-
-    #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-    #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-      width: calc((100% - clamp(60px, 20vw, 80px)) / 11 * 0.8);
-    }
-  }
-
-  @media (max-width: 600px) {
-    .compactor-grid {
-      grid-template-columns: repeat(5, minmax(40px, 1fr));
-      gap: clamp(5px, 1vw, 8px);
-    }
-    
-    .compactor-btn {
-      font-size: clamp(12px, 2.2vw, 16px);
-      padding: clamp(6px, 1.2vw, 12px);
-    }
-    
-    table {
-      min-width: 0;
-      font-size: clamp(0.6rem, 1.4vw, 0.7rem);
-    }
-    
-    th, td {
-      padding: clamp(2px, 0.5vw, 4px);
-    }
-    
-    .btn {
-      min-width: 80px;
-      font-size: clamp(0.75rem, 2vw, 0.85rem);
-    }
-    
-    .table-header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    
-    .table-header > div {
-      width: 100%;
-      justify-content: flex-end;
-    }
-
-    #hourlyTable th:nth-child(1),
-    #hourlyTable td:nth-child(1) {
-      width: clamp(50px, 18vw, 70px);
-      white-space: normal;
-      overflow: visible;
-      text-overflow: unset;
-      font-size: clamp(0.65rem, 1.6vw, 0.75rem);
-    }
-
-    #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-    #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-      width: calc((100% - clamp(50px, 18vw, 70px)) / 11 * 0.7);
-    }
-  }
-
-  @media (max-width: 400px) {
-    body {
-      padding: clamp(5px, 1vw, 8px);
-    }
-    
-    .container {
-      padding: clamp(8px, 1.5vw, 12px);
-    }
-    
-    h1 {
-      font-size: clamp(1.2rem, 4vw, 1.5rem);
-    }
-    
-    .compactor-grid {
-      grid-template-columns: repeat(5, minmax(35px, 1fr));
-      gap: clamp(4px, 0.8vw, 6px);
-    }
-    
-    .compactor-btn {
-      font-size: clamp(10px, 2vw, 14px);
-      padding: clamp(5px, 1vw, 10px);
-    }
-    
-    table {
-      min-width: 0;
-    }
-  }
-  </style>
-</head>
-<body>
-  <!-- Cover Page with Password Protection -->
-  <div id="cover-page">
-    <div class="login-container">
-      <h1>Compactor Progress Tracker</h1>
-      <p>Please enter the password to access the system</p>
-      <input type="password" id="password-input" class="password-input" placeholder="Enter password">
-      <button id="login-btn" class="login-btn">Login</button>
-      <div id="login-error" class="error-message"></div>
-    </div>
-  </div>
-
-  <!-- Main Content (hidden initially) -->
-  <div id="main-container">
-    <div class="container">
-      <header>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://apis.google.com https://www.gstatic.com https://accounts.google.com https://*.googleapis.com 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://accounts.google.com https://sheets.googleapis.com;">
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <title>Compactor Progress Tracker</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        height: 100%;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: clamp(10px, 2vw, 15px);
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        height: auto;
+        color: #333;
+        line-height: 1.5;
+        font-size: clamp(14px, 2.5vw, 16px);
+        display: flex;
+        flex-direction: column;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      /* Cover Page Styles */
+      #cover-page {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        padding: 20px;
+      }
+
+      .login-container {
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        padding: 30px;
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+      }
+
+      .login-container h1 {
+        color: #2c3e50;
+        margin-bottom: 20px;
+        font-size: 1.8rem;
+      }
+
+      .login-container p {
+        color: #6c757d;
+        margin-bottom: 30px;
+      }
+
+      .error-message {
+        color: #e74c3c;
+        margin-top: 10px;
+        font-weight: bold;
+        min-height: 20px;
+      }
+
+      /* Main Container Styles (hidden initially) */
+      #main-container {
+        display: none;
+      }
+
+      .container {
+        max-width: min(1400px, 95vw);
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        padding: clamp(15px, 2.5vw, 20px);
+        position: relative;
+        flex-grow: 1;
+        height: auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+
+      .container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background: linear-gradient(90deg, #4CAF50, #2196F3, #FF9800);
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: clamp(15px, 3vw, 25px);
+      }
+
+      h1 {
+        color: #2c3e50;
+        margin: clamp(10px, 2vw, 15px) 0;
+        font-weight: 600;
+        position: relative;
+        padding-bottom: 15px;
+        font-size: clamp(1.5rem, 5vw, 2rem);
+      }
+
+      h1::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: clamp(60px, 10vw, 80px);
+        height: 4px;
+        background: linear-gradient(90deg, #4CAF50, #2196F3);
+        border-radius: 2px;
+      }
+
+      .dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: clamp(15px, 3vw, 25px);
+        margin-bottom: clamp(15px, 3vw, 25px);
+        flex-grow: 1;
+      }
+
+      @media (min-width: 768px) {
+        .dashboard {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: clamp(10px, 2vw, 20px);
+        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05);
+        width: 100%;
+        overflow: visible;
+        flex-grow: 0;
+        min-height: 0;
+        overflow-y: auto;
+      }
+
+      .card-header {
+        font-size: clamp(1rem, 3vw, 1.25rem);
+        font-weight: 600;
+        margin-bottom: clamp(10px, 2vw, 15px);
+        color: #2c3e50;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e9ecef;
+      }
+
+      .compactor-grid {
+        display: grid;
+        grid-template-rows: repeat(2, auto);
+        grid-template-columns: repeat(5, minmax(50px, 1fr));
+        grid-template-areas: 
+          "b1 b2 b3 b4 b5"
+          "b6 b7 b8 b9 b10";
+        gap: clamp(8px, 1.5vw, 12px);
+        margin-bottom: clamp(10px, 2vw, 20px);
+      }
+
+      .compactor-btn[data-machine="1"] { grid-area: b1; }
+      .compactor-btn[data-machine="2"] { grid-area: b2; }
+      .compactor-btn[data-machine="3"] { grid-area: b3; }
+      .compactor-btn[data-machine="4"] { grid-area: b4; }
+      .compactor-btn[data-machine="5"] { grid-area: b5; }
+      .compactor-btn[data-machine="6"] { grid-area: b6; }
+      .compactor-btn[data-machine="7"] { grid-area: b7; }
+      .compactor-btn[data-machine="8"] { grid-area: b8; }
+      .compactor-btn[data-machine="9"] { grid-area: b9; }
+      .compactor-btn[data-machine="10"] { grid-area: b10; }
+
+      .compactor-btn {
+        padding: clamp(8px, 1.5vw, 12px);
+        border: none;
+        border-radius: 8px;
+        font-size: clamp(14px, 2.5vw, 18px);
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: #4CAF50;
+        color: white;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+        touch-action: manipulation;
+      }
+
+      .compactor-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 10px rgba(0,0,0,0.15);
+      }
+
+      .compactor-btn.active {
+        background-color: #6c757d;
+        transform: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+
+      .error {
+        color: #e74c3c;
+        font-size: clamp(0.9rem, 2vw, 1rem);
+        margin: clamp(10px, 1vw, 10px) 0;
+        min-height: 24px;
+        font-weight: bold;
+        text-align: center;
+      }
+
+      .table-container {
+        overflow-x: hidden;
+        overflow-y: auto;
+        margin-top: clamp(10px, 2vw, 20px);
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        width: 100%;
+        max-height: 400px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: white;
+        table-layout: fixed;
+      }
+
+      th {
+        background-color: #f1f5f9;
+        padding: clamp(4px, 1vw, 8px);
+        text-align: center;
+        font-weight: 600;
+        color: #2c3e50;
+        border: 1px solid #d1d5db;
+        font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+        width: auto;
+      }
+
+      td {
+        padding: clamp(4px, 1vw, 8px);
+        border: 1px solid #d1d5db;
+        color: #4a5568;
+        text-align: center;
+        font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+        width: auto;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #hourlyTable th:nth-child(1),
+      #hourlyTable td:nth-child(1) {
+        width: clamp(80px, 15vw, 100px);
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+      }
+
+      #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+      #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+        width: calc((100% - clamp(80px, 15vw, 100px)) / 11 * 0.9);
+      }
+
+      tr:hover {
+        background-color: #f8fafc;
+      }
+
+      .cumulative-row {
+        background-color: #d4edda !important;
+      }
+
+      .cumulative-row th,
+      .cumulative-row td {
+        background-color: #d4edda !important;
+        font-weight: 700;
+        color: #155724;
+      }
+
+      .time-cell {
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .time-cell:hover {
+        background-color: #e3f2fd;
+      }
+
+      .blink {
+        animation: blink-animation 1s ease-in-out infinite;
+      }
+
+      @keyframes blink-animation {
+        0%, 100% { background-color: #f8f9fa; }
+        50% { background-color: #ffcccb; }
+      }
+
+      .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: clamp(10px, 2vw, 15px);
+        flex-wrap: wrap;
+        gap: clamp(5px, 1vw, 10px);
+      }
+
+      .table-header h3 {
+        margin: 0;
+        flex: 1 1 auto;
+        font-size: clamp(1rem, 3vw, 1.2rem);
+      }
+
+      .table-header > div {
+        display: flex;
+        align-items: center;
+        gap: clamp(5px, 1vw, 10px);
+        flex: 0 1 auto;
+      }
+
+      .counter {
+        background-color: #e3f2fd;
+        color: #1976d2;
+        padding: clamp(4px, 1vw, 6px) clamp(8px, 1.5vw, 12px);
+        border-radius: 20px;
+        font-weight: bold;
+        flex: 0 0 auto;
+        font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+      }
+
+      .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: clamp(10px, 2vw, 15px);
+        margin-top: clamp(15px, 3vw, 25px);
+      }
+
+      .btn {
+        flex: 1;
+        padding: clamp(8px, 1.5vw, 12px);
+        border: none;
+        border-radius: 8px;
+        font-size: clamp(0.85rem, 2.2vw, 0.95rem);
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(5px, 1vw, 8px);
+        min-width: 100px;
+        touch-action: manipulation;
+      }
+
+      .btn-export {
+        background-color: #2196F3;
+        color: white;
+      }
+
+      .btn-export:hover {
+        background-color: #0b7dda;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+      }
+
+      .btn-clear {
+        background-color: #e74c3c;
+        color: white;
+      }
+
+      .btn-clear:hover {
+        background-color: #c0392b;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+      }
+
+      .btn-undo {
+        background-color: #f0ad4e;
+        color: white;
+      }
+
+      .btn-undo:hover {
+        background-color: #ec971f;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(240, 173, 78, 0.3);
+      }
+
+      .btn-undo:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .delete-icon {
+        cursor: pointer;
+        color: #e74c3c;
+        transition: all 0.2s;
+        width: clamp(14px, 2vw, 16px);
+        height: clamp(14px, 2vw, 16px);
+      }
+
+      .delete-icon:hover {
+        color: #c0392b;
+        transform: scale(1.1);
+      }
+
+      .highlight {
+        background: #fff9c4;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: bold;
+      }
+
+      .footer {
+        text-align: center;
+        margin-top: clamp(15px, 3vw, 25px);
+        color: #6c757d;
+        padding-top: clamp(10px, 2vw, 15px);
+        border-top: 1px solid #e9ecef;
+        font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+      }
+
+      .status-counters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: clamp(10px, 2vw, 15px);
+        margin-bottom: clamp(10px, 2vw, 15px);
+        justify-content: center;
+      }
+
+      .counter-badge {
+        background: #e3f2fd;
+        padding: clamp(6px, 1vw, 8px) clamp(10px, 2vw, 15px);
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+      }
+
+      .counter-badge.pending {
+        background-color: #fff3cd;
+        color: #856404;
+      }
+
+      .counter-badge.completed {
+        background-color: #d4edda;
+        color: #155724;
+      }
+
+      .toggle-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #1976d2;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: clamp(3px, 0.5vw, 5px);
+        padding: clamp(3px, 0.5vw, 5px) clamp(5px, 1vw, 10px);
+        border-radius: 4px;
+        transition: all 0.2s;
+        flex: 0 0 auto;
+        font-size: clamp(0.75rem, 1.8vw, 0.85rem);
+        touch-action: manipulation;
+      }
+
+      .toggle-btn:hover {
+        background-color: #e3f2fd;
+      }
+
+      .blink-toggle {
+        color: #e74c3c;
+      }
+
+      .blink-toggle:hover {
+        color: #c0392b;
+      }
+
+      .status-row {
+        transition: background-color 0.3s;
+      }
+
+      .status-row:hover {
+        background-color: #ebf8ff;
+      }
+
+      @media (min-width: 768px) and (max-width: 1024px) {
+        .table-container {
+          overflow-x: hidden;
+          margin-left: 0;
+          margin-right: 0;
+          padding: 0;
+        }
+
+        table {
+          table-layout: fixed;
+          width: 100%;
+        }
+
+        th, td {
+          padding: clamp(2px, 0.5vw, 4px);
+          font-size: clamp(0.6rem, 1.2vw, 0.7rem);
+          width: auto;
+        }
+
+        #statusTable th:nth-child(1),
+        #statusTable th:nth-child(2),
+        #statusTable th:nth-child(3),
+        #statusTable th:nth-child(4),
+        #statusTable th:nth-child(5),
+        #statusTable th:nth-child(6),
+        #statusTable td:nth-child(1),
+        #statusTable td:nth-child(2),
+        #statusTable td:nth-child(3),
+        #statusTable td:nth-child(4),
+        #statusTable td:nth-child(5),
+        #statusTable td:nth-child(6) {
+          width: calc(100% / 6 * 0.9);
+        }
+
+        #hourlyTable th:nth-child(1),
+        #hourlyTable td:nth-child(1) {
+          width: clamp(70px, 12vw, 90px);
+          white-space: normal;
+          overflow: visible;
+          text-overflow: unset;
+        }
+
+        #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+        #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+          width: calc((100% - clamp(70px, 12vw, 90px)) / 11 * 0.8);
+        }
+      }
+
+      @media (max-width: 1024px) {
+        .card {
+          padding: clamp(8px, 1.5vw, 15px);
+        }
+        
+        .table-container {
+          margin-left: calc(-1vw);
+          margin-right: calc(-1vw);
+          padding: 0 1vw;
+        }
+        
+        table {
+          min-width: 0;
+        }
+        
+        body {
+          padding: clamp(5px, 1vw, 10px);
+        }
+        
+        .container {
+          padding: clamp(10px, 2vw, 15px);
+        }
+      }
+
+      @media (max-width: 768px) {
+        .compactor-grid {
+          grid-template-columns: repeat(5, minmax(45px, 1fr));
+          gap: clamp(6px, 1vw, 10px);
+        }
+        
+        .btn {
+          min-width: 90px;
+          padding: clamp(6px, 1.5vw, 10px);
+        }
+        
+        .table-container {
+          margin-left: calc(-2vw);
+          margin-right: calc(-2vw);
+          padding: 0 2vw;
+        }
+        
+        .dashboard {
+          flex-direction: column;
+        }
+        
+        .card {
+          width: 100%;
+          margin-bottom: clamp(10px, 2vw, 15px);
+        }
+        
+        body {
+          min-height: 100%;
+          height: auto;
+          padding: clamp(5px, 1vw, 8px);
+        }
+        
+        .container {
+          min-height: 100%;
+          height: auto;
+          padding: clamp(8px, 1.5vw, 12px);
+        }
+
+        #hourlyTable th:nth-child(1),
+        #hourlyTable td:nth-child(1) {
+          width: clamp(60px, 20vw, 80px);
+          white-space: normal;
+          overflow: visible;
+          text-overflow: unset;
+        }
+
+        #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+        #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+          width: calc((100% - clamp(60px, 20vw, 80px)) / 11 * 0.8);
+        }
+      }
+
+      @media (max-width: 600px) {
+        .compactor-grid {
+          grid-template-columns: repeat(5, minmax(40px, 1fr));
+          gap: clamp(5px, 1vw, 8px);
+        }
+        
+        .compactor-btn {
+          font-size: clamp(12px, 2.2vw, 16px);
+          padding: clamp(6px, 1.2vw, 12px);
+        }
+        
+        table {
+          min-width: 0;
+          font-size: clamp(0.6rem, 1.4vw, 0.7rem);
+        }
+        
+        th, td {
+          padding: clamp(2px, 0.5vw, 4px);
+        }
+        
+        .btn {
+          min-width: 80px;
+          font-size: clamp(0.75rem, 2vw, 0.85rem);
+        }
+        
+        .table-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        
+        .table-header > div {
+          width: 100%;
+          justify-content: flex-end;
+        }
+
+        #hourlyTable th:nth-child(1),
+        #hourlyTable td:nth-child(1) {
+          width: clamp(50px, 18vw, 70px);
+          white-space: normal;
+          overflow: visible;
+          text-overflow: unset;
+          font-size: clamp(0.65rem, 1.6vw, 0.75rem);
+        }
+
+        #hourlyTable th:nth-child(n+2):nth-child(-n+11),
+        #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
+          width: calc((100% - clamp(50px, 18vw, 70px)) / 11 * 0.7);
+        }
+      }
+
+      @media (max-width: 400px) {
+        body {
+          padding: clamp(5px, 1vw, 8px);
+        }
+        
+        .container {
+          padding: clamp(8px, 1.5vw, 12px);
+        }
+        
+        h1 {
+          font-size: clamp(1.2rem, 4vw, 1.5rem);
+        }
+        
+        .compactor-grid {
+          grid-template-columns: repeat(5, minmax(35px, 1fr));
+          gap: clamp(4px, 0.8vw, 6px);
+        }
+        
+        .compactor-btn {
+          font-size: clamp(10px, 2vw, 14px);
+          padding: clamp(5px, 1vw, 10px);
+        }
+        
+        table {
+          min-width: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Cover Page with Google Sign-In -->
+    <div id="cover-page">
+      <div class="login-container">
         <h1>Compactor Progress Tracker</h1>
-      </header>
-      
-      <div class="dashboard">
-        <div class="card">
-          <div class="card-header">Compactor Entry</div>
-          
-          <div class="compactor-grid">
-            <button class="compactor-btn" data-machine="1">1</button>
-            <button class="compactor-btn" data-machine="2">2</button>
-            <button class="compactor-btn" data-machine="3">3</button>
-            <button class="compactor-btn" data-machine="4">4</button>
-            <button class="compactor-btn" data-machine="5">5</button>
-            <button class="compactor-btn" data-machine="6">6</button>
-            <button class="compactor-btn" data-machine="7">7</button>
-            <button class="compactor-btn" data-machine="8">8</button>
-            <button class="compactor-btn" data-machine="9">9</button>
-            <button class="compactor-btn" data-machine="10">10</button>
-          </div>
-          
-          <div class="error" id="error"></div>
-          
-          <div class="table-header">
-            <h3>Hourly Records</h3>
-            <div>
-              <span class="counter" id="hourlyCount">0 hours</span>
-              <button class="toggle-btn" id="toggleHourly">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+        <p>Please sign in with your Google account to access the system</p>
+        <div id="g_id_onload"
+             data-client_id="959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
+        <div id="login-error" class="error-message"></div>
+      </div>
+    </div>
+
+    <!-- Main Content (hidden initially) -->
+    <div id="main-container">
+      <div class="container">
+        <header>
+          <h1>Compactor Progress Tracker</h1>
+        </header>
+        
+        <div class="dashboard">
+          <div class="card">
+            <div class="card-header">Compactor Entry</div>
+            
+            <div class="compactor-grid">
+              <button class="compactor-btn" data-machine="1">1</button>
+              <button class="compactor-btn" data-machine="2">2</button>
+              <button class="compactor-btn" data-machine="3">3</button>
+              <button class="compactor-btn" data-machine="4">4</button>
+              <button class="compactor-btn" data-machine="5">5</button>
+              <button class="compactor-btn" data-machine="6">6</button>
+              <button class="compactor-btn" data-machine="7">7</button>
+              <button class="compactor-btn" data-machine="8">8</button>
+              <button class="compactor-btn" data-machine="9">9</button>
+              <button class="compactor-btn" data-machine="10">10</button>
+            </div>
+            
+            <div class="error" id="error"></div>
+            
+            <div class="table-header">
+              <h3>Hourly Records</h3>
+              <div>
+                <span class="counter" id="hourlyCount">0 hours</span>
+                <button class="toggle-btn" id="toggleHourly">
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+                  </svg>
+                  Show All
+                </button>
+              </div>
+            </div>
+            
+            <div class="table-container">
+              <table id="hourlyTable">
+                <thead>
+                  <tr class="cumulative-row" id="cumulativeRow" style="display: none;">
+                    <th>Cumulative Total</th>
+                    <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+                    <th></th>
+                  </tr>
+                  <tr>
+                    <th>Time Slot</th>
+                    <th>1</th>
+                    <th>2</th>
+                    <th>3</th>
+                    <th>4</th>
+                    <th>5</th>
+                    <th>6</th>
+                    <th>7</th>
+                    <th>8</th>
+                    <th>9</th>
+                    <th>10</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody id="hourlyBody">
+                  <tr>
+                    <td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="btn-group">
+              <button class="btn btn-export" id="exportButton">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                  <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                 </svg>
-                Show All
+                Export to CSV
+              </button>
+              <button class="btn btn-clear" id="clearButton">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                  <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+                Clear All Data
+              </button>
+              <button class="btn btn-undo" id="undoButton" disabled>
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 0a8 8 0 0 0-2.915 15.452c-.07-.633-.134-1.606.027-2.297.146-.625.938-3.977.938-3.977s-.239-.479-.239-1.187c0-1.113.645-1.943 1.448-1.943.682 0 1.012.512 1.012 1.127 0 .686-.437 1.712-.663 2.663-.188.796.805 1.446 1.742 1.446 2.094 0 3.71-2.205 3.71-5.398 0-2.82-2.03-4.788-4.922-4.788-3.354 0-5.32 2.517-5.32 5.117 0 1.015.388 2.103.873 2.696a.346.346 0 0 1 .078.427c-.066.286-.287.885-.392 1.104-.104.218-.217.243-.334.114C2.29 12.685 2 11.454 2 10.025 2 6.153 5.144 3 8.5 3 11.07 3 14 5.404 14 8.5c0 3.096-2.93 5.5-5.5 5.5-.943 0-1.816-.256-2.557-.683l-.737.552a.5.5 0 0 1-.683-.95l1.293-.97A7.942 7.942 0 0 0 8 0z"/>
+                </svg>
+                Undo
               </button>
             </div>
           </div>
           
-          <div class="table-container">
-            <table id="hourlyTable">
-              <thead>
-                <tr class="cumulative-row" id="cumulativeRow" style="display: none;">
-                  <th>Cumulative Total</th>
-                  <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
-                  <th></th>
-                </tr>
-                <tr>
-                  <th>Time Slot</th>
-                  <th>1</th>
-                  <th>2</th>
-                  <th>3</th>
-                  <th>4</th>
-                  <th>5</th>
-                  <th>6</th>
-                  <th>7</th>
-                  <th>8</th>
-                  <th>9</th>
-                  <th>10</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody id="hourlyBody">
-                <tr>
-                  <td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          
-          <div class="btn-group">
-            <button class="btn btn-export" id="exportButton">
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-              </svg>
-              Export to CSV
-            </button>
-            <button class="btn btn-clear" id="clearButton">
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-              </svg>
-              Clear All Data
-            </button>
-            <button class="btn btn-undo" id="undoButton" disabled>
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 0a8 8 0 0 0-2.915 15.452c-.07-.633-.134-1.606.027-2.297.146-.625.938-3.977.938-3.977s-.239-.479-.239-1.187c0-1.113.645-1.943 1.448-1.943.682 0 1.012.512 1.012 1.127 0 .686-.437 1.712-.663 2.663-.188.796.805 1.446 1.742 1.446 2.094 0 3.71-2.205 3.71-5.398 0-2.82-2.03-4.788-4.922-4.788-3.354 0-5.32 2.517-5.32 5.117 0 1.015.388 2.103.873 2.696a.346.346 0 0 1 .078.427c-.066.286-.287.885-.392 1.104-.104.218-.217.243-.334.114C2.29 12.685 2 11.454 2 10.025 2 6.153 5.144 3 8.5 3 11.07 3 14 5.404 14 8.5c0 3.096-2.93 5.5-5.5 5.5-.943 0-1.816-.256-2.557-.683l-.737.552a.5.5 0 0 1-.683-.95l1.293-.97A7.942 7.942 0 0 0 8 0z"/>
-              </svg>
-              Undo
-            </button>
+          <div class="card">
+            <div class="card-header">Current Status</div>
+            
+            <div class="status-counters">
+              <div class="counter-badge pending" id="pendingCount">0 pending</div>
+              <div class="counter-badge completed" id="completedCount">0 completed</div>
+            </div>
+            
+            <div class="table-header">
+              <h3>Status Records</h3>
+              <div>
+                <span class="counter" id="statusCount">0 records</span>
+                <button class="toggle-btn blink-toggle" id="toggleBlink">
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                  </svg>
+                  Stop Blinking
+                </button>
+                <button class="toggle-btn" id="toggleRecords" style="display: none;">
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+                  </svg>
+                  Show All
+                </button>
+              </div>
+            </div>
+            
+            <div class="table-container">
+              <table id="statusTable">
+                <thead>
+                  <tr>
+                    <th>Container #</th>
+                    <th>Compactor</th>
+                    <th>In Time</th>
+                    <th>Out Time</th>
+                    <th>Duration</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="statusBody">
+                  <tr>
+                    <td colspan="6" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No records</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
         
-        <div class="card">
-          <div class="card-header">Current Status</div>
-          
-          <div class="status-counters">
-            <div class="counter-badge pending" id="pendingCount">0 pending</div>
-            <div class="counter-badge completed" id="completedCount">0 completed</div>
-          </div>
-          
-          <div class="table-header">
-            <h3>Status Records</h3>
-            <div>
-              <span class="counter" id="statusCount">0 records</span>
-              <button class="toggle-btn blink-toggle" id="toggleBlink">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                  <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-                </svg>
-                Stop Blinking
-              </button>
-              <button class="toggle-btn" id="toggleRecords" style="display: none;">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-                </svg>
-                Show All
-              </button>
-            </div>
-          </div>
-          
-          <div class="table-container">
-            <table id="statusTable">
-              <thead>
-                <tr>
-                  <th>Container #</th>
-                  <th>Compactor</th>
-                  <th>In Time</th>
-                  <th>Out Time</th>
-                  <th>Duration</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="statusBody">
-                <tr>
-                  <td colspan="6" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No records</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="footer">
+          Compactor Progress Tracker v2.4 | Data is stored locally in your browser
         </div>
       </div>
-      
-      <div class="footer">
-        Compactor Progress Tracker v2.4 | Data is stored locally in your browser
-      </div>
     </div>
-  </div>
-
 <script>
-  // Password protection
-  const CORRECT_PASSWORD = "compactor123";
-  const coverPage = document.getElementById('cover-page');
-  const mainContainer = document.getElementById('main-container');
-  const passwordInput = document.getElementById('password-input');
-  const loginBtn = document.getElementById('login-btn');
-  const loginError = document.getElementById('login-error');
-
-  // Google Sheets API configuration
+// Google Sheets API configuration
   const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
   const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
   const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo';
@@ -968,7 +931,7 @@
             resolve();
           },
           onerror: () => reject(new Error('Failed to load gapi client')),
-          timeout: 15000, // 15-second timeout
+          timeout: 15000,
           ontimeout: () => reject(new Error('Google API load timeout'))
         });
       });
@@ -977,23 +940,6 @@
       await gapi.client.init({
         apiKey: API_KEY,
         discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-      });
-
-      // Initialize Google Identity Services
-      const tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPE,
-        callback: (response) => {
-          if (response.error) {
-            console.error('Token client error:', response);
-            document.getElementById('error').textContent = `Authentication failed: ${response.error_description || response.error || 'Unknown error'}. Please try again.`;
-            accessToken = null;
-          } else {
-            accessToken = response.access_token;
-            console.log('Access token received:', accessToken);
-            document.getElementById('error').textContent = '';
-          }
-        },
       });
 
       console.log('Google API client initialized successfully');
@@ -1012,7 +958,37 @@
     }
   }
 
-  // Request access token
+  // Handle Google Sign-In credential response
+  function handleCredentialResponse(response) {
+    if (response.credential) {
+      const profile = parseJwt(response.credential);
+      console.log('User signed in:', profile.email);
+      accessToken = response.credential; // Use ID token for authentication
+      document.getElementById('cover-page').style.display = 'none';
+      document.getElementById('main-container').style.display = 'block';
+      sessionStorage.setItem('loggedIn', 'true');
+      initializeApp();
+    } else {
+      document.getElementById('login-error').textContent = 'Sign-in failed. Please try again.';
+    }
+  }
+
+  // Parse JWT token to extract user info
+  function parseJwt(token) {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      console.error('Error parsing JWT:', e);
+      return {};
+    }
+  }
+
+  // Request access token for Google Sheets
   function requestAccessToken() {
     if (!window.google) {
       console.error('Google Identity Services not loaded');
@@ -1045,7 +1021,6 @@
       if (!accessToken) {
         console.warn('No access token. Requesting authentication...');
         requestAccessToken();
-        // Wait briefly to allow token request to complete
         await new Promise(resolve => setTimeout(resolve, 2000));
         if (!accessToken) {
           document.getElementById('error').textContent = 'Authentication failed. Cannot sync data to Google Sheets.';
@@ -1053,10 +1028,8 @@
         }
       }
 
-      // Set access token for gapi.client
       gapi.client.setToken({ access_token: accessToken });
 
-      // Prepare data for Google Sheets
       const values = log.map(entry => [
         entry.entryTimestamp,
         entry.machineNumber,
@@ -1065,7 +1038,6 @@
         calculateDuration(entry.inTime, entry.outTime).display
       ]);
 
-      // Append data to Google Sheet with retry logic for rate limits
       let retries = 3;
       while (retries > 0) {
         try {
@@ -1087,13 +1059,11 @@
           return true;
         } catch (error) {
           if (error.status === 429 && retries > 0) {
-            // Handle rate limit with exponential backoff
-            const delay = (4 - retries) * 1000; // 1s, 2s, 3s
+            const delay = (4 - retries) * 1000;
             console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             retries--;
           } else if (error.status === 401) {
-            // Token expired or invalid, request a new one
             console.warn('Access token invalid or expired. Requesting new token...');
             requestAccessToken();
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1284,7 +1254,7 @@
 
     if (hourlyRecords.length === 0) {
       hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
-      return;
+      return hourlyRecords;
     }
 
     hourlyRecords.sort((a, b) => b.startTime - a.startTime);
@@ -1300,6 +1270,8 @@
       `;
       hourlyBody.appendChild(row);
     });
+
+    return hourlyRecords;
   }
 
   // Update machine button states
@@ -1319,26 +1291,23 @@
       const [hours, minutes] = timeStr.split(':').map(Number);
       const date = new Date();
       date.setHours(hours, minutes, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1);
       return date;
     };
 
     try {
       const start = parseTime(inTime);
-      const end = outTime ? parseTime(outTime) : new Date();
-
-      if (end < start) {
-        end.setDate(end.getDate() + 1);
-      }
-
-      const diffMs = end - start;
+      const end = outTime ? parseTime(outTime, start) : new Date();
+      let diffMs = end - start;
+      if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
       const diffMins = Math.floor(diffMs / 60000);
       const hours = Math.floor(diffMins / 60);
       const minutes = diffMins % 60;
+      const display = outTime 
+        ? `${hours}h ${minutes}m`
+        : `${hours}h ${minutes}m (ongoing)`;
 
-      return {
-        display: `${hours}h ${minutes}m`,
-        minutes: diffMins
-      };
+      return { display, minutes: diffMins };
     } catch {
       return { display: 'N/A', minutes: 0 };
     }
@@ -1346,375 +1315,313 @@
 
   // Handle machine button click
   function handleMachineButtonClick(machineNum) {
-    try {
-      const errorDiv = document.getElementById('error');
-      const currentTime = new Date().toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Hong_Kong'
-      }).replace("24:", "00:");
+    const errorDiv = document.getElementById('error');
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const timeString = `${hours}:${minutes}`;
+    const timestamp = now.toISOString();
 
-      const existingEntry = log.find(entry => 
-        entry.machineNumber === machineNum && !entry.outTime
-      );
-
-      if (existingEntry) {
-        actionHistory.push({
-          type: 'addOutTime',
-          entry: { ...existingEntry },
-          newOutTime: currentTime
-        });
-        existingEntry.outTime = currentTime;
-        existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        document.getElementById('undoButton').disabled = false;
-      } else {
-        const entry = {
-          machineNumber: machineNum,
-          inTime: currentTime,
-          outTime: '',
-          entryTimestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' })
-        };
-
-        actionHistory.push({
-          type: 'addInTime',
-          entry: { ...entry }
-        });
-
-        log.push(entry);
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        document.getElementById('undoButton').disabled = false;
-      }
-
-      localStorage.setItem('compactorLog', JSON.stringify(log));
-      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-      errorDiv.textContent = '';
-    } catch (error) {
-      console.error('Error in handleMachineButtonClick:', error);
-      document.getElementById('error').textContent = 'An error occurred. Please try again.';
+    if (log.some(entry => entry.machineNumber === machineNum && !entry.outTime)) {
+      errorDiv.textContent = `Machine ${machineNum} is already in use.`;
+      return;
     }
+
+    errorDiv.textContent = '';
+
+    const newEntry = {
+      machineNumber: machineNum,
+      inTime: timeString,
+      entryTimestamp: timestamp
+    };
+
+    log.push(newEntry);
+    actionHistory.push({ action: 'add', entry: { ...newEntry } });
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    document.getElementById('undoButton').disabled = false;
+
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    syncToGoogleSheets();
   }
 
   // Prompt for out time
   function promptOutTime(entryIndex) {
-    try {
-      const entry = log[entryIndex];
-      if (!entry || entry.outTime) return;
+    const entry = log[entryIndex];
+    if (!entry || entry.outTime) return;
 
-      let outTimeInput = prompt(`Enter Out Time for Machine ${entry.machineNumber} (e.g., 1456 for 14:56):`, "");
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const defaultTime = `${hours}:${minutes}`;
 
-      if (outTimeInput === null) return;
+    const time = prompt('Enter out time (HH:MM)', defaultTime);
+    if (time === null) return;
 
-      outTimeInput = outTimeInput.trim().replace(/[^0-9]/g, '');
-      if (outTimeInput.length === 4) {
-        outTimeInput = `${outTimeInput.slice(0, 2)}:${outTimeInput.slice(2)}`;
-      }
-
-      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      if (!timeRegex.test(outTimeInput)) {
-        alert('Out Time must be in HH:MM format (e.g., 14:56 or 1456).');
-        return;
-      }
-
-      actionHistory.push({
-        type: 'addOutTime',
-        entry: { ...entry },
-        newOutTime: outTimeInput
-      });
-
-      entry.outTime = outTimeInput;
-      entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-
-      localStorage.setItem('compactorLog', JSON.stringify(log));
-      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-
-      updateStatusTable();
-      updateHourlyTable();
-      updateMachineButtonStates();
-      document.getElementById('undoButton').disabled = false;
-
-      alert(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`);
-    } catch (error) {
-      console.error('Error in promptOutTime:', error);
-      document.getElementById('error').textContent = 'An error occurred. Please try again.';
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(time)) {
+      document.getElementById('error').textContent = 'Invalid time format. Use HH:MM.';
+      return;
     }
+
+    const { minutes } = calculateDuration(entry.inTime, time);
+    if (minutes < 0) {
+      document.getElementById('error').textContent = 'Out time cannot be earlier than in time.';
+      return;
+    }
+
+    entry.outTime = time;
+    actionHistory.push({ 
+      action: 'out', 
+      entry: { ...entry }, 
+      previous: { ...log[entryIndex], outTime: null }
+    });
+
+    log[entryIndex] = entry;
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    document.getElementById('undoButton').disabled = false;
+
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    syncToGoogleSheets();
   }
 
   // Edit entry
   function editEntry(machineNumber, entryTimestamp, field) {
-    try {
-      const entry = log.find(entry => 
-        entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
-      );
-      if (!entry) return;
+    const entry = log.find(e => 
+      e.machineNumber === machineNumber && e.entryTimestamp === entryTimestamp
+    );
+    if (!entry) return;
 
-      const timeLabel = field === 'inTime' ? 'In Time' : 'Out Time';
-      const currentValue = field === 'inTime' ? entry.inTime : entry.outTime;
+    const currentTime = field === 'inTime' ? entry.inTime : entry.outTime;
+    const newTime = prompt(`Enter new ${field.replace('Time', ' time')} (HH:MM)`, currentTime);
+    if (newTime === null) return;
 
-      let newTime = prompt(`Enter new ${timeLabel} for Machine ${machineNumber} (e.g., 1456 for 14:56):`, currentValue ? currentValue.replace(':', '') : '');
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(newTime)) {
+      document.getElementById('error').textContent = 'Invalid time format. Use HH:MM.';
+      return;
+    }
 
-      if (newTime === null) return;
-
-      newTime = newTime.trim().replace(/[^0-9]/g, '');
-      if (newTime.length === 4) {
-        newTime = `${newTime.slice(0, 2)}:${newTime.slice(2)}`;
-      }
-
-      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      if (!timeRegex.test(newTime)) {
-        alert(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456).`);
+    if (field === 'inTime' && entry.outTime) {
+      const { minutes } = calculateDuration(newTime, entry.outTime);
+      if (minutes < 0) {
+        document.getElementById('error').textContent = 'In time cannot be later than out time.';
         return;
       }
-
-      actionHistory.push({
-        type: 'edit' + field,
-        entry: { ...entry },
-        newTime: newTime
-      });
-
-      if (field === 'inTime') {
-        entry.inTime = newTime;
-      } else {
-        entry.outTime = newTime;
+    } else if (field === 'outTime') {
+      const { minutes } = calculateDuration(entry.inTime, newTime);
+      if (minutes < 0) {
+        document.getElementById('error').textContent = 'Out time cannot be earlier than in time.';
+        return;
       }
-
-      entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
-
-      localStorage.setItem('compactorLog', JSON.stringify(log));
-      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-
-      updateStatusTable();
-      updateHourlyTable();
-      updateMachineButtonStates();
-      document.getElementById('undoButton').disabled = false;
-
-      alert(`${timeLabel} updated to ${newTime} for Machine ${machineNumber}`);
-    } catch (error) {
-      console.error('Error in editEntry:', error);
-      document.getElementById('error').textContent = 'An error occurred. Please try again.';
     }
+
+    const previousEntry = { ...entry };
+    entry[field] = newTime;
+
+    actionHistory.push({
+      action: 'edit',
+      entry: { ...entry },
+      previous: previousEntry,
+      field
+    });
+
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    document.getElementById('undoButton').disabled = false;
+
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    syncToGoogleSheets();
   }
 
   // Delete entry
   function deleteEntry(machineNumber, entryTimestamp) {
-    try {
-      if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
-        return;
-      }
+    const index = log.findIndex(e => 
+      e.machineNumber === machineNumber && e.entryTimestamp === entryTimestamp
+    );
+    if (index === -1) return;
 
-      const entryIndex = log.findIndex(entry => 
-        entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
-      );
-      if (entryIndex === -1) {
-        alert('Record not found.');
-        return;
-      }
-
-      actionHistory.push({
-        type: 'deleteEntry',
-        entry: { ...log[entryIndex] }
-      });
-
-      log.splice(entryIndex, 1);
-
-      localStorage.setItem('compactorLog', JSON.stringify(log));
-      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-
-      updateStatusTable();
-      updateHourlyTable();
-      updateMachineButtonStates();
-      document.getElementById('undoButton').disabled = false;
-
-      alert('Record deleted successfully.');
-    } catch (error) {
-      console.error('Error in deleteEntry:', error);
-      document.getElementById('error').textContent = 'An error occurred while deleting the record. Please try again.';
+    if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
+      return;
     }
+
+    const entry = log[index];
+    actionHistory.push({ action: 'delete', entry: { ...entry }, index });
+
+    log.splice(index, 1);
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    document.getElementById('undoButton').disabled = false;
+
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    syncToGoogleSheets();
   }
 
   // Undo last action
-  function undoLastAction() {
-    try {
-      if (actionHistory.length === 0) {
-        alert('No actions to undo.');
-        return;
+  function undoAction() {
+    if (actionHistory.length === 0) return;
+
+    const lastAction = actionHistory.pop();
+    const errorDiv = document.getElementById('error');
+
+    if (lastAction.action === 'add') {
+      const index = log.findIndex(e => 
+        e.entryTimestamp === lastAction.entry.entryTimestamp &&
+        e.machineNumber === lastAction.entry.machineNumber
+      );
+      if (index !== -1) {
+        log.splice(index, 1);
       }
-
-      const lastAction = actionHistory.pop();
-
-      if (lastAction.type === 'addInTime') {
-        const entryIndex = log.findIndex(entry => 
-          entry.machineNumber === lastAction.entry.machineNumber && 
-          entry.entryTimestamp === lastAction.entry.entryTimestamp
-        );
-        if (entryIndex !== -1) {
-          log.splice(entryIndex, 1);
-        }
-      } else if (lastAction.type === 'addOutTime') {
-        const entry = log.find(entry => 
-          entry.machineNumber === lastAction.entry.machineNumber && 
-          entry.entryTimestamp === lastAction.entry.entryTimestamp
-        );
-        if (entry) {
-          entry.outTime = '';
-          entry.entryTimestamp = lastAction.entry.entryTimestamp;
-        }
-      } else if (lastAction.type === 'deleteEntry') {
-        log.push({ ...lastAction.entry });
-      } else if (lastAction.type === 'editinTime' || lastAction.type === 'editoutTime') {
-        const entry = log.find(entry => 
-          entry.machineNumber === lastAction.entry.machineNumber && 
-          entry.entryTimestamp === lastAction.entry.entryTimestamp
-        );
-        if (entry) {
-          entry.inTime = lastAction.entry.inTime;
-          entry.outTime = lastAction.entry.outTime;
-          entry.entryTimestamp = lastAction.entry.entryTimestamp;
-        }
+    } else if (lastAction.action === 'out') {
+      const index = log.findIndex(e => 
+        e.entryTimestamp === lastAction.entry.entryTimestamp &&
+        e.machineNumber === lastAction.entry.machineNumber
+      );
+      if (index !== -1) {
+        log[index] = { ...lastAction.previous };
       }
-
-      localStorage.setItem('compactorLog', JSON.stringify(log));
-      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-
-      updateStatusTable();
-      updateHourlyTable();
-      updateMachineButtonStates();
-      document.getElementById('undoButton').disabled = actionHistory.length === 0;
-
-      alert('Last action undone successfully.');
-    } catch (error) {
-      console.error('Error in undoLastAction:', error);
-      document.getElementById('error').textContent = 'An error occurred while undoing the last action. Please try again.';
+    } else if (lastAction.action === 'edit') {
+      const index = log.findIndex(e => 
+        e.entryTimestamp === lastAction.entry.entryTimestamp &&
+        e.machineNumber === lastAction.entry.machineNumber
+      );
+      if (index !== -1) {
+        log[index] = { ...lastAction.previous };
+      }
+    } else if (lastAction.action === 'delete') {
+      log.splice(lastAction.index, 0, lastAction.entry);
+    } else if (lastAction.action === 'clear') {
+      log = [...lastAction.previousLog];
     }
+
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    document.getElementById('undoButton').disabled = actionHistory.length === 0;
+
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    syncToGoogleSheets();
+
+    errorDiv.textContent = 'Last action undone.';
+    setTimeout(() => errorDiv.textContent = '', 3000);
   }
 
   // Clear all data
-  function clearAllData() {
-    try {
-      if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-        return;
-      }
+  function clearData() {
+    if (!confirm('Are you sure you want to clear all data? This action can be undone.')) return;
 
-      log = [];
-      actionHistory = [];
+    actionHistory.push({ action: 'clear', previousLog: [...log] });
+    log = [];
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    document.getElementById('undoButton').disabled = false;
 
-      localStorage.removeItem('compactorLog');
-      localStorage.removeItem('compactorActionHistory');
-      document.getElementById('error').textContent = '';
-
-      const statusBody = document.getElementById('statusBody');
-      statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
-      document.getElementById('statusCount').textContent = '0 records';
-      document.getElementById('pendingCount').textContent = '0 pending';
-      document.getElementById('completedCount').textContent = '0 completed';
-
-      const hourlyBody = document.getElementById('hourlyBody');
-      hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
-      document.getElementById('hourlyCount').textContent = '0 hours';
-
-      document.querySelectorAll('.compactor-btn').forEach(button => {
-        button.classList.remove('active');
-      });
-
-      showAllRecords = false;
-      showAllHourly = false;
-      isBlinkingEnabled = true;
-      const toggleButton = document.getElementById('toggleBlink');
-      toggleButton.innerHTML = `
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-        </svg>
-        Stop Blinking
-      `;
-      document.getElementById('toggleRecords').innerHTML = `
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-        </svg>
-        Show All
-      `;
-      document.getElementById('toggleHourly').innerHTML = `
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-        </svg>
-        Show All
-      `;
-      document.getElementById('undoButton').disabled = true;
-
-      alert('All data cleared successfully.');
-    } catch (error) {
-      console.error('Error in clearAllData:', error);
-      document.getElementById('error').textContent = 'An error occurred while clearing data. Please try again.';
-    }
-  }
-
-  // Toggle blinking animation
-  function toggleBlinking() {
-    isBlinkingEnabled = !isBlinkingEnabled;
-    const toggleButton = document.getElementById('toggleBlink');
-    toggleButton.innerHTML = `
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-      </svg>
-      ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
-    `;
     updateStatusTable();
-  }
-
-  // Toggle hourly records view
-  function toggleHourlyRecords() {
-    showAllHourly = !showAllHourly;
     updateHourlyTable();
+    updateMachineButtonStates();
+    syncToGoogleSheets();
+
+    const errorDiv = document.getElementById('error');
+    errorDiv.textContent = 'All data cleared.';
+    setTimeout(() => errorDiv.textContent = '', 3000);
   }
 
-  // Toggle records view
-  function toggleRecords() {
-    showAllRecords = !showAllRecords;
-    updateStatusTable();
-  }
-
-  // Export to CSV and sync to Google Sheets
+  // Export to CSV and clear data
   async function exportToCSV() {
     try {
-      const headers = ['No.', 'Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'];
-      const csvRows = [headers.join(',')];
+      // Format timestamp for filenames
+      const now = new Date();
+      const dateTimeStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
 
-      log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).forEach((entry, index) => {
-        const duration = calculateDuration(entry.inTime, entry.outTime).display;
-        const row = [
-          log.length - index,
-          `"${entry.entryTimestamp}"`,
+      // Status Records CSV
+      const statusHeaders = ['Container #', 'Compactor', 'In Time', 'Out Time', 'Duration', 'Timestamp'];
+      const statusData = log.map((entry, index) => {
+        const containerNumber = log.length - index;
+        const { display } = calculateDuration(entry.inTime, entry.outTime);
+        return [
+          containerNumber,
           entry.machineNumber,
           entry.inTime,
           entry.outTime || '',
-          duration
+          display,
+          entry.entryTimestamp
         ];
-        csvRows.push(row.join(','));
       });
 
-      const csvContent = csvRows.join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `compactor_log_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      const statusCSV = [statusHeaders, ...statusData].map(row => 
+        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+      ).join('\n');
 
+      // Hourly Records CSV
+      const hourlyRecords = updateHourlyTable();
+      const hourlyHeaders = ['Time Slot', 'Compactor 1', 'Compactor 2', 'Compactor 3', 'Compactor 4', 
+                            'Compactor 5', 'Compactor 6', 'Compactor 7', 'Compactor 8', 'Compactor 9', 
+                            'Compactor 10', 'Total'];
+      const hourlyData = hourlyRecords.map(record => {
+        const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        return [record.timeSlot, ...record.machineCounts.slice(1), total];
+      });
+
+      const completedEntries = log.filter(entry => entry.outTime);
+      const cumulativeCounts = Array(11).fill(0);
+      completedEntries.forEach(entry => cumulativeCounts[entry.machineNumber]++);
+      const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+      if (cumulativeTotal > 0) {
+        hourlyData.push(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+      }
+
+      const hourlyCSV = [hourlyHeaders, ...hourlyData].map(row => 
+        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+      ).join('\n');
+
+      // Create and download Status Records CSV
+      const statusBlob = new Blob([statusCSV], { type: 'text/csv;charset=utf-8;' });
+      const statusLink = document.createElement('a');
+      statusLink.setAttribute('href', URL.createObjectURL(statusBlob));
+      statusLink.setAttribute('download', `CPT_SR_${dateTimeStr}.csv`);
+      document.body.appendChild(statusLink);
+      statusLink.click();
+      document.body.removeChild(statusLink);
+
+      // Create and download Hourly Records CSV
+      const hourlyBlob = new Blob([hourlyCSV], { type: 'text/csv;charset=utf-8;' });
+      const hourlyLink = document.createElement('a');
+      hourlyLink.setAttribute('href', URL.createObjectURL(hourlyBlob));
+      hourlyLink.setAttribute('download', `CPT_HR_${dateTimeStr}.csv`);
+      document.body.appendChild(hourlyLink);
+      hourlyLink.click();
+      document.body.removeChild(hourlyLink);
+
+      // Sync to Google Sheets
       const synced = await syncToGoogleSheets();
+
+      // Clear data after successful export and sync
       if (synced) {
-        alert('Data exported to CSV and synced to Google Sheets successfully.');
+        actionHistory.push({ action: 'clear', previousLog: [...log] });
+        log = [];
+        localStorage.setItem('compactorLog', JSON.stringify(log));
+        localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+        document.getElementById('undoButton').disabled = false;
+
+        updateStatusTable();
+        updateHourlyTable();
+        updateMachineButtonStates();
+
+        document.getElementById('error').textContent = 'Data exported to CSV, synced to Google Sheets, and cleared successfully.';
+        setTimeout(() => document.getElementById('error').textContent = '', 5000);
       } else {
-        alert('Data exported to CSV, but Google Sheets sync failed.');
+        document.getElementById('error').textContent = 'Data exported to CSV but failed to sync to Google Sheets. Data not cleared.';
+        setTimeout(() => document.getElementById('error').textContent = '', 5000);
       }
     } catch (error) {
       const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
@@ -1725,51 +1632,54 @@
         result: error.result,
         stack: error.stack
       });
-      document.getElementById('error').textContent = `An error occurred while exporting data: ${errorDetails || 'Unknown error'}.`;
+      document.getElementById('error').textContent = `Error exporting data: ${errorDetails || 'Unknown error'}. Data not cleared.`;
+      setTimeout(() => document.getElementById('error').textContent = '', 5000);
     }
   }
 
-  // Check login status
-  if (sessionStorage.getItem('loggedIn') === 'true') {
-    coverPage.style.display = 'none';
-    mainContainer.style.display = 'block';
-    initializeApp();
-  }
-
-  // Handle login button click
-  loginBtn.addEventListener('click', async () => {
-    if (passwordInput.value === CORRECT_PASSWORD) {
-      coverPage.style.display = 'none';
-      mainContainer.style.display = 'block';
-      sessionStorage.setItem('loggedIn', 'true');
+  // Event listeners
+  document.addEventListener('DOMContentLoaded', () => {
+    if (sessionStorage.getItem('loggedIn') === 'true') {
+      document.getElementById('cover-page').style.display = 'none';
+      document.getElementById('main-container').style.display = 'block';
       initializeApp();
-    } else {
-      loginError.textContent = 'Incorrect password. Please try again.';
-      passwordInput.focus();
     }
-  });
 
-  // Attach event listeners to buttons
-  document.getElementById('exportButton').addEventListener('click', exportToCSV);
-  document.getElementById('clearButton').addEventListener('click', clearAllData);
-  document.getElementById('undoButton').addEventListener('click', undoLastAction);
-  document.getElementById('toggleBlink').addEventListener('click', toggleBlinking);
-  document.getElementById('toggleHourly').addEventListener('click', toggleHourlyRecords);
-  document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
-
-  // Attach event listeners to machine buttons
-  document.querySelectorAll('.compactor-btn').forEach(button => {
-    button.addEventListener('click', () => {
-      const machineNum = parseInt(button.getAttribute('data-machine'));
-      handleMachineButtonClick(machineNum);
+    document.querySelectorAll('.compactor-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        const machineNumber = parseInt(button.getAttribute('data-machine'));
+        handleMachineButtonClick(machineNumber);
+      });
     });
-  });
 
-  // Clean up intervals on page unload
-  window.addEventListener('unload', () => {
-    if (updateInterval) clearInterval(updateInterval);
-    if (syncInterval) clearInterval(syncInterval);
+    document.getElementById('toggleRecords').addEventListener('click', () => {
+      showAllRecords = !showAllRecords;
+      updateStatusTable();
+    });
+
+    document.getElementById('toggleHourly').addEventListener('click', () => {
+      showAllHourly = !showAllHourly;
+      updateHourlyTable();
+    });
+
+    document.getElementById('toggleBlink').addEventListener('click', () => {
+      isBlinkingEnabled = !isBlinkingEnabled;
+      document.getElementById('toggleBlink').innerHTML = `
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+          <path d="${isBlinkingEnabled ? 'M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z' : 'M8 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 4z'}" />
+        </svg>
+        ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
+      `;
+      updateStatusTable();
+    });
+
+    document.getElementById('exportButton').addEventListener('click', exportToCSV);
+
+    document.getElementById('clearButton').addEventListener('click', clearData);
+
+    document.getElementById('undoButton').addEventListener('click', undoAction);
   });
 </script>
-</body>
+  </body>
 </html>
