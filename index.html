@@ -7,7 +7,6 @@
   <title>Compactor Progress Tracker</title>
   <script src="https://apis.google.com/js/api.js" async defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
   <style>
     * {
       box-sizing: border-box;
@@ -33,6 +32,55 @@
       flex-direction: column;
       overflow-x: hidden;
       overflow-y: auto;
+    }
+
+    /* Cover Page Styles */
+    #cover-page {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .login-container {
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+      padding: 30px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .login-container h1 {
+      color: #2c3e50;
+      margin-bottom: 20px;
+      font-size: 1.8rem;
+    }
+
+    .login-container p {
+      color: #6c757d;
+      margin-bottom: 30px;
+    }
+
+    .error-message {
+      color: #e74c3c;
+      margin-top: 10px;
+      font-weight: bold;
+      min-height: 20px;
+    }
+
+    /* Main Container Styles (hidden initially) */
+    #main-container {
+      display: none;
     }
 
     .container {
@@ -64,11 +112,6 @@
     header {
       text-align: center;
       margin-bottom: clamp(15px, 3vw, 25px);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: clamp(10px, 2vw, 15px);
     }
 
     h1 {
@@ -78,7 +121,6 @@
       position: relative;
       padding-bottom: 15px;
       font-size: clamp(1.5rem, 5vw, 2rem);
-      flex: 1;
     }
 
     h1::after {
@@ -91,36 +133,6 @@
       height: 4px;
       background: linear-gradient(90deg, #4CAF50, #2196F3);
       border-radius: 2px;
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: clamp(10px, 2vw, 15px);
-      flex: 0 0 auto;
-    }
-
-    .sync-status {
-      font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-      padding: clamp(6px, 1vw, 8px) clamp(10px, 2vw, 15px);
-      border-radius: 20px;
-      font-weight: bold;
-      flex: 0 0 auto;
-    }
-
-    .sync-status.connected {
-      background-color: #d4edda;
-      color: #155724;
-    }
-
-    .sync-status.disconnected {
-      background-color: #fff3cd;
-      color: #856404;
-    }
-
-    .sync-status.error {
-      background-color: #f8d7da;
-      color: #721c24;
     }
 
     .dashboard {
@@ -216,7 +228,7 @@
     }
 
     .table-container {
-      overflow-x: auto;
+      overflow-x: hidden;
       overflow-y: auto;
       margin-top: clamp(10px, 2vw, 20px);
       border-radius: 8px;
@@ -397,28 +409,6 @@
       box-shadow: none;
     }
 
-    .btn-signin {
-      background-color: #4285F4;
-      color: white;
-    }
-
-    .btn-signin:hover {
-      background-color: #3267d6;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(66, 133, 244, 0.3);
-    }
-
-    .btn-signout {
-      background-color: #6c757d;
-      color: white;
-    }
-
-    .btn-signout:hover {
-      background-color: #5a6268;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
-    }
-
     .delete-icon {
       cursor: pointer;
       color: #e74c3c;
@@ -513,7 +503,7 @@
 
     @media (min-width: 768px) and (max-width: 1024px) {
       .table-container {
-        overflow-x: auto;
+        overflow-x: hidden;
         margin-left: 0;
         margin-right: 0;
         padding: 0;
@@ -713,166 +703,558 @@
       }
     }
   </style>
+  <script>
+    // Define handleCredentialResponse in global scope
+    window.handleCredentialResponse = function(response) {
+      console.log('handleCredentialResponse called with:', response);
+      if (response.credential) {
+        console.log('Credential received:', response.credential);
+        try {
+          const profile = parseJwt(response.credential);
+          console.log('Parsed profile:', profile);
+          accessToken = response.credential;
+          document.getElementById('cover-page').style.display = 'none';
+          document.getElementById('main-container').style.display = 'block';
+          sessionStorage.setItem('loggedIn', 'true');
+          console.log('Page transition completed, initializing app...');
+          initializeApp();
+        } catch (e) {
+          console.error('Error in handleCredentialResponse:', e);
+          document.getElementById('login-error').textContent = 'Error processing sign-in. Please try again.';
+        }
+      } else {
+        console.error('No credential received in response:', response);
+        document.getElementById('login-error').textContent = 'Sign-in failed: No credential received. Please try again.';
+      }
+    };
+
+    // Parse JWT token
+    function parseJwt(token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        return JSON.parse(jsonPayload);
+      } catch (e) {
+        console.error('Error parsing JWT:', e);
+        return {};
+      }
+    }
+  </script>
 </head>
 <body>
-  <div class="container">
-    <header>
+  <!-- Cover Page with Google Sign-In -->
+  <div id="cover-page">
+    <div class="login-container">
       <h1>Compactor Progress Tracker</h1>
-      <div class="header-right">
-        <span id="syncStatus" class="sync-status disconnected">Not signed in</span>
-        <button id="signInButton" class="btn btn-signin">
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
-            <path fill-rule="evenodd" d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
-          </svg>
-          Sign In
-        </button>
+      <p>Please sign in with your Google account to access the system</p>
+      <div id="g_id_onload"
+           data-client_id="959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com"
+           data-callback="handleCredentialResponse"
+           data-auto_prompt="false">
       </div>
-    </header>
-    <div id="error" class="error"></div>
-    <div class="dashboard">
-      <div class="card">
-        <div class="card-header">Compactor Controls</div>
-        <div class="compactor-grid">
-          <button class="compactor-btn" data-machine="1" aria-label="Toggle compactor 1 status">1</button>
-          <button class="compactor-btn" data-machine="2" aria-label="Toggle compactor 2 status">2</button>
-          <button class="compactor-btn" data-machine="3" aria-label="Toggle compactor 3 status">3</button>
-          <button class="compactor-btn" data-machine="4" aria-label="Toggle compactor 4 status">4</button>
-          <button class="compactor-btn" data-machine="5" aria-label="Toggle compactor 5 status">5</button>
-          <button class="compactor-btn" data-machine="6" aria-label="Toggle compactor 6 status">6</button>
-          <button class="compactor-btn" data-machine="7" aria-label="Toggle compactor 7 status">7</button>
-          <button class="compactor-btn" data-machine="8" aria-label="Toggle compactor 8 status">8</button>
-          <button class="compactor-btn" data-machine="9" aria-label="Toggle compactor 9 status">9</button>
-          <button class="compactor-btn" data-machine="10" aria-label="Toggle compactor 10 status">10</button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="table-header">
-          <h3>Status Records</h3>
-          <div>
-            <span id="statusCount" class="counter">0 records</span>
-            <span id="pendingCount" class="counter counter-badge pending">0 pending</span>
-            <span id="completedCount" class="counter counter-badge completed">0 completed</span>
-            <button id="toggleRecords" class="toggle-btn" style="display: none;">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+      <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="center"></div>
+      <div id="login-error" class="error-message"></div>
+    </div>
+  </div>
+
+  <!-- Main Content (hidden initially) -->
+  <div id="main-container">
+    <div class="container">
+      <header>
+        <h1>Compactor Progress Tracker</h1>
+      </header>
+      
+      <div class="dashboard">
+        <div class="card">
+          <div class="card-header">Compactor Entry</div>
+          
+          <div class="compactor-grid">
+            <button class="compactor-btn" data-machine="1">1</button>
+            <button class="compactor-btn" data-machine="2">2</button>
+            <button class="compactor-btn" data-machine="3">3</button>
+            <button class="compactor-btn" data-machine="4">4</button>
+            <button class="compactor-btn" data-machine="5">5</button>
+            <button class="compactor-btn" data-machine="6">6</button>
+            <button class="compactor-btn" data-machine="7">7</button>
+            <button class="compactor-btn" data-machine="8">8</button>
+            <button class="compactor-btn" data-machine="9">9</button>
+            <button class="compactor-btn" data-machine="10">10</button>
+          </div>
+          
+          <div class="error" id="error"></div>
+          
+          <div class="table-header">
+            <h3>Hourly Records</h3>
+            <div>
+              <span class="counter" id="hourlyCount">0 hours</span>
+              <button class="toggle-btn" id="toggleHourly">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+                </svg>
+                Show All
+              </button>
+            </div>
+          </div>
+          
+          <div class="table-container">
+            <table id="hourlyTable">
+              <thead>
+                <tr class="cumulative-row" id="cumulativeRow" style="display: none;">
+                  <th>Cumulative Total</th>
+                  <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+                  <th></th>
+                </tr>
+                <tr>
+                  <th>Time Slot</th>
+                  <th>1</th>
+                  <th>2</th>
+                  <th>3</th>
+                  <th>4</th>
+                  <th>5</th>
+                  <th>6</th>
+                  <th>7</th>
+                  <th>8</th>
+                  <th>9</th>
+                  <th>10</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody id="hourlyBody">
+                <tr>
+                  <td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="btn-group">
+            <button class="btn btn-export" id="exportButton">
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
               </svg>
-              Show All
+              Export and Clear
+            </button>
+            <button class="btn btn-clear" id="clearButton">
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+              </svg>
+              Clear All Data
+            </button>
+            <button class="btn btn-undo" id="undoButton" disabled>
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 0a8 8 0 0 0-2.915 15.452c-.07-.633-.134-1.606.027-2.297.146-.625.938-3.977.938-3.977s-.239-.479-.239-1.187c0-1.113.645-1.943 1.448-1.943.682 0 1.012.512 1.012 1.127 0 .686-.437 1.712-.663 2.663-.188.796.805 1.446 1.742 1.446 2.094 0 3.71-2.205 3.71-5.398 0-2.82-2.03-4.788-4.922-4.788-3.354 0-5.32 2.517-5.32 5.117 0 1.015.388 2.103.873 2.696a.346.346 0 0 1 .078.427c-.066.286-.287.885-.392 1.104-.104.218-.217.243-.334.114C2.29 12.685 2 11.454 2 10.025 2 6.153 5.144 3 8.5 3 11.07 3 14 5.404 14 8.5c0 3.096-2.93 5.5-5.5 5.5-.943 0-1.816-.256-2.557-.683l-.737.552a.5.5 0 0 1-.683-.95l1.293-.97A7.942 7.942 0 0 0 8 0z"/>
+              </svg>
+              Undo
             </button>
           </div>
         </div>
-        <div class="table-container">
-          <table id="statusTable">
-            <caption>Compactor Status Records</caption>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Machine</th>
-                <th>In Time</th>
-                <th>Out Time</th>
-                <th>Duration</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="statusBody">
-              <tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="card">
-        <div class="table-header">
-          <h3>Hourly Records</h3>
-          <div>
-            <span id="hourlyCount" class="counter">0 hours</span>
-            <button id="toggleHourly" class="toggle-btn" style="display: none;">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-              </svg>
-              Show All
-            </button>
-            <button id="toggleBlink" class="toggle-btn blink-toggle">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-              </svg>
-              Stop Blinking
-            </button>
+        
+        <div class="card">
+          <div class="card-header">Current Status</div>
+          
+          <div class="status-counters">
+            <div class="counter-badge pending" id="pendingCount">0 pending</div>
+            <div class="counter-badge completed" id="completedCount">0 completed</div>
+          </div>
+          
+          <div class="table-header">
+            <h3>Status Records</h3>
+            <div>
+              <span class="counter" id="statusCount">0 records</span>
+              <button class="toggle-btn blink-toggle" id="toggleBlink">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                  <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                Stop Blinking
+              </button>
+              <button class="toggle-btn" id="toggleRecords" style="display: none;">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+                </svg>
+                Show All
+              </button>
+            </div>
+          </div>
+          
+          <div class="table-container">
+            <table id="statusTable">
+              <thead>
+                <tr>
+                  <th>Container #</th>
+                  <th>Compactor</th>
+                  <th>In Time</th>
+                  <th>Out Time</th>
+                  <th>Duration</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="statusBody">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No records</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-        <div class="table-container">
-          <table id="hourlyTable">
-            <caption>Hourly Compactor Records</caption>
-            <thead>
-              <tr>
-                <th>Time Slot</th>
-                <th>1</th>
-                <th>2</th>
-                <th>3</th>
-                <th>4</th>
-                <th>5</th>
-                <th>6</th>
-                <th>7</th>
-                <th>8</th>
-                <th>9</th>
-                <th>10</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody id="hourlyBody">
-              <tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>
-            </tbody>
-            <tr id="cumulativeRow" class="cumulative-row" style="display: none;"></tr>
-          </table>
-        </div>
+      </div>
+      
+      <div class="footer">
+        Compactor Progress Tracker v2.4 | Data is stored locally in your browser
       </div>
     </div>
-    <div class="btn-group">
-      <button id="exportButton" class="btn btn-export">
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-          <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-        </svg>
-        Export
-      </button>
-      <button id="clearButton" class="btn btn-clear">
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+  </div>
+
+<script>
+const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
+const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
+const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo';
+const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+
+let log = [];
+let actionHistory = [];
+let showAllRecords = false;
+let showAllHourly = false;
+let isBlinkingEnabled = true;
+let updateInterval = null;
+let syncInterval = null;
+let accessToken = null;
+
+function initializeApp() {
+  // Restore from sessionStorage for accidental refresh
+  const tempLog = sessionStorage.getItem('tempCompactorLog');
+  const tempHistory = sessionStorage.getItem('tempCompactorActionHistory');
+  if (tempLog) {
+    log = JSON.parse(tempLog);
+  } else {
+    const savedLog = localStorage.getItem('compactorLog');
+    if (savedLog) {
+      log = JSON.parse(savedLog);
+    }
+  }
+  if (tempHistory) {
+    actionHistory = JSON.parse(tempHistory);
+  } else {
+    const savedHistory = localStorage.getItem('compactorActionHistory');
+    if (savedHistory) {
+      actionHistory = JSON.parse(savedHistory);
+    }
+  }
+
+  updateStatusTable();
+  updateHourlyTable();
+  updateMachineButtonStates();
+  document.getElementById('undoButton').disabled = actionHistory.length === 0;
+
+  updateInterval = setInterval(updateStatusTable, 60000);
+  syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
+  initClient();
+
+  // Save to sessionStorage on page unload to handle accidental refresh
+  window.addEventListener('beforeunload', () => {
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
+  });
+}
+
+async function initClient() {
+  try {
+    if (!window.gapi) {
+      console.error('Google API script not loaded');
+      document.getElementById('error').textContent = 'Google API script failed to load. Some features may not work.';
+      return false;
+    }
+
+    await new Promise((resolve, reject) => {
+      gapi.load('client', {
+        callback: () => {
+          console.log('Google API client loaded');
+          resolve();
+        },
+        onerror: () => reject(new Error('Failed to load gapi client')),
+        timeout: 15000,
+        ontimeout: () => reject(new Error('Google API load timeout'))
+      });
+    });
+
+    await gapi.client.init({
+      apiKey: API_KEY,
+      discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+    });
+
+    console.log('Google API client initialized successfully');
+    return true;
+  } catch (error) {
+    const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
+    console.error('Error initializing Google API:', {
+      message: error.message,
+      details: errorDetails,
+      status: error.status,
+      result: error.result,
+      stack: error.stack
+    });
+    document.getElementById('error').textContent = `Failed to initialize Google API: ${errorDetails || 'Unknown error'}. Please check your API key, client ID, spreadsheet access, or network connection.`;
+    return false;
+  }
+}
+
+function requestAccessToken() {
+  if (!window.google) {
+    console.error('Google Identity Services not loaded');
+    document.getElementById('error').textContent = 'Google Identity Services not loaded. Cannot authenticate.';
+    return;
+  }
+
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPE,
+    callback: (response) => {
+      if (response.error) {
+        console.error('Token request error:', response);
+        document.getElementById('error').textContent = `Authentication failed: ${response.error_description || response.error || 'Unknown error'}. Please try again.`;
+        accessToken = null;
+      } else {
+        accessToken = response.access_token;
+        console.log('Access token received:', accessToken);
+        document.getElementById('error').textContent = '';
+      }
+    },
+  });
+
+  tokenClient.requestAccessToken();
+}
+
+async function syncToGoogleSheets() {
+  try {
+    if (!accessToken) {
+      console.warn('No access token. Requesting authentication...');
+      requestAccessToken();
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!accessToken) {
+        document.getElementById('error').textContent = 'Authentication failed. Cannot sync data to Google Sheets.';
+        return false;
+      }
+    }
+
+    gapi.client.setToken({ access_token: accessToken });
+
+    // Sync Status Records
+    const statusValues = log.map(entry => [
+      entry.entryTimestamp,
+      entry.machineNumber,
+      entry.inTime,
+      entry.outTime || '',
+      calculateDuration(entry.inTime, entry.outTime).display
+    ]);
+
+    // Sync Hourly Records
+    const timeSlots = [
+      { start: '07:30', end: '08:29' },
+      { start: '08:30', end: '09:29' },
+      { start: '09:30', end: '10:29' },
+      { start: '10:30', end: '11:29' },
+      { start: '11:30', end: '12:29' },
+      { start: '12:30', end: '13:29' },
+      { start: '13:30', end: '14:29' },
+      { start: '14:30', end: '15:29' },
+      { start: '15:30', end: '16:29' },
+      { start: '16:30', end: '17:29' },
+      { start: '17:30', end: '18:29' },
+      { start: '18:30', end: '19:29' },
+      { start: '19:30', end: '20:29' },
+      { start: '20:30', end: '21:29' },
+      { start: '21:30', end: '22:29' },
+      { start: '22:30', end: '23:29' },
+      { start: '23:30', end: '00:29' },
+      { start: '00:30', end: '01:29' },
+      { start: '01:30', end: '02:29' },
+      { start: '02:30', end: '03:29' },
+      { start: '03:30', end: '04:29' },
+      { start: '04:30', end: '05:29' },
+      { start: '05:30', end: '06:29' }
+    ];
+
+    const parseTime = (timeStr, referenceDate = new Date()) => {
+      const [hours, mins] = timeStr.split(':').map(Number);
+      const date = new Date(referenceDate);
+      date.setHours(hours, mins, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1);
+      return date;
+    };
+
+    const hourlyRecords = [];
+    const completedEntries = log.filter(entry => entry.outTime);
+    timeSlots.forEach(slot => {
+      const slotStart = parseTime(slot.start);
+      const slotEnd = parseTime(slot.end, slotStart);
+      const machineCounts = Array(11).fill(0);
+
+      completedEntries.forEach(entry => {
+        const inTime = parseTime(entry.inTime);
+        const outTime = parseTime(entry.outTime, inTime);
+        if (inTime >= slotStart && outTime <= slotEnd) {
+          machineCounts[entry.machineNumber]++;
+        }
+      });
+
+      if (machineCounts.some(count => count > 0)) {
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        hourlyRecords.push([`${slot.start}-${slot.end}`, ...machineCounts.slice(1), total]);
+      }
+    });
+
+    const cumulativeCounts = Array(11).fill(0);
+    completedEntries.forEach(entry => {
+      cumulativeCounts[entry.machineNumber]++;
+    });
+    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    if (cumulativeTotal > 0) {
+      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+    }
+
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        // Sync Status Records to Sheet1
+        const statusResponse = await gapi.client.sheets.spreadsheets.values.append({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Sheet1!A:E',
+          valueInputOption: 'RAW',
+          insertDataOption: 'INSERT_ROWS',
+          resource: {
+            values: [
+              ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'],
+              ...statusValues
+            ]
+          }
+        });
+
+        // Sync Hourly Records to Sheet2
+        const hourlyResponse = await gapi.client.sheets.spreadsheets.values.append({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Sheet2!A:M',
+          valueInputOption: 'RAW',
+          insertDataOption: 'INSERT_ROWS',
+          resource: {
+            values: [
+              ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
+              ...hourlyRecords
+            ]
+          }
+        });
+
+        console.log('Data synced to Google Sheets:', { statusResponse, hourlyResponse });
+        document.getElementById('error').textContent = '';
+        return true;
+      } catch (error) {
+        if (error.status === 429 && retries > 0) {
+          const delay = (4 - retries) * 1000;
+          console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          retries--;
+        } else if (error.status === 401) {
+          console.warn('Access token invalid or expired. Requesting new token...');
+          requestAccessToken();
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          if (accessToken) {
+            gapi.client.setToken({ access_token: accessToken });
+            retries--;
+            continue;
+          } else {
+            throw new Error('Failed to obtain new access token');
+          }
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    throw new Error('Failed to sync after retries');
+  } catch (error) {
+    const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
+    console.error('Error syncing to Google Sheets:', {
+      message: error.message,
+      details: errorDetails,
+      status: error.status,
+      result: error.result,
+      stack: error.stack
+    });
+    document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again.`;
+    return false;
+  }
+}
+
+function updateStatusTable() {
+  const statusBody = document.getElementById('statusBody');
+  const statusCount = document.getElementById('statusCount');
+  const pendingCount = document.getElementById('pendingCount');
+  const completedCount = document.getElementById('completedCount');
+  const toggleButton = document.getElementById('toggleRecords');
+
+  const pendingRecords = log.filter(entry => !entry.outTime).length;
+  const completedRecords = log.filter(entry => entry.outTime).length;
+
+  statusCount.textContent = `${log.length} records`;
+  pendingCount.textContent = `${pendingRecords} pending`;
+  completedCount.textContent = `${completedRecords} completed`;
+
+  toggleButton.style.display = log.length > 10 ? 'flex' : 'none';
+  toggleButton.innerHTML = `
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+    </svg>
+    ${showAllRecords ? 'Show Less' : 'Show All'}
+  `;
+
+  if (log.length === 0) {
+    statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+    return;
+  }
+
+  log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
+  const displayEntries = showAllRecords ? log : log.slice(0, 10);
+
+  statusBody.innerHTML = '';
+
+  displayEntries.forEach((entry, index) => {
+    const row = document.createElement('tr');
+    row.className = 'status-row';
+
+    const { display, minutes } = calculateDuration(entry.inTime, entry.outTime);
+    const blinkClass = isBlinkingEnabled && !entry.outTime && minutes > 39 ? 'blink' : '';
+    const containerNumber = log.length - (showAllRecords ? index : index);
+    const entryIndex = log.indexOf(entry);
+
+    row.innerHTML = `
+      <td>${containerNumber}</td>
+      <td class="${blinkClass}">${entry.machineNumber}</td>
+      <td class="time-cell" onclick="editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'inTime')">${entry.inTime}</td>
+      <td class="time-cell" onclick="${entry.outTime ? `editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'outTime')` : `promptOutTime(${entryIndex})`}">
+        ${entry.outTime || '-'}
+      </td>
+      <td>${display}</td>
+      <td>
+        <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}')">
           <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
           <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
         </svg>
-        Clear
-      </button>
-      <button id="undoButton" class="btn btn-undo" disabled>
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
-          <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
-        </svg>
-        Undo
-      </button>
-    </div>
-    <div class="footer">
-      Compactor Progress Tracker &copy; 2025
-    </div>
-  </div>
-</body>
-<script>
-// Google Sheets API configuration
-  const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
-  const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
-  const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo';
-  const DISCOVERY_DOCS = ['https://sheets.googleapis.com/$discovery/rest?version=v4'];
-  const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+      </td>
+    `;
 
-  let log = [];
-  let actionHistory = [];
-  let showAllRecords = false;
-  let showAllHourly = false;
-  let isBlinkingEnabled = true;
-  let updateInterval = null;
-  let syncInterval = null;
-  let accessToken = null;
-  let tokenClient = null;
-  let firstEntryDate = null;
+    statusBody.appendChild(row);
+  });
+}
+
+function updateHourlyTable() {
+  const hourlyBody = document.getElementById('hourlyBody');
+  const hourlyCount = document.getElementById('hourlyCount');
+  const toggleButton = document.getElementById('toggleHourly');
+  const cumulativeRow = document.getElementById('cumulativeRow');
 
   const timeSlots = [
     { start: '07:30', end: '08:29' },
@@ -908,722 +1290,537 @@
     return date;
   };
 
-  function loadFromLocalStorage() {
-    const savedData = localStorage.getItem('compactorData');
-    if (savedData) {
-      const parsedData = JSON.parse(savedData);
-      log = parsedData.log || [];
-      actionHistory = parsedData.actionHistory || [];
-      showAllRecords = parsedData.showAllRecords || false;
-      showAllHourly = parsedData.showAllHourly || false;
-      isBlinkingEnabled = parsedData.isBlinkingEnabled || true;
-      firstEntryDate = parsedData.firstEntryDate ? new Date(parsedData.firstEntryDate) : null;
-      log = log.map(entry => ({
-        ...entry,
-        entryTimestamp: new Date(entry.entryTimestamp)
-      }));
+  const hourlyRecords = [];
+  const completedEntries = log.filter(entry => entry.outTime);
+
+  timeSlots.forEach(slot => {
+    const slotStart = parseTime(slot.start);
+    const slotEnd = parseTime(slot.end, slotStart);
+    const machineCounts = Array(11).fill(0);
+
+    completedEntries.forEach(entry => {
+      const inTime = parseTime(entry.inTime);
+      const outTime = parseTime(entry.outTime, inTime);
+
+      if (inTime >= slotStart && outTime <= slotEnd) {
+        machineCounts[entry.machineNumber]++;
+      }
+    });
+
+    if (machineCounts.some(count => count > 0)) {
+      hourlyRecords.push({
+        timeSlot: `${slot.start}-${slot.end}`,
+        machineCounts,
+        startTime: slotStart
+      });
     }
+  });
+
+  hourlyCount.textContent = `${hourlyRecords.length} hours`;
+  toggleButton.style.display = hourlyRecords.length > 5 ? 'flex' : 'none';
+  toggleButton.innerHTML = `
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+    </svg>
+    ${showAllHourly ? 'Show Less' : 'Show All'}
+  `;
+
+  const cumulativeCounts = Array(11).fill(0);
+  completedEntries.forEach(entry => {
+    cumulativeCounts[entry.machineNumber]++;
+  });
+  const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+
+  if (cumulativeTotal > 0) {
+    cumulativeRow.style.display = 'table-row';
+    cumulativeRow.innerHTML = `
+      <th>Cumulative Total</th>
+      ${cumulativeCounts.slice(1).map(count => `<th>${count}</th>`).join('')}
+      <th>${cumulativeTotal}</th>
+    `;
+  } else {
+    cumulativeRow.style.display = 'none';
   }
 
-  function saveToLocalStorage() {
-    const data = {
-      log,
-      actionHistory,
-      showAllRecords,
-      showAllHourly,
-      isBlinkingEnabled,
-      firstEntryDate: firstEntryDate ? firstEntryDate.toISOString() : null
+  hourlyBody.innerHTML = '';
+
+  if (hourlyRecords.length === 0) {
+    hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
+    return;
+  }
+
+  hourlyRecords.sort((a, b) => b.startTime - a.startTime);
+  const displayRecords = showAllHourly ? hourlyRecords : hourlyRecords.slice(0, 5);
+
+  displayRecords.forEach(record => {
+    const row = document.createElement('tr');
+    const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    row.innerHTML = `
+      <td>${record.timeSlot}</td>
+      ${record.machineCounts.slice(1).map(count => `<td>${count}</td>`).join('')}
+      <td class="total-cell">${total}</td>
+    `;
+    hourlyBody.appendChild(row);
+  });
+}
+
+function updateMachineButtonStates() {
+  document.querySelectorAll('.compactor-btn').forEach(button => {
+    const machineNum = parseInt(button.getAttribute('data-machine'));
+    const hasActiveSession = log.some(entry => 
+      entry.machineNumber === machineNum && !entry.outTime
+    );
+    button.classList.toggle('active', hasActiveSession);
+  });
+}
+
+function calculateDuration(inTime, outTime = null) {
+  const parseTime = timeStr => {
+    const [hours, mins] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, mins, 0, 0);
+    if (hours < 7) date.setDate(date.getDate() + 1);
+    return date;
+  };
+
+  try {
+    const start = parseTime(inTime);
+    const end = outTime ? parseTime(outTime) : new Date();
+
+    if (end < start) {
+      end.setDate(end.getDate() + 1);
+    }
+
+    const diffMs = end - start;
+    const diffMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+
+    return {
+      display: `${hours}h ${mins}m`,
+      minutes: diffMins
     };
-    localStorage.setItem('compactorData', JSON.stringify(data));
-    sessionStorage.setItem('tempCompactorData', JSON.stringify(data));
+  } catch {
+    return { display: 'N/A', minutes: 0 };
   }
+}
 
-  function clearLocalStorage() {
-    localStorage.removeItem('compactorData');
-    sessionStorage.removeItem('tempCompactorData');
-    log = [];
-    actionHistory = [];
-    showAllRecords = false;
-    showAllHourly = false;
-    isBlinkingEnabled = true;
-    firstEntryDate = null;
-  }
+function handleMachineButtonClick(machineNum) {
+  try {
+    const errorDiv = document.getElementById('error');
+    const currentTime = new Date().toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Hong_Kong'
+    }).replace("24:", "00:");
 
-  function formatTimeForExport(date) {
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    return `${hours}${minutes}${seconds}`;
-  }
+    const existingEntry = log.find(entry => 
+      entry.machineNumber === machineNum && !entry.outTime
+    );
 
-  function displayError(message) {
-    const errorElement = document.getElementById('error');
-    errorElement.textContent = message;
-    updateSyncStatus('error', message);
-    setTimeout(() => {
-      if (errorElement.textContent === message) {
-        errorElement.textContent = '';
-      }
-    }, 5000);
-  }
-
-  function updateSyncStatus(status, message) {
-    const syncStatus = document.getElementById('syncStatus');
-    syncStatus.textContent = message;
-    syncStatus.className = `sync-status ${status}`;
-    if (status !== 'disconnected') {
-      setTimeout(() => {
-        syncStatus.textContent = accessToken ? 'Connected to Google Sheets' : 'Not signed in';
-        syncStatus.className = `sync-status ${accessToken ? 'connected' : 'disconnected'}`;
-      }, 3000);
-    }
-  }
-
-  function waitForGoogleApis(attempts = 50) {
-    if (attempts <= 0) {
-      displayError('Google APIs failed to load');
-      console.error('Google APIs failed to load after multiple attempts');
-      updateSyncStatus('error', 'Google APIs failed to load');
-      return;
-    }
-    if (typeof google !== 'undefined' && typeof gapi !== 'undefined') {
-      initClient();
-      waitForGoogleSignIn();
-    } else {
-      setTimeout(() => waitForGoogleApis(attempts - 1), 100);
-    }
-  }
-
-  function waitForGoogleSignIn(attempts = 50) {
-    if (attempts <= 0) {
-      displayError('Google Sign-In library failed to load');
-      console.error('Google Sign-In library failed to load after multiple attempts');
-      updateSyncStatus('error', 'Google Sign-In library failed to load');
-      return;
-    }
-    if (typeof google !== 'undefined' && typeof google.accounts !== 'undefined') {
-      initGoogleSignIn();
-    } else {
-      setTimeout(() => waitForGoogleSignIn(attempts - 1), 100);
-    }
-  }
-
-  function initClient() {
-    try {
-      gapi.load('client', () => {
-        gapi.client.init({
-          apiKey: API_KEY,
-          discoveryDocs: DISCOVERY_DOCS
-        }).then(() => {
-          if (accessToken) {
-            gapi.client.setToken({ access_token: accessToken });
-            checkSpreadsheetAccess();
-          }
-        }).catch(error => {
-          console.error('Error initializing Google API client:', error);
-          displayError(`Google API init failed: ${error.details || error.message || 'Unknown error'}`);
-          updateSyncStatus('error', `Google API init failed: ${error.details || error.message || 'Unknown error'}`);
-        });
+    if (existingEntry) {
+      actionHistory.push({
+        type: 'addOutTime',
+        entry: { ...existingEntry },
+        newOutTime: currentTime
       });
-    } catch (error) {
-      console.error('Error loading gapi client:', error);
-      displayError('Google API load failed');
-      updateSyncStatus('error', 'Google API load failed');
-    }
-  }
+      existingEntry.outTime = currentTime;
+      existingEntry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
 
-  function initGoogleSignIn() {
-    try {
-      tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: (tokenResponse) => {
-          if (tokenResponse && tokenResponse.access_token) {
-            accessToken = tokenResponse.access_token;
-            gapi.client.setToken({ access_token: accessToken });
-            displayError('Connected to Google Sheets');
-            updateSyncStatus('connected', 'Connected to Google Sheets');
-            document.getElementById('signInButton').style.display = 'none';
-            checkSpreadsheetAccess();
-          } else {
-            console.error('Authentication failed: No access token received');
-            displayError('Authentication failed. Click Sign In and allow popups.');
-            updateSyncStatus('error', 'Authentication failed');
-          }
-        },
-        error_callback: (error) => {
-          console.error('Google Sign-In error:', error);
-          let errorMessage = error.message || 'Unknown error';
-          if (error.message && error.message.includes('popup')) {
-            errorMessage = 'Popup blocked. Allow popups and try Sign In again.';
-          }
-          displayError(`Sign-in failed: ${errorMessage}`);
-          updateSyncStatus('error', `Sign-in failed: ${errorMessage}`);
-        }
-      });
-    } catch (error) {
-      console.error('Error initializing Google Sign-In:', error);
-      displayError('Sign-in initialization failed');
-      updateSyncStatus('error', 'Sign-in initialization failed');
-    }
-  }
-
-  function signOut() {
-    if (accessToken) {
-      google.accounts.oauth2.revoke(accessToken, () => {
-        console.log('Access token revoked');
-      });
-      accessToken = null;
-      gapi.client.setToken(null);
-      document.getElementById('signInButton').style.display = 'flex';
-      document.getElementById('signInButton').className = 'btn btn-signin';
-      document.getElementById('signInButton').innerHTML = `
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
-          <path fill-rule="evenodd" d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
-        </svg>
-        Sign In
-      `;
-      updateSyncStatus('disconnected', 'Not signed in');
-      displayError('Signed out');
-    }
-  }
-
-  async function checkSpreadsheetAccess() {
-    if (!accessToken) {
-      displayError('Not signed in');
-      updateSyncStatus('disconnected', 'Not signed in');
-      return;
-    }
-    try {
-      await gapi.client.sheets.spreadsheets.get({
-        spreadsheetId: SPREADSHEET_ID
-      });
-      if (await ensureSheetExists('Sheet1') && await ensureSheetExists('Sheet2')) {
-        syncToGoogleSheets();
-      }
-    } catch (error) {
-      console.error('Error accessing spreadsheet:', error);
-      displayError(`Cannot access spreadsheet: ${error.result?.error?.message || error.message || 'Unknown error'}. Share the sheet with your Google account.`);
-      updateSyncStatus('error', `Cannot access spreadsheet: ${error.result?.error?.message || error.message || 'Unknown error'}`);
-    }
-  }
-
-  async function ensureSheetExists(sheetName) {
-    if (!accessToken) {
-      displayError('Not signed in');
-      updateSyncStatus('disconnected', 'Not signed in');
-      return false;
-    }
-    try {
-      const response = await gapi.client.sheets.spreadsheets.get({
-        spreadsheetId: SPREADSHEET_ID
-      });
-      const sheets = response.result.sheets;
-      const sheetExists = sheets.some(sheet => sheet.properties.title === sheetName);
-      if (!sheetExists) {
-        await gapi.client.sheets.spreadsheets.batchUpdate({
-          spreadsheetId: SPREADSHEET_ID,
-          requests: [{
-            addSheet: {
-              properties: {
-                title: sheetName
-              }
-            }
-          }]
-        });
-      }
-      return true;
-    } catch (error) {
-      console.error(`Error checking/creating ${sheetName}:`, error);
-      displayError(`Cannot access spreadsheet: ${error.result?.error?.message || error.message || 'Unknown error'}. Verify spreadsheet ID and permissions.`);
-      updateSyncStatus('error', `Cannot access spreadsheet: ${error.result?.error?.message || error.message || 'Unknown error'}`);
-      return false;
-    }
-  }
-
-  async function ensureExportSheetExists(sheetName) {
-    if (!accessToken) {
-      displayError('Not signed in');
-      updateSyncStatus('disconnected', 'Not signed in');
-      return false;
-    }
-    try {
-      const response = await gapi.client.sheets.spreadsheets.get({
-        spreadsheetId: SPREADSHEET_ID
-      });
-      const sheets = response.result.sheets;
-      const sheetExists = sheets.some(sheet => sheet.properties.title === sheetName);
-      if (!sheetExists) {
-        await gapi.client.sheets.spreadsheets.batchUpdate({
-          spreadsheetId: SPREADSHEET_ID,
-          requests: [{
-            addSheet: {
-              properties: {
-                title: sheetName
-              }
-            }
-          }]
-        });
-      }
-      return true;
-    } catch (error) {
-      console.error(`Error checking/creating export sheet ${sheetName}:`, error);
-      displayError(`Cannot create export sheet: ${error.result?.error?.message || error.message || 'Unknown error'}. Verify spreadsheet ID and permissions.`);
-      updateSyncStatus('error', `Cannot create export sheet: ${error.result?.error?.message || error.message || 'Unknown error'}`);
-      return false;
-    }
-  }
-
-  async function syncToGoogleSheets(context = 'auto') {
-    if (!accessToken) {
-      displayError('Not signed in');
-      updateSyncStatus('disconnected', 'Not signed in');
-      return false;
-    }
-
-    if (!(await ensureSheetExists('Sheet1')) || !(await ensureSheetExists('Sheet2'))) {
-      return false;
-    }
-
-    displayError(`Syncing to Google Sheets (${context})...`);
-    updateSyncStatus('connected', `Syncing to Google Sheets (${context})...`);
-
-    const statusValues = log.map(entry => [
-      entry.entryTimestamp.toISOString(),
-      entry.machineNumber,
-      entry.inTime,
-      entry.outTime || '',
-      calculateDuration(entry.inTime, entry.outTime).display
-    ]);
-
-    const hourlyRecords = [];
-    const completedEntries = log.filter(entry => entry.outTime);
-
-    timeSlots.forEach(slot => {
-      const slotStart = parseTime(slot.start, firstEntryDate || new Date());
-      const slotEnd = parseTime(slot.end, slotStart);
-      const machineCounts = Array(11).fill(0);
-
-      completedEntries.forEach(entry => {
-        const inTime = parseTime(entry.inTime, firstEntryDate || new Date());
-        const outTime = parseTime(entry.outTime, inTime);
-
-        if (inTime >= slotStart && outTime <= slotEnd) {
-          machineCounts[entry.machineNumber]++;
-        }
-      });
-
-      if (showAllHourly || machineCounts.some(count => count > 0)) {
-        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-        hourlyRecords.push([`${slot.start}-${slot.end}`, ...machineCounts.slice(1), total]);
-      }
-    });
-
-    const cumulativeCounts = Array(11).fill(0);
-    completedEntries.forEach(entry => {
-      cumulativeCounts[entry.machineNumber]++;
-    });
-    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-    if (cumulativeTotal > 0) {
-      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
-    }
-
-    try {
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'Sheet1!A1:E',
-        valueInputOption: 'RAW',
-        resource: {
-          values: [
-            ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'],
-            ...statusValues
-          ]
-        }
-      });
-
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'Sheet2!A1:L',
-        valueInputOption: 'RAW',
-        resource: {
-          values: [
-            ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
-            ...hourlyRecords
-          ]
-        }
-      });
-
-      displayError(`Synced to Google Sheets (${context})`);
-      updateSyncStatus('connected', `Synced to Google Sheets (${context})`);
-      return true;
-    } catch (error) {
-      console.error(`Error syncing to Google Sheets (${context}):`, error);
-      let errorMessage = error.result?.error?.message || error.message || 'Unknown error';
-      if (error.result?.error?.status === 'PERMISSION_DENIED') {
-        errorMessage = 'Permission denied. Share the spreadsheet with your Google account.';
-      } else if (error.result?.error?.status === 'UNAUTHENTICATED') {
-        accessToken = null;
-        errorMessage = 'Authentication expired. Click Sign In and allow popups.';
-        document.getElementById('signInButton').style.display = 'flex';
-        document.getElementById('signInButton').className = 'btn btn-signin';
-        document.getElementById('signInButton').innerHTML = `
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
-            <path fill-rule="evenodd" d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
-          </svg>
-          Sign In
-        `;
-      } else if (error.result?.error?.status === 'INVALID_ARGUMENT') {
-        errorMessage = 'Invalid request. Ensure the spreadsheet has tabs named "Sheet1" and "Sheet2" and verify the spreadsheet ID.';
-      }
-      displayError(`Sync failed: ${errorMessage}`);
-      updateSyncStatus('error', `Sync failed: ${errorMessage}`);
-      return false;
-    }
-  }
-
-  async function exportAndClearData() {
-    if (!log.length) {
-      displayError('No data to export');
-      updateSyncStatus('error', 'No data to export');
-      return;
-    }
-
-    if (!confirm('Are you sure you want to export the data to CSV, sync to Google Sheets, and clear all data?')) {
-      return;
-    }
-
-    const now = new Date();
-    const dateString = firstEntryDate ? firstEntryDate.toISOString().slice(0, 10).replace(/-/g, '') : now.toISOString().slice(0, 10).replace(/-/g, '');
-    const timeString = formatTimeForExport(now);
-    const sheetName = `CPT_${dateString}_${timeString}`;
-
-    const statusValues = log.map(entry => [
-      entry.entryTimestamp.toISOString(),
-      entry.machineNumber,
-      entry.inTime,
-      entry.outTime || '',
-      calculateDuration(entry.inTime, entry.outTime).display
-    ]);
-
-    const hourlyRecords = [];
-    const completedEntries = log.filter(entry => entry.outTime);
-
-    timeSlots.forEach(slot => {
-      const slotStart = parseTime(slot.start, firstEntryDate || new Date());
-      const slotEnd = parseTime(slot.end, slotStart);
-      const machineCounts = Array(11).fill(0);
-
-      completedEntries.forEach(entry => {
-        const inTime = parseTime(entry.inTime, firstEntryDate || new Date());
-        const outTime = parseTime(entry.outTime, inTime);
-
-        if (inTime >= slotStart && outTime <= slotEnd) {
-          machineCounts[entry.machineNumber]++;
-        }
-      });
-
-      if (showAllHourly || machineCounts.some(count => count > 0)) {
-        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-        hourlyRecords.push([`${slot.start}-${slot.end}`, ...machineCounts.slice(1), total]);
-      }
-    });
-
-    const cumulativeCounts = Array(11).fill(0);
-    completedEntries.forEach(entry => {
-      cumulativeCounts[entry.machineNumber]++;
-    });
-    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-    if (cumulativeTotal > 0) {
-      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
-    }
-
-    const data = [
-      ['STATUS RECORDS'],
-      ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'],
-      ...statusValues,
-      ['', '', '', '', ''],
-      ['HOURLY RECORDS'],
-      ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
-      ...hourlyRecords,
-      ['', '', '', '', '', '', '', '', '', '', '', ''],
-      ['Total Completed Entries', cumulativeTotal, '']
-    ];
-
-    try {
-      const csv = '\ufeff' + data.map(row => row.join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `CPT_${dateString}_${timeString}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      let exportSuccess = false;
-      if (accessToken) {
-        displayError('Exporting to Google Sheet...');
-        updateSyncStatus('connected', 'Exporting to Google Sheet...');
-        if (await ensureExportSheetExists(sheetName)) {
-          try {
-            await gapi.client.sheets.spreadsheets.values.update({
-              spreadsheetId: SPREADSHEET_ID,
-              range: `${sheetName}!A1`,
-              valueInputOption: 'RAW',
-              resource: { values: data }
-            });
-            exportSuccess = true;
-            displayError('Exported to Google Sheet and CSV');
-            updateSyncStatus('connected', 'Exported to Google Sheet and CSV');
-          } catch (error) {
-            console.error('Error exporting to Google Sheet:', error);
-            let errorMessage = error.result?.error?.message || error.message || 'Unknown error';
-            if (error.result?.error?.status === 'PERMISSION_DENIED') {
-              errorMessage = 'Permission denied. Share the spreadsheet with your Google account.';
-            } else if (error.result?.error?.status === 'UNAUTHENTICATED') {
-              accessToken = null;
-              errorMessage = 'Authentication expired. Click Sign In and allow popups.';
-              document.getElementById('signInButton').style.display = 'flex';
-              document.getElementById('signInButton').className = 'btn btn-signin';
-              document.getElementById('signInButton').innerHTML = `
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
-                  <path fill-rule="evenodd" d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
-                </svg>
-                Sign In
-              `;
-            } else if (error.result?.error?.status === 'INVALID_ARGUMENT') {
-              errorMessage = `Invalid request. Ensure the spreadsheet has a tab named "${sheetName}" and verify the spreadsheet ID.`;
-            }
-            displayError(`Export failed: ${errorMessage}`);
-            updateSyncStatus('error', `Export failed: ${errorMessage}`);
-          }
-        }
-      }
-
-      actionHistory.push({ action: 'clear', prevLog: JSON.parse(JSON.stringify(log)) });
-      clearLocalStorage();
       updateStatusTable();
       updateHourlyTable();
       updateMachineButtonStates();
       document.getElementById('undoButton').disabled = false;
-      displayError(exportSuccess ? 
-        'Data exported to CSV and Google Sheet, local storage cleared' : 
-        'Data exported to CSV, local storage cleared, Google Sheet sync failed');
-      updateSyncStatus(exportSuccess ? 'connected' : 'error', exportSuccess ? 
-        'Data exported to CSV and Google Sheet, local storage cleared' : 
-        'Data exported to CSV, local storage cleared, Google Sheet sync failed');
-    } catch (error) {
-      console.error('Error during CSV export:', error);
-      displayError('Failed to export CSV');
-      updateSyncStatus('error', 'Failed to export CSV');
-    }
-  }
+      syncToGoogleSheets();
+    } else {
+      const entry = {
+        machineNumber: machineNum,
+        inTime: currentTime,
+        outTime: '',
+        entryTimestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' })
+      };
 
-  function initializeApp() {
-    loadFromLocalStorage();
+      actionHistory.push({
+        type: 'addInTime',
+        entry: { ...entry }
+      });
+
+      log.push(entry);
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      document.getElementById('undoButton').disabled = false;
+      syncToGoogleSheets();
+    }
+
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
+    errorDiv.textContent = '';
+  } catch (error) {
+    console.error('Error in handleMachineButtonClick:', error);
+    document.getElementById('error').textContent = 'An error occurred. Please try again.';
+  }
+}
+
+function promptOutTime(entryIndex) {
+  try {
+    const entry = log[entryIndex];
+    if (!entry || entry.outTime) return;
+
+    let outTimeInput = prompt(`Enter Out Time for Machine ${entry.machineNumber} (e.g., 1456 for 14:56):`, "");
+
+    if (outTimeInput === null) return;
+
+    outTimeInput = outTimeInput.trim().replace(/[^0-9]/g, '');
+    if (outTimeInput.length === 4) {
+      outTimeInput = `${outTimeInput.slice(0, 2)}:${outTimeInput.slice(2)}`;
+    }
+
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(outTimeInput)) {
+      alert('Out Time must be in HH:MM format (e.g., 14:56 or 1456).');
+      return;
+    }
+
+    actionHistory.push({
+      type: 'addOutTime',
+      entry: { ...entry },
+      newOutTime: outTimeInput
+    });
+
+    entry.outTime = outTimeInput;
+    entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
+
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
+
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    document.getElementById('undoButton').disabled = false;
+    syncToGoogleSheets();
+
+    alert(`Out Time ${outTimeInput} recorded for Machine ${entry.machineNumber}`);
+  } catch (error) {
+    console.error('Error in promptOutTime:', error);
+    document.getElementById('error').textContent = 'An error occurred. Please try again.';
+  }
+}
+
+function editEntry(machineNumber, entryTimestamp, field) {
+  try {
+    const entry = log.find(entry => 
+      entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
+    );
+    if (!entry) return;
+
+    const timeLabel = field === 'inTime' ? 'In Time' : 'Out Time';
+    const currentValue = field === 'inTime' ? entry.inTime : entry.outTime;
+
+    let newTime = prompt(`Enter new ${timeLabel} for Machine ${machineNumber} (e.g., 1456 for 14:56):`, currentValue ? currentValue.replace(':', '') : '');
+
+    if (newTime === null) return;
+
+    newTime = newTime.trim().replace(/[^0-9]/g, '');
+    if (newTime.length === 4) {
+      newTime = `${newTime.slice(0, 2)}:${newTime.slice(2)}`;
+    }
+
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(newTime)) {
+      alert(`${timeLabel} must be in HH:MM format (e.g., 14:56 or 1456).`);
+      return;
+    }
+
+    actionHistory.push({
+      type: 'edit' + field,
+      entry: { ...entry },
+      newTime: newTime
+    });
+
+    if (field === 'inTime') {
+      entry.inTime = newTime;
+    } else {
+      entry.outTime = newTime;
+    }
+
+    entry.entryTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' });
+
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
+
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    document.getElementById('undoButton').disabled = false;
+    syncToGoogleSheets();
+
+    alert(`${timeLabel} updated to ${newTime} for Machine ${machineNumber}`);
+  } catch (error) {
+    console.error('Error in editEntry:', error);
+    document.getElementById('error').textContent = 'An error occurred. Please try again.';
+  }
+}
+
+function deleteEntry(machineNumber, entryTimestamp) {
+  try {
+    if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
+      return;
+    }
+
+    const entryIndex = log.findIndex(entry => 
+      entry.machineNumber === machineNumber && entry.entryTimestamp === entryTimestamp
+    );
+    if (entryIndex === -1) {
+      alert('Record not found.');
+      return;
+    }
+
+    actionHistory.push({
+      type: 'deleteEntry',
+      entry: { ...log[entryIndex] }
+    });
+
+    log.splice(entryIndex, 1);
+
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
+
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    document.getElementById('undoButton').disabled = false;
+    syncToGoogleSheets();
+
+    alert('Record deleted successfully.');
+  } catch (error) {
+    console.error('Error in deleteEntry:', error);
+    document.getElementById('error').textContent = 'An error occurred while deleting the record. Please try again.';
+  }
+}
+
+function undoLastAction() {
+  try {
+    if (actionHistory.length === 0) {
+      alert('No actions to undo.');
+      return;
+    }
+
+    const lastAction = actionHistory.pop();
+
+    if (lastAction.type === 'addInTime') {
+      const entryIndex = log.findIndex(entry => 
+        entry.machineNumber === lastAction.entry.machineNumber && 
+        entry.entryTimestamp === lastAction.entry.entryTimestamp
+      );
+      if (entryIndex !== -1) {
+        log.splice(entryIndex, 1);
+      }
+    } else if (lastAction.type === 'addOutTime') {
+      const entry = log.find(entry => 
+        entry.machineNumber === lastAction.entry.machineNumber && 
+        entry.entryTimestamp === lastAction.entry.entryTimestamp
+      );
+      if (entry) {
+        entry.outTime = '';
+        entry.entryTimestamp = lastAction.entry.entryTimestamp;
+      }
+    } else if (lastAction.type === 'deleteEntry') {
+      log.push({ ...lastAction.entry });
+    } else if (lastAction.type === 'editinTime' || lastAction.type === 'editoutTime') {
+      const entry = log.find(entry => 
+        entry.machineNumber === lastAction.entry.machineNumber && 
+        entry.entryTimestamp === lastAction.entry.entryTimestamp
+      );
+      if (entry) {
+        entry.inTime = lastAction.entry.inTime;
+        entry.outTime = lastAction.entry.outTime;
+        entry.entryTimestamp = lastAction.entry.entryTimestamp;
+      }
+    }
+
+    localStorage.setItem('compactorLog', JSON.stringify(log));
+    localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
+
     updateStatusTable();
     updateHourlyTable();
     updateMachineButtonStates();
     document.getElementById('undoButton').disabled = actionHistory.length === 0;
-    updateInterval = setInterval(updateStatusTable, 60000);
-    syncInterval = setInterval(async () => {
-      if (accessToken) {
-        try {
-          await gapi.client.sheets.spreadsheets.get({
-            spreadsheetId: SPREADSHEET_ID
-          });
-          syncToGoogleSheets();
-        } catch (error) {
-          if (error.result?.error?.status === 'UNAUTHENTICATED') {
-            accessToken = null;
-            document.getElementById('signInButton').style.display = 'flex';
-            document.getElementById('signInButton').className = 'btn btn-signin';
-            document.getElementById('signInButton').innerHTML = `
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
-                <path fill-rule="evenodd" d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
-              </svg>
-              Sign In
-            `;
-            displayError('Authentication expired. Click Sign In and allow popups.');
-            updateSyncStatus('disconnected', 'Not signed in');
-          }
-        }
-      }
-    }, 300000);
-    waitForGoogleApis();
-    window.addEventListener('beforeunload', saveToLocalStorage);
+    syncToGoogleSheets();
+
+    alert('Last action undone successfully.');
+  } catch (error) {
+    console.error('Error in undoLastAction:', error);
+    document.getElementById('error').textContent = 'An error occurred while undoing the last action. Please try again.';
   }
+}
 
-  function calculateDuration(inTime, outTime) {
-    if (!outTime) {
-      const now = new Date();
-      const inDate = parseTime(inTime, firstEntryDate || new Date());
-      const minutes = Math.floor((now - inDate) / 60000);
-      return { display: `${minutes} min`, minutes };
-    }
-    const inDate = parseTime(inTime, firstEntryDate || new Date());
-    const outDate = parseTime(outTime, inDate);
-    const minutes = Math.floor((outDate - inDate) / 60000);
-    return { display: `${minutes} min`, minutes };
-  }
-
-  function updateStatusTable() {
-    const statusBody = document.getElementById('statusBody');
-    const statusCount = document.getElementById('statusCount');
-    const pendingCount = document.getElementById('pendingCount');
-    const completedCount = document.getElementById('completedCount');
-    const toggleButton = document.getElementById('toggleRecords');
-
-    const pendingRecords = log.filter(entry => !entry.outTime).length;
-    const completedRecords = log.filter(entry => entry.outTime).length;
-
-    statusCount.textContent = `${log.length} records`;
-    pendingCount.textContent = `${pendingRecords} pending`;
-    completedCount.textContent = `${completedRecords} completed`;
-
-    toggleButton.style.display = log.length > 10 ? 'flex' : 'none';
-    toggleButton.innerHTML = `
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-      </svg>
-      ${showAllRecords ? 'Show Less' : 'Show All'}
-    `;
-
-    if (log.length === 0) {
-      statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+function clearAllData() {
+  try {
+    if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
       return;
     }
 
-    log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
-    const displayEntries = showAllRecords ? log : log.slice(0, 10);
+    log = [];
+    actionHistory = [];
 
-    statusBody.innerHTML = '';
-    displayEntries.forEach((entry, index) => {
-      const row = document.createElement('tr');
-      row.className = 'status-row';
-      row.dataset.machine = entry.machineNumber;
-      row.dataset.timestamp = entry.entryTimestamp.toISOString();
+    localStorage.removeItem('compactorLog');
+    localStorage.removeItem('compactorActionHistory');
+    sessionStorage.removeItem('tempCompactorLog');
+    sessionStorage.removeItem('tempCompactorActionHistory');
+    document.getElementById('error').textContent = '';
 
-      const { display, minutes } = calculateDuration(entry.inTime, entry.outTime);
-      const blinkClass = isBlinkingEnabled && !entry.outTime && minutes > 39 ? 'blink' : '';
-      const containerNumber = log.length - index;
+    const statusBody = document.getElementById('statusBody');
+    statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+    document.getElementById('statusCount').textContent = '0 records';
+    document.getElementById('pendingCount').textContent = '0 pending';
+    document.getElementById('completedCount').textContent = '0 completed';
 
-      row.innerHTML = `
-        <td>${containerNumber}</td>
-        <td class="${blinkClass}">${entry.machineNumber}</td>
-        <td class="time-cell">${entry.inTime}</td>
-        <td class="time-cell">${entry.outTime || '-'}</td>
-        <td>${display}</td>
-        <td>
-          <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-          </svg>
-        </td>
-      `;
-      statusBody.appendChild(row);
-    });
-
-    document.querySelectorAll('.time-cell').forEach(cell => {
-      cell.addEventListener('click', (e) => {
-        const row = e.target.closest('tr');
-        const machine = row.dataset.machine;
-        const timestamp = row.dataset.timestamp;
-        const entry = log.find(e => e.machineNumber == machine && e.entryTimestamp.toISOString() === timestamp);
-        if (entry && !entry.outTime) {
-          const now = new Date();
-          const hours = now.getHours().toString().padStart(2, '0');
-          const minutes = now.getMinutes().toString().padStart(2, '0');
-          actionHistory.push({ action: 'out', machine, prevLog: JSON.parse(JSON.stringify(log)) });
-          entry.outTime = `${hours}:${minutes}`;
-          saveToLocalStorage();
-          syncToGoogleSheets('manual');
-          updateStatusTable();
-          updateHourlyTable();
-          updateMachineButtonStates();
-          document.getElementById('undoButton').disabled = false;
-        }
-      });
-    });
-
-    document.querySelectorAll('.delete-icon').forEach(icon => {
-      icon.addEventListener('click', (e) => {
-        const row = e.target.closest('tr');
-        const machine = row.dataset.machine;
-        const timestamp = row.dataset.timestamp;
-        const entryIndex = log.findIndex(e => e.machineNumber == machine && e.entryTimestamp.toISOString() === timestamp);
-        if (entryIndex !== -1) {
-          actionHistory.push({ action: 'delete', entry: JSON.parse(JSON.stringify(log[entryIndex])), index: entryIndex });
-          log.splice(entryIndex, 1);
-          if (!log.length) firstEntryDate = null;
-          saveToLocalStorage();
-          syncToGoogleSheets('manual');
-          updateStatusTable();
-          updateHourlyTable();
-          updateMachineButtonStates();
-          document.getElementById('undoButton').disabled = false;
-        }
-      });
-    });
-  }
-
-  function updateHourlyTable() {
     const hourlyBody = document.getElementById('hourlyBody');
-    const hourlyCount = document.getElementById('hourlyCount');
-    const toggleHourly = document.getElementById('toggleHourly');
-    const cumulativeRow = document.getElementById('cumulativeRow');
-    const completedEntries = log.filter(entry => entry.outTime);
+    hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
+    document.getElementById('hourlyCount').textContent = '0 hours';
+
+    document.querySelectorAll('.compactor-btn').forEach(button => {
+      button.classList.remove('active');
+    });
+
+    showAllRecords = false;
+    showAllHourly = false;
+    isBlinkingEnabled = true;
+    const toggleButton = document.getElementById('toggleBlink');
+    toggleButton.innerHTML = `
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+      </svg>
+      Stop Blinking
+    `;
+
+    updateStatusTable();
+    updateHourlyTable();
+    syncToGoogleSheets();
+
+    alert('All data cleared successfully.');
+  } catch (error) {
+    console.error('Error in clearAllData:', error);
+    document.getElementById('error').textContent = 'An error occurred while clearing data. Please try again.';
+  }
+}
+
+function exportAndClear() {
+  try {
+    if (log.length === 0) {
+      alert('No data to export.');
+      return;
+    }
+
+    const now = new Date();
+    const timestamp = now.toLocaleString('en-US', { 
+      timeZone: 'Asia/Hong_Kong',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).replace(/[,/:]/g, '').replace(/\s+/g, '');
+    const dateStr = `${timestamp.slice(0, 8)}_${timestamp.slice(8)}`;
+
+    // Export Status Records
+    const statusHeaders = ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'];
+    const statusRows = log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).map((entry, index) => {
+      const { display } = calculateDuration(entry.inTime, entry.outTime);
+      return [
+        entry.entryTimestamp,
+        log.length - index,
+        entry.machineNumber,
+        entry.inTime,
+        entry.outTime || '',
+        display
+      ];
+    });
+
+    const statusCsvContent = [
+      statusHeaders.join(','),
+      ...statusRows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const statusUrl = URL.createObjectURL(statusBlob);
+    const statusLink = document.createElement('a');
+    statusLink.setAttribute('href', statusUrl);
+    statusLink.setAttribute('download', `CPT_SR_${dateStr}.csv`);
+    document.body.appendChild(statusLink);
+    statusLink.click();
+    document.body.removeChild(statusLink);
+    URL.revokeObjectURL(statusUrl);
+
+    // Export Hourly Records
+    const timeSlots = [
+      { start: '07:30', end: '08:29' },
+      { start: '08:30', end: '09:29' },
+      { start: '09:30', end: '10:29' },
+      { start: '10:30', end: '11:29' },
+      { start: '11:30', end: '12:29' },
+      { start: '12:30', end: '13:29' },
+      { start: '13:30', end: '14:29' },
+      { start: '14:30', end: '15:29' },
+      { start: '15:30', end: '16:29' },
+      { start: '16:30', end: '17:29' },
+      { start: '17:30', end: '18:29' },
+      { start: '18:30', end: '19:29' },
+      { start: '19:30', end: '20:29' },
+      { start: '20:30', end: '21:29' },
+      { start: '21:30', end: '22:29' },
+      { start: '22:30', end: '23:29' },
+      { start: '23:30', end: '00:29' },
+      { start: '00:30', end: '01:29' },
+      { start: '01:30', end: '02:29' },
+      { start: '02:30', end: '03:29' },
+      { start: '03:30', end: '04:29' },
+      { start: '04:30', end: '05:29' },
+      { start: '05:30', end: '06:29' }
+    ];
+
+    const parseTime = (timeStr, referenceDate = new Date()) => {
+      const [hours, mins] = timeStr.split(':').map(Number);
+      const date = new Date(referenceDate);
+      date.setHours(hours, mins, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1);
+      return date;
+    };
 
     const hourlyRecords = [];
+    const completedEntries = log.filter(entry => entry.outTime);
     timeSlots.forEach(slot => {
-      const slotStart = parseTime(slot.start, firstEntryDate || new Date());
+      const slotStart = parseTime(slot.start);
       const slotEnd = parseTime(slot.end, slotStart);
       const machineCounts = Array(11).fill(0);
 
       completedEntries.forEach(entry => {
-        const inTime = parseTime(entry.inTime, firstEntryDate || new Date());
+        const inTime = parseTime(entry.inTime);
         const outTime = parseTime(entry.outTime, inTime);
-
         if (inTime >= slotStart && outTime <= slotEnd) {
           machineCounts[entry.machineNumber]++;
         }
       });
 
-      if (showAllHourly || machineCounts.some(count => count > 0)) {
+      if (machineCounts.some(count => count > 0)) {
         const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
         hourlyRecords.push([`${slot.start}-${slot.end}`, ...machineCounts.slice(1), total]);
       }
-    });
-
-    hourlyCount.textContent = `${hourlyRecords.length} hours`;
-    toggleHourly.style.display = timeSlots.length > hourlyRecords.length ? 'flex' : 'none';
-    toggleHourly.innerHTML = `
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-      </svg>
-      ${showAllHourly ? 'Show Less' : 'Show All'}
-    `;
-
-    if (hourlyRecords.length === 0) {
-      hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
-      cumulativeRow.style.display = 'none';
-      return;
-    }
-
-    hourlyBody.innerHTML = '';
-    hourlyRecords.forEach(record => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${record[0]}</td>
-        ${record.slice(1).map(value => `<td>${value}</td>`).join('')}
-      `;
-      hourlyBody.appendChild(row);
     });
 
     const cumulativeCounts = Array(11).fill(0);
@@ -1631,146 +1828,120 @@
       cumulativeCounts[entry.machineNumber]++;
     });
     const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-
     if (cumulativeTotal > 0) {
-      cumulativeRow.style.display = '';
-      cumulativeRow.innerHTML = `
-        <th>Cumulative Total</th>
-        ${cumulativeCounts.slice(1).map(count => `<td>${count}</td>`).join('')}
-        <td>${cumulativeTotal}</td>
-      `;
-    } else {
-      cumulativeRow.style.display = 'none';
+      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
     }
-  }
 
-  function updateMachineButtonStates() {
+    const hourlyHeaders = ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'];
+    const hourlyCsvContent = [
+      hourlyHeaders.join(','),
+      ...hourlyRecords.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const hourlyBlob = new Blob([hourlyCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const hourlyUrl = URL.createObjectURL(hourlyBlob);
+    const hourlyLink = document.createElement('a');
+    hourlyLink.setAttribute('href', hourlyUrl);
+    hourlyLink.setAttribute('download', `CPT_HR_${dateStr}.csv`);
+    document.body.appendChild(hourlyLink);
+    hourlyLink.click();
+    document.body.removeChild(hourlyLink);
+    URL.revokeObjectURL(hourlyUrl);
+
+    // Sync to Google Sheets before clearing
+    syncToGoogleSheets();
+
+    // Clear all data
+    log = [];
+    actionHistory = [];
+
+    localStorage.removeItem('compactorLog');
+    localStorage.removeItem('compactorActionHistory');
+    sessionStorage.removeItem('tempCompactorLog');
+    sessionStorage.removeItem('tempCompactorActionHistory');
+    document.getElementById('error').textContent = '';
+
+    const statusBody = document.getElementById('statusBody');
+    statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+    document.getElementById('statusCount').textContent = '0 records';
+    document.getElementById('pendingCount').textContent = '0 pending';
+    document.getElementById('completedCount').textContent = '0 completed';
+
+    const hourlyBody = document.getElementById('hourlyBody');
+    hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
+    document.getElementById('hourlyCount').textContent = '0 hours';
+
     document.querySelectorAll('.compactor-btn').forEach(button => {
-      const machine = button.dataset.machine;
-      const isActive = log.some(entry => entry.machineNumber == machine && !entry.outTime);
-      button.classList.toggle('active', isActive);
+      button.classList.remove('active');
     });
-  }
 
-  document.addEventListener('DOMContentLoaded', () => {
+    showAllRecords = false;
+    showAllHourly = false;
+    isBlinkingEnabled = true;
+    const toggleButton = document.getElementById('toggleBlink');
+    toggleButton.innerHTML = `
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+      </svg>
+      Stop Blinking
+    `;
+
+    updateStatusTable();
+    updateHourlyTable();
+    document.getElementById('error').textContent = '';
+    alert('Data exported and cleared successfully.');
+  } catch (error) {
+    console.error('Error in exportAndClear:', error);
+    document.getElementById('error').textContent = 'An error occurred while exporting and clearing data. Please try again.';
+  }
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', () => {
+  if (sessionStorage.getItem('loggedIn') === 'true') {
+    document.getElementById('cover-page').style.display = 'none';
+    document.getElementById('main-container').style.display = 'block';
     initializeApp();
+  }
 
-    document.querySelectorAll('.compactor-btn').forEach(button => {
-      button.addEventListener('click', () => {
-        const machine = button.dataset.machine;
-        const now = new Date();
-        const hours = now.getHours().toString().padStart(2, '0');
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        const time = `${hours}:${minutes}`;
-        const isActive = log.some(entry => entry.machineNumber == machine && !entry.outTime);
-
-        if (!firstEntryDate) {
-          firstEntryDate = new Date();
-        }
-
-        if (isActive) {
-          const entry = log.find(entry => entry.machineNumber == machine && !entry.outTime);
-          actionHistory.push({ action: 'out', machine, prevLog: JSON.parse(JSON.stringify(log)) });
-          entry.outTime = time;
-        } else {
-          actionHistory.push({ action: 'in', machine, prevLog: JSON.parse(JSON.stringify(log)) });
-          log.push({
-            entryTimestamp: new Date(),
-            machineNumber: parseInt(machine),
-            inTime: time,
-            outTime: null
-          });
-        }
-
-        saveToLocalStorage();
-        syncToGoogleSheets('manual');
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        document.getElementById('undoButton').disabled = false;
-      });
-    });
-
-    document.getElementById('signInButton').addEventListener('click', () => {
-      if (accessToken) {
-        signOut();
-      } else {
-        tokenClient.requestAccessToken();
-      }
-    });
-
-    document.getElementById('exportButton').addEventListener('click', exportAndClearData);
-
-    document.getElementById('clearButton').addEventListener('click', () => {
-      if (!log.length) {
-        displayError('No data to clear');
-        return;
-      }
-      if (confirm('Are you sure you want to clear all data?')) {
-        actionHistory.push({ action: 'clear', prevLog: JSON.parse(JSON.stringify(log)) });
-        clearLocalStorage();
-        updateStatusTable();
-        updateHourlyTable();
-        updateMachineButtonStates();
-        document.getElementById('undoButton').disabled = false;
-        displayError('Data cleared');
-        syncToGoogleSheets('manual');
-      }
-    });
-
-    document.getElementById('undoButton').addEventListener('click', () => {
-      if (actionHistory.length === 0) return;
-
-      const lastAction = actionHistory.pop();
-      log = JSON.parse(JSON.stringify(lastAction.prevLog || []));
-
-      if (lastAction.action === 'delete') {
-        log.splice(lastAction.index, 0, lastAction.entry);
-      }
-
-      if (!log.length) {
-        firstEntryDate = null;
-      } else {
-        const earliestEntry = log.reduce((earliest, entry) => {
-          const entryDate = parseTime(entry.inTime, entry.entryTimestamp);
-          return !earliest || entryDate < earliest ? entryDate : earliest;
-        }, null);
-        firstEntryDate = earliestEntry ? new Date(earliestEntry.getFullYear(), earliestEntry.getMonth(), earliestEntry.getDate()) : null;
-      }
-
-      saveToLocalStorage();
-      syncToGoogleSheets('manual');
-      updateStatusTable();
-      updateHourlyTable();
-      updateMachineButtonStates();
-      document.getElementById('undoButton').disabled = actionHistory.length === 0;
-      displayError('Last action undone');
-    });
-
-    document.getElementById('toggleRecords').addEventListener('click', () => {
-      showAllRecords = !showAllRecords;
-      saveToLocalStorage();
-      updateStatusTable();
-    });
-
-    document.getElementById('toggleHourly').addEventListener('click', () => {
-      showAllHourly = !showAllHourly;
-      saveToLocalStorage();
-      updateHourlyTable();
-    });
-
-    document.getElementById('toggleBlink').addEventListener('click', () => {
-      isBlinkingEnabled = !isBlinkingEnabled;
-      document.getElementById('toggleBlink').innerHTML = `
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-          <path d="${isBlinkingEnabled ? 'M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z' : 'M4 4.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5z'}"/>
-        </svg>
-        ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
-      `;
-      saveToLocalStorage();
-      updateStatusTable();
+  document.querySelectorAll('.compactor-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      const machineNum = parseInt(button.getAttribute('data-machine'));
+      handleMachineButtonClick(machineNum);
     });
   });
+
+  document.getElementById('toggleRecords').addEventListener('click', () => {
+    showAllRecords = !showAllRecords;
+    updateStatusTable();
+    syncToGoogleSheets();
+  });
+
+  document.getElementById('toggleHourly').addEventListener('click', () => {
+    showAllHourly = !showAllHourly;
+    updateHourlyTable();
+    syncToGoogleSheets();
+  });
+
+  document.getElementById('toggleBlink').addEventListener('click', () => {
+    isBlinkingEnabled = !isBlinkingEnabled;
+    const toggleButton = document.getElementById('toggleBlink');
+    toggleButton.innerHTML = `
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+      </svg>
+      ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
+    `;
+    updateStatusTable();
+    syncToGoogleSheets();
+  });
+
+  document.getElementById('exportButton').addEventListener('click', exportAndClear);
+  document.getElementById('clearButton').addEventListener('click', clearAllData);
+  document.getElementById('undoButton').addEventListener('click', undoLastAction);
+});
 </script>
+</body>
 </html>
