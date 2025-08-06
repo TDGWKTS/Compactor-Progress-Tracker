@@ -909,7 +909,6 @@
       </div>
     </div>
   </div>
-
 <script>
 const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
 const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
@@ -925,8 +924,41 @@ let updateInterval = null;
 let syncInterval = null;
 let accessToken = null;
 
+const timeSlots = [
+  { start: '07:30', end: '08:29' },
+  { start: '08:30', end: '09:29' },
+  { start: '09:30', end: '10:29' },
+  { start: '10:30', end: '11:29' },
+  { start: '11:30', end: '12:29' },
+  { start: '12:30', end: '13:29' },
+  { start: '13:30', end: '14:29' },
+  { start: '14:30', end: '15:29' },
+  { start: '15:30', end: '16:29' },
+  { start: '16:30', end: '17:29' },
+  { start: '17:30', end: '18:29' },
+  { start: '18:30', end: '19:29' },
+  { start: '19:30', end: '20:29' },
+  { start: '20:30', end: '21:29' },
+  { start: '21:30', end: '22:29' },
+  { start: '22:30', end: '23:29' },
+  { start: '23:30', end: '00:29' },
+  { start: '00:30', end: '01:29' },
+  { start: '01:30', end: '02:29' },
+  { start: '02:30', end: '03:29' },
+  { start: '03:30', end: '04:29' },
+  { start: '04:30', end: '05:29' },
+  { start: '05:30', end: '06:29' }
+];
+
+const parseTime = (timeStr, referenceDate = new Date()) => {
+  const [hours, mins] = timeStr.split(':').map(Number);
+  const date = new Date(referenceDate);
+  date.setHours(hours, mins, 0, 0);
+  if (hours < 7) date.setDate(date.getDate() + 1);
+  return date;
+};
+
 function initializeApp() {
-  // Restore from sessionStorage first (for accidental refresh)
   const tempLog = sessionStorage.getItem('tempCompactorLog');
   const tempHistory = sessionStorage.getItem('tempCompactorActionHistory');
   if (tempLog) {
@@ -955,7 +987,6 @@ function initializeApp() {
   syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
   initClient();
 
-  // Save to sessionStorage on page unload to handle accidental refresh
   window.addEventListener('beforeunload', () => {
     sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
     sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
@@ -1029,6 +1060,37 @@ function requestAccessToken() {
   tokenClient.requestAccessToken();
 }
 
+async function checkAndCreateSheet(sheetName, spreadsheetId) {
+  try {
+    const response = await gapi.client.sheets.spreadsheets.get({
+      spreadsheetId: spreadsheetId,
+      fields: 'sheets.properties.title'
+    });
+    const sheets = response.result.sheets || [];
+    const sheetExists = sheets.some(sheet => sheet.properties.title === sheetName);
+
+    if (!sheetExists) {
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: spreadsheetId,
+        resource: {
+          requests: [{
+            addSheet: {
+              properties: {
+                title: sheetName
+              }
+            }
+          }]
+        }
+      });
+      console.log(`Created sheet: ${sheetName}`);
+    }
+    return true;
+  } catch (error) {
+    console.error(`Error checking/creating sheet ${sheetName}:`, error);
+    return false;
+  }
+}
+
 async function syncToGoogleSheets() {
   try {
     if (!accessToken) {
@@ -1043,109 +1105,85 @@ async function syncToGoogleSheets() {
 
     gapi.client.setToken({ access_token: accessToken });
 
-    // Sync Status Records
-    const statusValues = log.map(entry => [
-      entry.entryTimestamp,
-      entry.machineNumber,
-      entry.inTime,
-      entry.outTime || '',
-      calculateDuration(entry.inTime, entry.outTime).display
-    ]);
-
-    // Sync Hourly Records
-    const timeSlots = [
-      { start: '07:30', end: '08:29' },
-      { start: '08:30', end: '09:29' },
-      { start: '09:30', end: '10:29' },
-      { start: '10:30', end: '11:29' },
-      { start: '11:30', end: '12:29' },
-      { start: '12:30', end: '13:29' },
-      { start: '13:30', end: '14:29' },
-      { start: '14:30', end: '15:29' },
-      { start: '15:30', end: '16:29' },
-      { start: '16:30', end: '17:29' },
-      { start: '17:30', end: '18:29' },
-      { start: '18:30', end: '19:29' },
-      { start: '19:30', end: '20:29' },
-      { start: '20:30', end: '21:29' },
-      { start: '21:30', end: '22:29' },
-      { start: '22:30', end: '23:29' },
-      { start: '23:30', end: '00:29' },
-      { start: '00:30', end: '01:29' },
-      { start: '01:30', end: '02:29' },
-      { start: '02:30', end: '03:29' },
-      { start: '03:30', end: '04:29' },
-      { start: '04:30', end: '05:29' },
-      { start: '05:30', end: '06:29' }
-    ];
-
-    const parseTime = (timeStr, referenceDate = new Date()) => {
-      const [hours, mins] = timeStr.split(':').map(Number);
-      const date = new Date(referenceDate);
-      date.setHours(hours, mins, 0, 0);
-      if (hours < 7) date.setDate(date.getDate() + 1);
-      return date;
-    };
-
-    const hourlyRecords = [];
-    const completedEntries = log.filter(entry => entry.outTime);
-
-    timeSlots.forEach(slot => {
-      const slotStart = parseTime(slot.start);
-      const slotEnd = parseTime(slot.end, slotStart);
-      const machineCounts = Array(11).fill(0);
-
-      completedEntries.forEach(entry => {
-        const inTime = parseTime(entry.inTime);
-        const outTime = parseTime(entry.outTime, inTime);
-
-        if (inTime >= slotStart && outTime <= slotEnd) {
-          machineCounts[entry.machineNumber]++;
-        }
-      });
-
-      if (machineCounts.some(count => count > 0)) {
-        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-        hourlyRecords.push([
-          `${slot.start}-${slot.end}`,
-          ...machineCounts.slice(1),
-          total
-        ]);
-      }
-    });
-
-    const cumulativeCounts = Array(11).fill(0);
-    completedEntries.forEach(entry => {
-      cumulativeCounts[entry.machineNumber]++;
-    });
-    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-    if (cumulativeTotal > 0) {
-      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
-    }
+    // Ensure sheets exist
+    await checkAndCreateSheet('Sheet1', SPREADSHEET_ID);
+    await checkAndCreateSheet('Sheet2', SPREADSHEET_ID);
 
     let retries = 3;
     while (retries > 0) {
       try {
-        // Sync Status Records to Sheet1
-        await gapi.client.sheets.spreadsheets.values.append({
-          spreadsheetId: SPREADSHEET_ID,
-          range: 'Sheet1!A:E',
-          valueInputOption: 'RAW',
-          insertDataOption: 'INSERT_ROWS',
-          resource: {
-            values: [
-              ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'],
-              ...statusValues
-            ]
+        // Sync Status Records to Sheet1 (append to preserve history)
+        const statusValues = log.map(entry => [
+          entry.entryTimestamp,
+          entry.machineNumber,
+          entry.inTime,
+          entry.outTime || '',
+          calculateDuration(entry.inTime, entry.outTime).display
+        ]);
+
+        if (statusValues.length > 0) {
+          await gapi.client.sheets.spreadsheets.values.append({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Sheet1!A:E',
+            valueInputOption: 'RAW',
+            insertDataOption: 'INSERT_ROWS',
+            resource: {
+              values: [
+                ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'],
+                ...statusValues
+              ]
+            }
+          });
+        }
+
+        // Sync Hourly Records to Sheet2 (clear and rewrite to match webpage)
+        const hourlyRecords = [];
+        const completedEntries = log.filter(entry => entry.outTime);
+
+        timeSlots.forEach(slot => {
+          const slotStart = parseTime(slot.start);
+          const slotEnd = parseTime(slot.end, slotStart);
+          const machineCounts = Array(11).fill(0);
+
+          completedEntries.forEach(entry => {
+            const inTime = parseTime(entry.inTime);
+            const outTime = parseTime(entry.outTime, inTime);
+
+            if (inTime >= slotStart && outTime <= slotEnd) {
+              machineCounts[entry.machineNumber]++;
+            }
+          });
+
+          if (showAllHourly || machineCounts.some(count => count > 0)) {
+            const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+            hourlyRecords.push([
+              `${slot.start}-${slot.end}`,
+              ...machineCounts.slice(1),
+              total
+            ]);
           }
         });
 
-        // Sync Hourly Records to Sheet2
-        await gapi.client.sheets.spreadsheets.values.append({
+        const cumulativeCounts = Array(11).fill(0);
+        completedEntries.forEach(entry => {
+          cumulativeCounts[entry.machineNumber]++;
+        });
+        const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        if (cumulativeTotal > 0) {
+          hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+        }
+
+        // Clear Sheet2 before writing
+        await gapi.client.sheets.spreadsheets.values.clear({
           spreadsheetId: SPREADSHEET_ID,
-          range: 'Sheet2!A:L',
+          range: 'Sheet2!A:L'
+        });
+
+        // Write Hourly Records to Sheet2
+        await gapi.client.sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Sheet2!A1:L',
           valueInputOption: 'RAW',
-          insertDataOption: 'INSERT_ROWS',
           resource: {
             values: [
               ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
@@ -1192,6 +1230,185 @@ async function syncToGoogleSheets() {
     });
     document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again.`;
     return false;
+  }
+}
+
+async function exportAndClearData() {
+  try {
+    if (!log.length) {
+      alert('No data to export.');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to export the data to CSV, sync to Google Sheets, and clear all data?')) {
+      return;
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, -1);
+
+    // Status Records CSV
+    const statusHeaders = ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'];
+    const statusRows = log.map(entry => [
+      entry.entryTimestamp,
+      entry.machineNumber,
+      entry.inTime,
+      entry.outTime || '',
+      calculateDuration(entry.inTime, entry.outTime).display
+    ]);
+    const statusCsvContent = [
+      statusHeaders.join(','),
+      ...statusRows.map(row => row.join(','))
+    ].join('\n');
+    const statusBlob = new Blob([statusCsvContent], { type: 'text/csv' });
+    const statusLink = document.createElement('a');
+    statusLink.href = URL.createObjectURL(statusBlob);
+    statusLink.download = `CPT_SR_${timestamp}.csv`;
+    statusLink.click();
+    URL.revokeObjectURL(statusLink.href);
+
+    // Hourly Records CSV
+    const completedEntries = log.filter(entry => entry.outTime);
+    const hourlyRecords = [];
+    timeSlots.forEach(slot => {
+      const slotStart = parseTime(slot.start);
+      const slotEnd = parseTime(slot.end, slotStart);
+      const machineCounts = Array(11).fill(0);
+
+      completedEntries.forEach(entry => {
+        const inTime = parseTime(entry.inTime);
+        const outTime = parseTime(entry.outTime, inTime);
+
+        if (inTime >= slotStart && outTime <= slotEnd) {
+          machineCounts[entry.machineNumber]++;
+        }
+      });
+
+      if (showAllHourly || machineCounts.some(count => count > 0)) {
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        hourlyRecords.push([`${slot.start}-${slot.end}`, ...machineCounts.slice(1), total]);
+      }
+    });
+
+    const cumulativeCounts = Array(11).fill(0);
+    completedEntries.forEach(entry => {
+      cumulativeCounts[entry.machineNumber]++;
+    });
+    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    if (cumulativeTotal > 0) {
+      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+    }
+
+    const hourlyHeaders = ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'];
+    const hourlyCsvContent = [
+      hourlyHeaders.join(','),
+      ...hourlyRecords.map(row => row.join(','))
+    ].join('\n');
+    const hourlyBlob = new Blob([hourlyCsvContent], { type: 'text/csv' });
+    const hourlyLink = document.createElement('a');
+    hourlyLink.href = URL.createObjectURL(hourlyBlob);
+    hourlyLink.download = `CPT_HR_${timestamp}.csv`;
+    hourlyLink.click();
+    URL.revokeObjectURL(hourlyLink.href);
+
+    // Sync to Google Sheets before clearing
+    if (!accessToken) {
+      console.warn('No access token. Requesting authentication...');
+      requestAccessToken();
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!accessToken) {
+        document.getElementById('error').textContent = 'Authentication failed. Cannot export data to Google Sheets.';
+        return false;
+      }
+    }
+
+    gapi.client.setToken({ access_token: accessToken });
+
+    // Ensure sheets exist
+    await checkAndCreateSheet('Sheet1', SPREADSHEET_ID);
+    await checkAndCreateSheet('Sheet2', SPREADSHEET_ID);
+
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        // Clear Sheet1 and write Status Records
+        await gapi.client.sheets.spreadsheets.values.clear({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Sheet1!A:E'
+        });
+        if (statusRows.length > 0) {
+          await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Sheet1!A1:E',
+            valueInputOption: 'RAW',
+            resource: {
+              values: [statusHeaders, ...statusRows]
+            }
+          });
+        }
+
+        // Clear Sheet2 and write Hourly Records
+        await gapi.client.sheets.spreadsheets.values.clear({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Sheet2!A:L'
+        });
+        if (hourlyRecords.length > 0) {
+          await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Sheet2!A1:L',
+            valueInputOption: 'RAW',
+            resource: {
+              values: [hourlyHeaders, ...hourlyRecords]
+            }
+          });
+        }
+
+        console.log('Data exported to Google Sheets');
+        break;
+      } catch (error) {
+        if (error.status === 429 && retries > 0) {
+          const delay = (4 - retries) * 1000;
+          console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          retries--;
+        } else if (error.status === 401) {
+          console.warn('Access token invalid or expired. Requesting new token...');
+          requestAccessToken();
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          if (accessToken) {
+            gapi.client.setToken({ access_token: accessToken });
+            retries--;
+            continue;
+          } else {
+            throw new Error('Failed to obtain new access token');
+          }
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    // Clear all data
+    log = [];
+    actionHistory = [];
+    localStorage.removeItem('compactorLog');
+    localStorage.removeItem('compactorActionHistory');
+    sessionStorage.removeItem('tempCompactorLog');
+    sessionStorage.removeItem('tempCompactorActionHistory');
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
+    document.getElementById('undoButton').disabled = true;
+    document.getElementById('error').textContent = 'Data exported and cleared successfully.';
+  } catch (error) {
+    const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
+    console.error('Error in exportAndClearData:', {
+      message: error.message,
+      details: errorDetails,
+      status: error.status,
+      result: error.result,
+      stack: error.stack
+    });
+    document.getElementById('error').textContent = `Failed to export and clear data: ${errorDetails || 'Unknown error'}. Please try again.`;
   }
 }
 
@@ -1262,40 +1479,6 @@ function updateHourlyTable() {
   const toggleButton = document.getElementById('toggleHourly');
   const cumulativeRow = document.getElementById('cumulativeRow');
 
-  const timeSlots = [
-    { start: '07:30', end: '08:29' },
-    { start: '08:30', end: '09:29' },
-    { start: '09:30', end: '10:29' },
-    { start: '10:30', end: '11:29' },
-    { start: '11:30', end: '12:29' },
-    { start: '12:30', end: '13:29' },
-    { start: '13:30', end: '14:29' },
-    { start: '14:30', end: '15:29' },
-    { start: '15:30', end: '16:29' },
-    { start: '16:30', end: '17:29' },
-    { start: '17:30', end: '18:29' },
-    { start: '18:30', end: '19:29' },
-    { start: '19:30', end: '20:29' },
-    { start: '20:30', end: '21:29' },
-    { start: '21:30', end: '22:29' },
-    { start: '22:30', end: '23:29' },
-    { start: '23:30', end: '00:29' },
-    { start: '00:30', end: '01:29' },
-    { start: '01:30', end: '02:29' },
-    { start: '02:30', end: '03:29' },
-    { start: '03:30', end: '04:29' },
-    { start: '04:30', end: '05:29' },
-    { start: '05:30', end: '06:29' }
-  ];
-
-  const parseTime = (timeStr, referenceDate = new Date()) => {
-    const [hours, mins] = timeStr.split(':').map(Number);
-    const date = new Date(referenceDate);
-    date.setHours(hours, mins, 0, 0);
-    if (hours < 7) date.setDate(date.getDate() + 1);
-    return date;
-  };
-
   const hourlyRecords = [];
   const completedEntries = log.filter(entry => entry.outTime);
 
@@ -1313,7 +1496,7 @@ function updateHourlyTable() {
       }
     });
 
-    if (machineCounts.some(count => count > 0)) {
+    if (showAllHourly || machineCounts.some(count => count > 0)) {
       hourlyRecords.push({
         timeSlot: `${slot.start}-${slot.end}`,
         machineCounts,
@@ -1381,14 +1564,6 @@ function updateMachineButtonStates() {
 }
 
 function calculateDuration(inTime, outTime = null) {
-  const parseTime = timeStr => {
-    const [hours, mins] = timeStr.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, mins, 0, 0);
-    if (hours < 7) date.setDate(date.getDate() + 1);
-    return date;
-  };
-
   try {
     const start = parseTime(inTime);
     const end = outTime ? parseTime(outTime) : new Date();
@@ -1664,8 +1839,6 @@ function undoLastAction() {
     updateMachineButtonStates();
     document.getElementById('undoButton').disabled = actionHistory.length === 0;
     syncToGoogleSheets();
-
-    alert('Last action undone successfully.');
   } catch (error) {
     console.error('Error in undoLastAction:', error);
     document.getElementById('error').textContent = 'An error occurred while undoing the last action. Please try again.';
@@ -1673,245 +1846,32 @@ function undoLastAction() {
 }
 
 function clearAllData() {
-  try {
-    if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-      return;
-    }
+  if (!confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+    return;
+  }
 
+  try {
     log = [];
     actionHistory = [];
-
     localStorage.removeItem('compactorLog');
     localStorage.removeItem('compactorActionHistory');
     sessionStorage.removeItem('tempCompactorLog');
     sessionStorage.removeItem('tempCompactorActionHistory');
-    document.getElementById('error').textContent = '';
-
-    const statusBody = document.getElementById('statusBody');
-    statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
-    document.getElementById('statusCount').textContent = '0 records';
-    document.getElementById('pendingCount').textContent = '0 pending';
-    document.getElementById('completedCount').textContent = '0 completed';
-
-    const hourlyBody = document.getElementById('hourlyBody');
-    hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
-    document.getElementById('hourlyCount').textContent = '0 hours';
-
-    document.querySelectorAll('.compactor-btn').forEach(button => {
-      button.classList.remove('active');
-    });
-
-    showAllRecords = false;
-    showAllHourly = false;
-    isBlinkingEnabled = true;
-    const toggleButton = document.getElementById('toggleBlink');
-    toggleButton.innerHTML = `
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-      </svg>
-      Stop Blinking
-    `;
 
     updateStatusTable();
     updateHourlyTable();
+    updateMachineButtonStates();
+    document.getElementById('undoButton').disabled = true;
     syncToGoogleSheets();
-
-    alert('All data cleared successfully.');
+    document.getElementById('error').textContent = 'All data cleared successfully.';
   } catch (error) {
     console.error('Error in clearAllData:', error);
     document.getElementById('error').textContent = 'An error occurred while clearing data. Please try again.';
   }
 }
 
-function exportAndClearData() {
-  try {
-    if (log.length === 0) {
-      alert('No data to export.');
-      return;
-    }
-
-    if (!confirm('Exporting will clear all data after saving to CSV and Google Sheets. Proceed?')) {
-      return;
-    }
-
-    const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }).replace(/[/:,]/g, '-');
-
-    // Export Status Records
-    const statusHeaders = ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'];
-    const statusRows = log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).map((entry, index) => {
-      const { display } = calculateDuration(entry.inTime, entry.outTime);
-      return [
-        entry.entryTimestamp,
-        log.length - index,
-        entry.machineNumber,
-        entry.inTime,
-        entry.outTime || '',
-        display
-      ];
-    });
-
-    const statusCsvContent = [
-      statusHeaders.join(','),
-      ...statusRows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
-    const statusUrl = URL.createObjectURL(statusBlob);
-    const statusLink = document.createElement('a');
-    statusLink.setAttribute('href', statusUrl);
-    statusLink.setAttribute('download', `CPT_SR_${timestamp}.csv`);
-    document.body.appendChild(statusLink);
-    statusLink.click();
-    document.body.removeChild(statusLink);
-    URL.revokeObjectURL(statusUrl);
-
-    // Export Hourly Records
-    const timeSlots = [
-      { start: '07:30', end: '08:29' },
-      { start: '08:30', end: '09:29' },
-      { start: '09:30', end: '10:29' },
-      { start: '10:30', end: '11:29' },
-      { start: '11:30', end: '12:29' },
-      { start: '12:30', end: '13:29' },
-      { start: '13:30', end: '14:29' },
-      { start: '14:30', end: '15:29' },
-      { start: '15:30', end: '16:29' },
-      { start: '16:30', end: '17:29' },
-      { start: '17:30', end: '18:29' },
-      { start: '18:30', end: '19:29' },
-      { start: '19:30', end: '20:29' },
-      { start: '20:30', end: '21:29' },
-      { start: '21:30', end: '22:29' },
-      { start: '22:30', end: '23:29' },
-      { start: '23:30', end: '00:29' },
-      { start: '00:30', end: '01:29' },
-      { start: '01:30', end: '02:29' },
-      { start: '02:30', end: '03:29' },
-      { start: '03:30', end: '04:29' },
-      { start: '04:30', end: '05:29' },
-      { start: '05:30', end: '06:29' }
-    ];
-
-    const parseTime = (timeStr, referenceDate = new Date()) => {
-      const [hours, mins] = timeStr.split(':').map(Number);
-      const date = new Date(referenceDate);
-      date.setHours(hours, mins, 0, 0);
-      if (hours < 7) date.setDate(date.getDate() + 1);
-      return date;
-    };
-
-    const hourlyRecords = [];
-    const completedEntries = log.filter(entry => entry.outTime);
-
-    timeSlots.forEach(slot => {
-      const slotStart = parseTime(slot.start);
-      const slotEnd = parseTime(slot.end, slotStart);
-      const machineCounts = Array(11).fill(0);
-
-      completedEntries.forEach(entry => {
-        const inTime = parseTime(entry.inTime);
-        const outTime = parseTime(entry.outTime, inTime);
-
-        if (inTime >= slotStart && outTime <= slotEnd) {
-          machineCounts[entry.machineNumber]++;
-        }
-      });
-
-      if (machineCounts.some(count => count > 0)) {
-        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-        hourlyRecords.push([
-          `${slot.start}-${slot.end}`,
-          ...machineCounts.slice(1),
-          total
-        ]);
-      }
-    });
-
-    const cumulativeCounts = Array(11).fill(0);
-    completedEntries.forEach(entry => {
-      cumulativeCounts[entry.machineNumber]++;
-    });
-    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-    if (cumulativeTotal > 0) {
-      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
-    }
-
-    const hourlyHeaders = ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'];
-    const hourlyCsvContent = [
-      hourlyHeaders.join(','),
-      ...hourlyRecords.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const hourlyBlob = new Blob([hourlyCsvContent], { type: 'text/csv;charset=utf-8;' });
-    const hourlyUrl = URL.createObjectURL(hourlyBlob);
-    const hourlyLink = document.createElement('a');
-    hourlyLink.setAttribute('href', hourlyUrl);
-    hourlyLink.setAttribute('download', `CPT_HR_${timestamp}.csv`);
-    document.body.appendChild(hourlyLink);
-    hourlyLink.click();
-    document.body.removeChild(hourlyLink);
-    URL.revokeObjectURL(hourlyUrl);
-
-    // Sync to Google Sheets before clearing
-    syncToGoogleSheets().then(() => {
-      // Clear all data
-      log = [];
-      actionHistory = [];
-
-      localStorage.removeItem('compactorLog');
-      localStorage.removeItem('compactorActionHistory');
-      sessionStorage.removeItem('tempCompactorLog');
-      sessionStorage.removeItem('tempCompactorActionHistory');
-      document.getElementById('error').textContent = '';
-
-      const statusBody = document.getElementById('statusBody');
-      statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
-      document.getElementById('statusCount').textContent = '0 records';
-      document.getElementById('pendingCount').textContent = '0 pending';
-      document.getElementById('completedCount').textContent = '0 completed';
-
-      const hourlyBody = document.getElementById('hourlyBody');
-      hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
-      document.getElementById('hourlyCount').textContent = '0 hours';
-
-      document.querySelectorAll('.compactor-btn').forEach(button => {
-        button.classList.remove('active');
-      });
-
-      showAllRecords = false;
-      showAllHourly = false;
-      isBlinkingEnabled = true;
-      const toggleButton = document.getElementById('toggleBlink');
-      toggleButton.innerHTML = `
-        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-        </svg>
-        Stop Blinking
-      `;
-
-      updateStatusTable();
-      updateHourlyTable();
-      alert('Data exported and cleared successfully.');
-    }).catch(error => {
-      console.error('Error syncing during export:', error);
-      document.getElementById('error').textContent = 'Error syncing data to Google Sheets during export. Data not cleared.';
-    });
-  } catch (error) {
-    console.error('Error in exportAndClearData:', error);
-    document.getElementById('error').textContent = 'An error occurred while exporting and clearing data. Please try again.';
-  }
-}
-
-// Event listeners
+// Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
-  if (sessionStorage.getItem('loggedIn') === 'true') {
-    document.getElementById('cover-page').style.display = 'none';
-    document.getElementById('main-container').style.display = 'block';
-    initializeApp();
-  }
-
   document.querySelectorAll('.compactor-btn').forEach(button => {
     button.addEventListener('click', () => {
       const machineNum = parseInt(button.getAttribute('data-machine'));
@@ -1922,7 +1882,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('toggleRecords').addEventListener('click', () => {
     showAllRecords = !showAllRecords;
     updateStatusTable();
-    syncToGoogleSheets();
   });
 
   document.getElementById('toggleHourly').addEventListener('click', () => {
@@ -1933,16 +1892,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('toggleBlink').addEventListener('click', () => {
     isBlinkingEnabled = !isBlinkingEnabled;
-    const toggleButton = document.getElementById('toggleBlink');
-    toggleButton.innerHTML = `
+    document.getElementById('toggleBlink').innerHTML = `
       <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
         <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+        <path d="${isBlinkingEnabled ? 'M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z' : 'M4 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 4z'}" />
       </svg>
       ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
     `;
     updateStatusTable();
-    syncToGoogleSheets();
   });
 
   document.getElementById('exportButton').addEventListener('click', exportAndClearData);
