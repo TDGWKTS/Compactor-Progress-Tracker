@@ -842,11 +842,12 @@
       Compactor Progress Tracker v2.4 | Data is stored locally in your browser
     </div>
   </div>
+<!-- Replace the <script> tag in the HTML with this corrected version -->
 <script>
-const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM'; // Verify this in Google Cloud Console
-const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com'; // Verify this
-const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo'; // Verify spreadsheet exists and user has write access
-const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
+const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
+const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 const DISCOVERY_DOCS = ['https://sheets.googleapis.com/$discovery/rest?version=v4'];
 const HOURLY_RANGE = 'HourlyData!A1:L';
 const STATUS_RANGE = 'StatusData!A1:F';
@@ -860,10 +861,12 @@ let hourlyData = JSON.parse(localStorage.getItem('hourlyData')) || {};
 let lastAction = null;
 let isBlinking = true;
 
-document.addEventListener('DOMContentLoaded', () => {
-  loadGapiClient();
-  initializeElements();
-});
+function initApp() {
+  if (gapiInited && gisInited) {
+    initializeElements();
+    loadGapiClient();
+  }
+}
 
 function loadGapiClient() {
   gapi.load('client', () => {
@@ -873,17 +876,16 @@ function loadGapiClient() {
     }).then(() => {
       gapiInited = true;
       initializeGis();
+      initApp();
     }).catch(err => showError('Failed to initialize Google API: ' + err.message));
   });
+}
 
+function initializeGis() {
   window.google.accounts.id.initialize({
     client_id: CLIENT_ID,
     callback: handleCredentialResponse,
   });
-  gisInited = true;
-}
-
-function initializeGis() {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
@@ -893,16 +895,61 @@ function initializeGis() {
         document.getElementById('signInBtn').classList.add('hidden');
         loadSheetData();
       }
+      document.getElementById('signInBtn').disabled = false;
+      document.getElementById('signInBtn').textContent = 'Sign In';
     },
   });
+  gisInited = true;
+  initApp();
 }
 
 function handleCredentialResponse(response) {
   if (response.credential) {
     tokenClient.requestAccessToken();
+  } else {
+    document.getElementById('signInBtn').disabled = false;
+    document.getElementById('signInBtn').textContent = 'Sign In';
+    showError('Sign-in failed. Please try again.');
   }
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  // Load Google Identity Services script dynamically if not already loaded
+  if (!window.google || !window.google.accounts) {
+    const gisScript = document.createElement('script');
+    gisScript.src = 'https://accounts.google.com/gsi/client';
+    gisScript.async = true;
+    gisScript.defer = true;
+    gisScript.onload = () => {
+      gisInited = true;
+      initApp();
+    };
+    gisScript.onerror = () => showError('Failed to load Google Identity Services');
+    document.head.appendChild(gisScript);
+  } else {
+    gisInited = true;
+    initApp();
+  }
+
+  // Load Google API client script dynamically if not already loaded
+  if (!window.gapi) {
+    const gapiScript = document.createElement('script');
+    gapiScript.src = 'https://apis.google.com/js/api.js';
+    gapiScript.async = true;
+    gapiScript.defer = true;
+    gapiScript.onload = () => {
+      gapiInited = true;
+      initApp();
+    };
+    gapiScript.onerror = () => showError('Failed to load Google API Client');
+    document.head.appendChild(gapiScript);
+  } else {
+    gapiInited = true;
+    initApp();
+  }
+});
+
+// Rest of the JavaScript remains unchanged
 function initializeElements() {
   document.querySelectorAll('.compactor-btn').forEach(btn => {
     btn.addEventListener('click', () => handleCompactorClick(btn));
@@ -916,6 +963,9 @@ function initializeElements() {
   document.getElementById('toggleRecords').addEventListener('click', toggleStatusRecords);
   document.getElementById('signInBtn').addEventListener('click', () => {
     if (!isSignedIn) {
+      const btn = document.getElementById('signInBtn');
+      btn.disabled = true;
+      btn.textContent = 'Signing In...';
       tokenClient.requestAccessToken();
     }
   });
@@ -949,15 +999,22 @@ function loadSheetData() {
 
 function parseHourlySheetData(values) {
   const headers = values[0];
+  if (!headers.includes('Time Slot') || headers.length !== 12) {
+    showError('Invalid HourlyData sheet format');
+    return;
+  }
   hourlyData = {};
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
+    if (row.length < 12) continue;
     const timeSlot = row[0];
     hourlyData[timeSlot] = {};
     for (let j = 1; j < headers.length - 1; j++) {
-      hourlyData[timeSlot][headers[j]] = parseInt(row[j]) || 0;
+      const value = parseInt(row[j]);
+      hourlyData[timeSlot][headers[j]] = isNaN(value) ? 0 : value;
     }
-    hourlyData[timeSlot].total = parseInt(row[headers.length - 1]) || 0;
+    const total = parseInt(row[headers.length - 1]);
+    hourlyData[timeSlot].total = isNaN(total) ? 0 : total;
   }
 }
 
@@ -1015,8 +1072,13 @@ function saveToSheet() {
       resource: { values: statusValues }
     })
   ]).then(() => {
-    console.log('Data saved to Google Sheets');
-  }).catch(err => showError('Error saving to sheet: ' + err.message));
+    showError('Data successfully synced to Google Sheets', 'success');
+  }).catch(err => {
+    let message = 'Error saving to sheet: ' + err.message;
+    if (err.status === 403) message = 'Permission denied: Please check spreadsheet access.';
+    if (err.status === 429) message = 'Rate limit exceeded: Please try again later.';
+    showError(message);
+  });
 }
 
 function handleCompactorClick(btn) {
@@ -1032,7 +1094,6 @@ function handleCompactorClick(btn) {
   const timeSlot = getTimeSlot(now);
 
   if (!isActive) {
-    // Check for duplicate compactor in use
     const compactorInUse = records.some(r => r.compactor === machine && !r.outTime);
     if (compactorInUse) {
       showError(`Compactor ${machine} is already in use.`);
@@ -1081,7 +1142,8 @@ function formatDateTime(date) {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
+    timeZone: 'Asia/Hong_Kong'
   });
 }
 
@@ -1368,10 +1430,11 @@ function undoLastAction() {
   document.getElementById('undoButton').disabled = true;
 }
 
-function showError(message) {
+function showError(message, type = 'error') {
   const errorDiv = document.getElementById('error');
   errorDiv.textContent = message;
-  setTimeout(() => errorDiv.textContent = '', 3000);
+  errorDiv.style.color = type === 'success' ? '#155724' : '#e74c3c';
+  setTimeout(() => errorDiv.textContent = '', 5000);
 }
 </script>
 </body>
