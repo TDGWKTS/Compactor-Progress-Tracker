@@ -910,11 +910,13 @@
     </div>
   </div>
 <script>
+// Define constants for Google Sheets API
 const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
 const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
 const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo';
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 
+// Global variables
 let log = [];
 let actionHistory = [];
 let showAllRecords = false;
@@ -924,6 +926,7 @@ let updateInterval = null;
 let syncInterval = null;
 let accessToken = null;
 
+// Initialize the app
 function initializeApp() {
   const savedLog = localStorage.getItem('compactorLog');
   if (savedLog) {
@@ -945,6 +948,7 @@ function initializeApp() {
   initClient();
 }
 
+// Initialize Google API client
 async function initClient() {
   try {
     if (!window.gapi) {
@@ -986,6 +990,7 @@ async function initClient() {
   }
 }
 
+// Request OAuth2 access token
 function requestAccessToken() {
   if (!window.google) {
     console.error('Google Identity Services not loaded');
@@ -1012,6 +1017,7 @@ function requestAccessToken() {
   tokenClient.requestAccessToken();
 }
 
+// Sync data to Google Sheets
 async function syncToGoogleSheets() {
   try {
     if (!accessToken) {
@@ -1091,6 +1097,7 @@ async function syncToGoogleSheets() {
   }
 }
 
+// Update status table
 function updateStatusTable() {
   const statusBody = document.getElementById('statusBody');
   const statusCount = document.getElementById('statusCount');
@@ -1152,6 +1159,7 @@ function updateStatusTable() {
   });
 }
 
+// Update hourly table
 function updateHourlyTable() {
   const hourlyBody = document.getElementById('hourlyBody');
   const hourlyCount = document.getElementById('hourlyCount');
@@ -1264,8 +1272,11 @@ function updateHourlyTable() {
     `;
     hourlyBody.appendChild(row);
   });
+
+  return hourlyRecords;
 }
 
+// Update machine button states
 function updateMachineButtonStates() {
   document.querySelectorAll('.compactor-btn').forEach(button => {
     const machineNum = parseInt(button.getAttribute('data-machine'));
@@ -1276,6 +1287,7 @@ function updateMachineButtonStates() {
   });
 }
 
+// Calculate duration between inTime and outTime
 function calculateDuration(inTime, outTime = null) {
   const parseTime = timeStr => {
     const [hours, mins] = timeStr.split(':').map(Number);
@@ -1307,6 +1319,7 @@ function calculateDuration(inTime, outTime = null) {
   }
 }
 
+// Handle machine button click
 function handleMachineButtonClick(machineNum) {
   try {
     const errorDiv = document.getElementById('error');
@@ -1365,6 +1378,7 @@ function handleMachineButtonClick(machineNum) {
   }
 }
 
+// Prompt for out time
 function promptOutTime(entryIndex) {
   try {
     const entry = log[entryIndex];
@@ -1410,6 +1424,7 @@ function promptOutTime(entryIndex) {
   }
 }
 
+// Edit entry
 function editEntry(machineNumber, entryTimestamp, field) {
   try {
     const entry = log.find(entry => 
@@ -1465,6 +1480,7 @@ function editEntry(machineNumber, entryTimestamp, field) {
   }
 }
 
+// Delete entry
 function deleteEntry(machineNumber, entryTimestamp) {
   try {
     if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
@@ -1502,6 +1518,7 @@ function deleteEntry(machineNumber, entryTimestamp) {
   }
 }
 
+// Undo last action
 function undoLastAction() {
   try {
     if (actionHistory.length === 0) {
@@ -1558,6 +1575,7 @@ function undoLastAction() {
   }
 }
 
+// Clear all data
 function clearAllData() {
   try {
     if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
@@ -1578,7 +1596,9 @@ function clearAllData() {
     document.getElementById('completedCount').textContent = '0 completed';
 
     const hourlyBody = document.getElementById('hourlyBody');
-    hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
+    hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">
+
+No hourly records</td></tr>`;
     document.getElementById('hourlyCount').textContent = '0 hours';
 
     document.querySelectorAll('.compactor-btn').forEach(button => {
@@ -1608,15 +1628,20 @@ function clearAllData() {
   }
 }
 
-function exportToCSV() {
+// Export to CSV
+async function exportToCSV() {
   try {
     if (log.length === 0) {
       alert('No data to export.');
       return;
     }
 
-    const headers = ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'];
-    const rows = log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).map((entry, index) => {
+    // Generate timestamp for file naming
+    const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }).replace(/[/:,]/g, '-');
+
+    // Export Status Records
+    const statusHeaders = ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'];
+    const statusRows = log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).map((entry, index) => {
       const { display } = calculateDuration(entry.inTime, entry.outTime);
       return [
         entry.entryTimestamp,
@@ -1628,22 +1653,88 @@ function exportToCSV() {
       ];
     });
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    const statusCsvContent = [
+      statusHeaders.join(','),
+      ...statusRows.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `compactor_data_${new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }).replace(/[/:,]/g, '-')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Export Hourly Records
+    const hourlyRecords = updateHourlyTable();
+    const hourlyHeaders = ['Time Slot', 'Machine 1', 'Machine 2', 'Machine 3', 'Machine 4', 'Machine 5', 'Machine 6', 'Machine 7', 'Machine 8', 'Machine 9', 'Machine 10', 'Total'];
+    const hourlyRows = hourlyRecords.sort((a, b) => b.startTime - a.startTime).map(record => {
+      const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+      return [
+        record.timeSlot,
+        ...record.machineCounts.slice(1),
+        total
+      ];
+    });
 
-    document.getElementById('error').textContent = '';
+    const cumulativeCounts = Array(11).fill(0);
+    log.filter(entry => entry.outTime).forEach(entry => {
+      cumulativeCounts[entry.machineNumber]++;
+    });
+    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    if (cumulativeTotal > 0) {
+      hourlyRows.push(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+    }
+
+    const hourlyCsvContent = [
+      hourlyHeaders.join(','),
+      ...hourlyRows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Download both CSV files
+    const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const statusUrl = URL.createObjectURL(statusBlob);
+    const statusLink = document.createElement('a');
+    statusLink.setAttribute('href', statusUrl);
+    statusLink.setAttribute('download', `CPT_SR_${timestamp}.csv`);
+    document.body.appendChild(statusLink);
+    statusLink.click();
+    document.body.removeChild(statusLink);
+    URL.revokeObjectURL(statusUrl);
+
+    const hourlyBlob = new Blob([hourlyCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const hourlyUrl = URL.createObjectURL(hourlyBlob);
+    const hourlyLink = document.createElement('a');
+    hourlyLink.setAttribute('href', hourlyUrl);
+    hourlyLink.setAttribute('download', `CPT_HR_${timestamp}.csv`);
+    document.body.appendChild(hourlyLink);
+    hourlyLink.click();
+    document.body.removeChild(hourlyLink);
+    URL.revokeObjectURL(hourlyUrl);
+
+    // Sync to Google Sheets and clear data
+    const syncSuccess = await syncToGoogleSheets();
+    if (syncSuccess) {
+      log = [];
+      actionHistory = [];
+      localStorage.removeItem('compactorLog');
+      localStorage.removeItem('compactorActionHistory');
+      document.getElementById('error').textContent = '';
+
+      const statusBody = document.getElementById('statusBody');
+      statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+      document.getElementById('statusCount').textContent = '0 records';
+      document.getElementById('pendingCount').textContent = '0 pending';
+      document.getElementById('completedCount').textContent = '0 completed';
+
+      const hourlyBody = document.getElementById('hourlyBody');
+      hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
+      document.getElementById('hourlyCount').textContent = '0 hours';
+
+      document.querySelectorAll('.compactor-btn').forEach(button => {
+        button.classList.remove('active');
+      });
+
+      showAllRecords = false;
+      showAllHourly = false;
+      document.getElementById('undoButton').disabled = true;
+      alert('Data exported and cleared successfully.');
+    } else {
+      alert('Data exported but failed to sync to Google Sheets. Local data not cleared.');
+    }
   } catch (error) {
     console.error('Error in exportToCSV:', error);
     document.getElementById('error').textContent = 'An error occurred while exporting data. Please try again.';
@@ -1652,18 +1743,16 @@ function exportToCSV() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
-  if (sessionStorage.getItem('loggedIn') === 'true') {
-    document.getElementById('cover-page').style.display = 'none';
-    document.getElementById('main-container').style.display = 'block';
-    initializeApp();
-  }
-
   document.querySelectorAll('.compactor-btn').forEach(button => {
     button.addEventListener('click', () => {
       const machineNum = parseInt(button.getAttribute('data-machine'));
       handleMachineButtonClick(machineNum);
     });
   });
+
+  document.getElementById('exportButton').addEventListener('click', exportToCSV);
+  document.getElementById('clearButton').addEventListener('click', clearAllData);
+  document.getElementById('undoButton').addEventListener('click', undoLastAction);
 
   document.getElementById('toggleRecords').addEventListener('click', () => {
     showAllRecords = !showAllRecords;
@@ -1677,7 +1766,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('toggleBlink').addEventListener('click', () => {
     isBlinkingEnabled = !isBlinkingEnabled;
-    toggleButton.innerHTML = `
+    document.getElementById('toggleBlink').innerHTML = `
       <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
         <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
         <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
@@ -1687,10 +1776,14 @@ document.addEventListener('DOMContentLoaded', () => {
     updateStatusTable();
   });
 
-  document.getElementById('exportButton').addEventListener('click', exportToCSV);
-  document.getElementById('clearButton').addEventListener('click', clearAllData);
-  document.getElementById('undoButton').addEventListener('click', undoLastAction);
+  // Check login status
+  if (sessionStorage.getItem('loggedIn') === 'true') {
+    document.getElementById('cover-page').style.display = 'none';
+    document.getElementById('main-container').style.display = 'block';
+    initializeApp();
+  }
 });
+</script>
 </script>
 </body>
 </html>
