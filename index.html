@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://apis.google.com https://www.gstatic.com https://accounts.google.com https://*.googleapis.com https://ssl.gstatic.com https://www.google.com 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://accounts.google.com https://sheets.googleapis.com https://www.googleapis.com;">
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://apis.google.com https://www.gstatic.com https://accounts.google.com https://*.googleapis.com https://ssl.gstatic.com https://www.google.com 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://accounts.google.com https://sheets.googleapis.com https://www.googleapis.com https://apis.google.com;">
   <title>Compactor Progress Tracker</title>
   <script src="https://apis.google.com/js/api.js" async defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -842,7 +842,6 @@
       Compactor Progress Tracker v2.4 | Data is stored locally in your browser
     </div>
   </div>
-<!-- Replace the <script> tag in the HTML with this corrected version -->
 <script>
 const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
 const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
@@ -885,15 +884,21 @@ function initializeGis() {
   window.google.accounts.id.initialize({
     client_id: CLIENT_ID,
     callback: handleCredentialResponse,
+    prompt_parent_id: 'signInBtn',
+    use_fedcm_for_prompt: true
   });
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
     callback: (tokenResponse) => {
+      console.log('Token Response:', tokenResponse); // Debug
       if (tokenResponse.access_token) {
         isSignedIn = true;
         document.getElementById('signInBtn').classList.add('hidden');
         loadSheetData();
+      } else {
+        console.error('No access token received');
+        showError('Authentication failed: No access token received');
       }
       document.getElementById('signInBtn').disabled = false;
       document.getElementById('signInBtn').textContent = 'Sign In';
@@ -914,7 +919,6 @@ function handleCredentialResponse(response) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Load Google Identity Services script dynamically if not already loaded
   if (!window.google || !window.google.accounts) {
     const gisScript = document.createElement('script');
     gisScript.src = 'https://accounts.google.com/gsi/client';
@@ -931,7 +935,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initApp();
   }
 
-  // Load Google API client script dynamically if not already loaded
   if (!window.gapi) {
     const gapiScript = document.createElement('script');
     gapiScript.src = 'https://apis.google.com/js/api.js';
@@ -949,7 +952,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Rest of the JavaScript remains unchanged
 function initializeElements() {
   document.querySelectorAll('.compactor-btn').forEach(btn => {
     btn.addEventListener('click', () => handleCompactorClick(btn));
@@ -974,7 +976,7 @@ function initializeElements() {
   updateTables();
 }
 
-function loadSheetData() {
+function loadSheetData(attempt = 1) {
   if (!isSignedIn) return;
   Promise.all([
     gapi.client.sheets.spreadsheets.values.get({
@@ -994,7 +996,16 @@ function loadSheetData() {
     }
     updateTables();
     saveToLocalStorage();
-  }).catch(err => showError('Error loading sheet data: ' + err.message));
+  }).catch(err => {
+    if (err.status === 429 && attempt <= 3) {
+      setTimeout(() => loadSheetData(attempt + 1), Math.pow(2, attempt) * 1000);
+    } else {
+      let message = 'Error loading sheet data: ' + err.message;
+      if (err.status === 403) message = 'Permission denied: Please check spreadsheet access.';
+      if (err.status === 400) message = 'Invalid request: Check sheet names and ranges.';
+      showError(message);
+    }
+  });
 }
 
 function parseHourlySheetData(values) {
@@ -1437,5 +1448,6 @@ function showError(message, type = 'error') {
   setTimeout(() => errorDiv.textContent = '', 5000);
 }
 </script>
+
 </body>
 </html>
