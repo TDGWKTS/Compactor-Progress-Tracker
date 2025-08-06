@@ -34,55 +34,6 @@
       overflow-y: auto;
     }
 
-    /* Cover Page Styles */
-    #cover-page {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      padding: 20px;
-    }
-
-    .login-container {
-      background-color: white;
-      border-radius: 12px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-      padding: 30px;
-      width: 100%;
-      max-width: 400px;
-      text-align: center;
-    }
-
-    .login-container h1 {
-      color: #2c3e50;
-      margin-bottom: 20px;
-      font-size: 1.8rem;
-    }
-
-    .login-container p {
-      color: #6c757d;
-      margin-bottom: 30px;
-    }
-
-    .error-message {
-      color: #e74c3c;
-      margin-top: 10px;
-      font-weight: bold;
-      min-height: 20px;
-    }
-
-    /* Main Container Styles (hidden initially) */
-    #main-container {
-      display: none;
-    }
-
     .container {
       max-width: min(1400px, 95vw);
       margin: 0 auto;
@@ -112,13 +63,13 @@
     header {
       text-align: center;
       margin-bottom: clamp(15px, 3vw, 25px);
+      position: relative;
     }
 
     h1 {
       color: #2c3e50;
       margin: clamp(10px, 2vw, 15px) 0;
       font-weight: 600;
-      position: relative;
       padding-bottom: 15px;
       font-size: clamp(1.5rem, 5vw, 2rem);
     }
@@ -133,6 +84,24 @@
       height: 4px;
       background: linear-gradient(90deg, #4CAF50, #2196F3);
       border-radius: 2px;
+    }
+
+    .sign-in-container {
+      position: absolute;
+      top: clamp(10px, 2vw, 15px);
+      right: clamp(10px, 2vw, 15px);
+    }
+
+    .g_id_signin {
+      display: inline-block;
+    }
+
+    .error-message {
+      color: #e74c3c;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: clamp(10px, 2vw, 15px);
+      min-height: 20px;
     }
 
     .dashboard {
@@ -154,7 +123,7 @@
       background: #f8f9fa;
       border-radius: 10px;
       padding: clamp(10px, 2vw, 20px);
-      box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 3px 15px rgba(0,0,0,0.05);
       width: 100%;
       overflow: visible;
       flex-grow: 0;
@@ -623,6 +592,12 @@
       #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
         width: calc((100% - clamp(60px, 20vw, 80px)) / 11 * 0.8);
       }
+
+      .sign-in-container {
+        position: static;
+        margin-bottom: clamp(10px, 2vw, 15px);
+        text-align: center;
+      }
     }
 
     @media (max-width: 600px) {
@@ -713,11 +688,11 @@
           const profile = parseJwt(response.credential);
           console.log('Parsed profile:', profile);
           accessToken = response.credential;
-          document.getElementById('cover-page').style.display = 'none';
-          document.getElementById('main-container').style.display = 'block';
-          sessionStorage.setItem('loggedIn', 'true');
-          console.log('Page transition completed, initializing app...');
-          initializeApp();
+          document.getElementById('login-error').textContent = 'Signed in successfully';
+          setTimeout(() => {
+            document.getElementById('login-error').textContent = '';
+          }, 3000);
+          syncToGoogleSheets();
         } catch (e) {
           console.error('Error in handleCredentialResponse:', e);
           document.getElementById('login-error').textContent = 'Error processing sign-in. Please try again.';
@@ -745,171 +720,161 @@
   </script>
 </head>
 <body>
-  <!-- Cover Page with Google Sign-In -->
-  <div id="cover-page">
-    <div class="login-container">
+  <div class="container">
+    <header>
       <h1>Compactor Progress Tracker</h1>
-      <p>Please sign in with your Google account to access the system</p>
-      <div id="g_id_onload"
-           data-client_id="959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com"
-           data-callback="handleCredentialResponse"
-           data-auto_prompt="false">
+      <div class="sign-in-container">
+        <div id="g_id_onload"
+             data-client_id="959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-size="medium" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="center"></div>
       </div>
-      <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="center"></div>
-      <div id="login-error" class="error-message"></div>
-    </div>
-  </div>
-
-  <!-- Main Content (hidden initially) -->
-  <div id="main-container">
-    <div class="container">
-      <header>
-        <h1>Compactor Progress Tracker</h1>
-      </header>
-      
-      <div class="dashboard">
-        <div class="card">
-          <div class="card-header">Compactor Entry</div>
-          
-          <div class="compactor-grid">
-            <button class="compactor-btn" data-machine="1">1</button>
-            <button class="compactor-btn" data-machine="2">2</button>
-            <button class="compactor-btn" data-machine="3">3</button>
-            <button class="compactor-btn" data-machine="4">4</button>
-            <button class="compactor-btn" data-machine="5">5</button>
-            <button class="compactor-btn" data-machine="6">6</button>
-            <button class="compactor-btn" data-machine="7">7</button>
-            <button class="compactor-btn" data-machine="8">8</button>
-            <button class="compactor-btn" data-machine="9">9</button>
-            <button class="compactor-btn" data-machine="10">10</button>
-          </div>
-          
-          <div class="error" id="error"></div>
-          
-          <div class="table-header">
-            <h3>Hourly Records</h3>
-            <div>
-              <span class="counter" id="hourlyCount">0 hours</span>
-              <button class="toggle-btn" id="toggleHourly">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-                </svg>
-                Show All
-              </button>
-            </div>
-          </div>
-          
-          <div class="table-container">
-            <table id="hourlyTable">
-              <thead>
-                <tr class="cumulative-row" id="cumulativeRow" style="display: none;">
-                  <th>Cumulative Total</th>
-                  <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
-                  <th></th>
-                </tr>
-                <tr>
-                  <th>Time Slot</th>
-                  <th>1</th>
-                  <th>2</th>
-                  <th>3</th>
-                  <th>4</th>
-                  <th>5</th>
-                  <th>6</th>
-                  <th>7</th>
-                  <th>8</th>
-                  <th>9</th>
-                  <th>10</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody id="hourlyBody">
-                <tr>
-                  <td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          
-          <div class="btn-group">
-            <button class="btn btn-export" id="exportButton">
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+    </header>
+    <div class="error-message" id="login-error"></div>
+    
+    <div class="dashboard">
+      <div class="card">
+        <div class="card-header">Compactor Entry</div>
+        
+        <div class="compactor-grid">
+          <button class="compactor-btn" data-machine="1">1</button>
+          <button class="compactor-btn" data-machine="2">2</button>
+          <button class="compactor-btn" data-machine="3">3</button>
+          <button class="compactor-btn" data-machine="4">4</button>
+          <button class="compactor-btn" data-machine="5">5</button>
+          <button class="compactor-btn" data-machine="6">6</button>
+          <button class="compactor-btn" data-machine="7">7</button>
+          <button class="compactor-btn" data-machine="8">8</button>
+          <button class="compactor-btn" data-machine="9">9</button>
+          <button class="compactor-btn" data-machine="10">10</button>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="table-header">
+          <h3>Hourly Records</h3>
+          <div>
+            <span class="counter" id="hourlyCount">0 hours</span>
+            <button class="toggle-btn" id="toggleHourly">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
               </svg>
-              Export and Clear
-            </button>
-            <button class="btn btn-clear" id="clearButton">
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-              </svg>
-              Clear All Data
-            </button>
-            <button class="btn btn-undo" id="undoButton" disabled>
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 0a8 8 0 0 0-2.915 15.452c-.07-.633-.134-1.606.027-2.297.146-.625.938-3.977.938-3.977s-.239-.479-.239-1.187c0-1.113.645-1.943 1.448-1.943.682 0 1.012.512 1.012 1.127 0 .686-.437 1.712-.663 2.663-.188.796.805 1.446 1.742 1.446 2.094 0 3.71-2.205 3.71-5.398 0-2.82-2.03-4.788-4.922-4.788-3.354 0-5.32 2.517-5.32 5.117 0 1.015.388 2.103.873 2.696a.346.346 0 0 1 .078.427c-.066.286-.287.885-.392 1.104-.104.218-.217.243-.334.114C2.29 12.685 2 11.454 2 10.025 2 6.153 5.144 3 8.5 3 11.07 3 14 5.404 14 8.5c0 3.096-2.93 5.5-5.5 5.5-.943 0-1.816-.256-2.557-.683l-.737.552a.5.5 0 0 1-.683-.95l1.293-.97A7.942 7.942 0 0 0 8 0z"/>
-              </svg>
-              Undo
+              Show All
             </button>
           </div>
         </div>
         
-        <div class="card">
-          <div class="card-header">Current Status</div>
-          
-          <div class="status-counters">
-            <div class="counter-badge pending" id="pendingCount">0 pending</div>
-            <div class="counter-badge completed" id="completedCount">0 completed</div>
-          </div>
-          
-          <div class="table-header">
-            <h3>Status Records</h3>
-            <div>
-              <span class="counter" id="statusCount">0 records</span>
-              <button class="toggle-btn blink-toggle" id="toggleBlink">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                  <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-                </svg>
-                Stop Blinking
-              </button>
-              <button class="toggle-btn" id="toggleRecords" style="display: none;">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-                </svg>
-                Show All
-              </button>
-            </div>
-          </div>
-          
-          <div class="table-container">
-            <table id="statusTable">
-              <thead>
-                <tr>
-                  <th>Container #</th>
-                  <th>Compactor</th>
-                  <th>In Time</th>
-                  <th>Out Time</th>
-                  <th>Duration</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="statusBody">
-                <tr>
-                  <td colspan="6" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No records</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="table-container">
+          <table id="hourlyTable">
+            <thead>
+              <tr class="cumulative-row" id="cumulativeRow" style="display: none;">
+                <th>Cumulative Total</th>
+                <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+                <th></th>
+              </tr>
+              <tr>
+                <th>Time Slot</th>
+                <th>1</th>
+                <th>2</th>
+                <th>3</th>
+                <th>4</th>
+                <th>5</th>
+                <th>6</th>
+                <th>7</th>
+                <th>8</th>
+                <th>9</th>
+                <th>10</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="hourlyBody">
+              <tr>
+                <td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="btn-group">
+          <button class="btn btn-export" id="exportButton">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+              <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+            </svg>
+            Export and Clear
+          </button>
+          <button class="btn btn-clear" id="clearButton">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+              <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+            </svg>
+            Clear All Data
+          </button>
+          <button class="btn btn-undo" id="undoButton" disabled>
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 0a8 8 0 0 0-2.915 15.452c-.07-.633-.134-1.606.027-2.297.146-.625.938-3.977.938-3.977s-.239-.479-.239-1.187c0-1.113.645-1.943 1.448-1.943.682 0 1.012.512 1.012 1.127 0 .686-.437 1.712-.663 2.663-.188.796.805 1.446 1.742 1.446 2.094 0 3.71-2.205 3.71-5.398 0-2.82-2.03-4.788-4.922-4.788-3.354 0-5.32 2.517-5.32 5.117 0 1.015.388 2.103.873 2.696a.346.346 0 0 1 .078.427c-.066.286-.287.885-.392 1.104-.104.218-.217.243-.334.114C2.29 12.685 2 11.454 2 10.025 2 6.153 5.144 3 8.5 3 11.07 3 14 5.404 14 8.5c0 3.096-2.93 5.5-5.5 5.5-.943 0-1.816-.256-2.557-.683l-.737.552a.5.5 0 0 1-.683-.95l1.293-.97A7.942 7.942 0 0 0 8 0z"/>
+            </svg>
+            Undo
+          </button>
         </div>
       </div>
       
-      <div class="footer">
-        Compactor Progress Tracker v2.4 | Data is stored locally in your browser
+      <div class="card">
+        <div class="card-header">Current Status</div>
+        
+        <div class="status-counters">
+          <div class="counter-badge pending" id="pendingCount">0 pending</div>
+          <div class="counter-badge completed" id="completedCount">0 completed</div>
+        </div>
+        
+        <div class="table-header">
+          <h3>Status Records</h3>
+          <div>
+            <span class="counter" id="statusCount">0 records</span>
+            <button class="toggle-btn blink-toggle" id="toggleBlink">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+              </svg>
+              Stop Blinking
+            </button>
+            <button class="toggle-btn" id="toggleRecords" style="display: none;">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+              </svg>
+              Show All
+            </button>
+          </div>
+        </div>
+        
+        <div class="table-container">
+          <table id="statusTable">
+            <thead>
+              <tr>
+                <th>Container #</th>
+                <th>Compactor</th>
+                <th>In Time</th>
+                <th>Out Time</th>
+                <th>Duration</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="statusBody">
+              <tr>
+                <td colspan="6" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No records</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
+    
+    <div class="footer">
+      Compactor Progress Tracker v2.5 | Data is stored locally in your browser
+    </div>
   </div>
-
 <script>
 const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
 const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
@@ -1021,7 +986,11 @@ function requestAccessToken() {
       } else {
         accessToken = response.access_token;
         console.log('Access token received:', accessToken);
-        document.getElementById('error').textContent = '';
+        document.getElementById('login-error').textContent = 'Signed in successfully';
+        setTimeout(() => {
+          document.getElementById('login-error').textContent = '';
+        }, 3000);
+        syncToGoogleSheets();
       }
     },
   });
@@ -1032,27 +1001,25 @@ function requestAccessToken() {
 async function syncToGoogleSheets() {
   try {
     if (!accessToken) {
-      console.warn('No access token. Requesting authentication...');
-      requestAccessToken();
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      if (!accessToken) {
-        document.getElementById('error').textContent = 'Authentication failed. Cannot sync data to Google Sheets.';
-        return false;
-      }
+      document.getElementById('error').textContent = 'Please sign in to sync data to Google Sheets.';
+      return false;
     }
 
     gapi.client.setToken({ access_token: accessToken });
 
-    // Sync Status Records
-    const statusValues = log.map(entry => [
-      entry.entryTimestamp,
-      entry.machineNumber,
-      entry.inTime,
-      entry.outTime || '',
-      calculateDuration(entry.inTime, entry.outTime).display
-    ]);
+    // Prepare Status Records (mirroring webpage)
+    const statusValues = log
+      .sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp))
+      .map((entry, index) => [
+        entry.entryTimestamp,
+        log.length - index,
+        entry.machineNumber,
+        entry.inTime,
+        entry.outTime || '',
+        calculateDuration(entry.inTime, entry.outTime).display
+      ]);
 
-    // Sync Hourly Records
+    // Prepare Hourly Records (mirroring webpage)
     const timeSlots = [
       { start: '07:30', end: '08:29' },
       { start: '08:30', end: '09:29' },
@@ -1120,35 +1087,47 @@ async function syncToGoogleSheets() {
     let retries = 3;
     while (retries > 0) {
       try {
-        // Sync Status Records to Sheet1
-        const statusResponse = await gapi.client.sheets.spreadsheets.values.append({
+        // Clear existing data in Sheet1 and Sheet2
+        await gapi.client.sheets.spreadsheets.values.clear({
           spreadsheetId: SPREADSHEET_ID,
-          range: 'Sheet1!A:E',
-          valueInputOption: 'RAW',
-          insertDataOption: 'INSERT_ROWS',
-          resource: {
-            values: [
-              ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'],
-              ...statusValues
-            ]
-          }
+          range: 'Sheet1!A:F'
         });
+        await gapi.client.sheets.spreadsheets.values.clear({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Sheet2!A:M'
+        });
+
+        // Sync Status Records to Sheet1
+        if (statusValues.length > 0) {
+          await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Sheet1!A1',
+            valueInputOption: 'RAW',
+            resource: {
+              values: [
+                ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'],
+                ...statusValues
+              ]
+            }
+          });
+        }
 
         // Sync Hourly Records to Sheet2
-        const hourlyResponse = await gapi.client.sheets.spreadsheets.values.append({
-          spreadsheetId: SPREADSHEET_ID,
-          range: 'Sheet2!A:M',
-          valueInputOption: 'RAW',
-          insertDataOption: 'INSERT_ROWS',
-          resource: {
-            values: [
-              ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
-              ...hourlyRecords
-            ]
-          }
-        });
+        if (hourlyRecords.length > 0) {
+          await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Sheet2!A1',
+            valueInputOption: 'RAW',
+            resource: {
+              values: [
+                ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
+                ...hourlyRecords
+              ]
+            }
+          });
+        }
 
-        console.log('Data synced to Google Sheets:', { statusResponse, hourlyResponse });
+        console.log('Data synced to Google Sheets successfully');
         document.getElementById('error').textContent = '';
         return true;
       } catch (error) {
@@ -1186,6 +1165,269 @@ async function syncToGoogleSheets() {
     });
     document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again.`;
     return false;
+  }
+}
+
+async function exportAndClear() {
+  try {
+    if (log.length === 0) {
+      alert('No data to export.');
+      return;
+    }
+
+    const now = new Date();
+    const timestamp = now.toLocaleString('en-US', { 
+      timeZone: 'Asia/Hong_Kong',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).replace(/[,/:]/g, '').replace(/\s+/g, '');
+    const dateStr = `${timestamp.slice(0, 8)}_${timestamp.slice(8)}`;
+
+    // Prepare Status Records
+    const statusHeaders = ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'];
+    const statusRows = log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).map((entry, index) => {
+      const { display } = calculateDuration(entry.inTime, entry.outTime);
+      return [
+        entry.entryTimestamp,
+        log.length - index,
+        entry.machineNumber,
+        entry.inTime,
+        entry.outTime || '',
+        display
+      ];
+    });
+
+    const statusCsvContent = [
+      statusHeaders.join(','),
+      ...statusRows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Local download for Status Records
+    const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const statusUrl = URL.createObjectURL(statusBlob);
+    const statusLink = document.createElement('a');
+    statusLink.setAttribute('href', statusUrl);
+    statusLink.setAttribute('download', `CPT_SR_${dateStr}.csv`);
+    document.body.appendChild(statusLink);
+    statusLink.click();
+    document.body.removeChild(statusLink);
+    URL.revokeObjectURL(statusUrl);
+
+    // Prepare Hourly Records
+    const timeSlots = [
+      { start: '07:30', end: '08:29' },
+      { start: '08:30', end: '09:29' },
+      { start: '09:30', end: '10:29' },
+      { start: '10:30', end: '11:29' },
+      { start: '11:30', end: '12:29' },
+      { start: '12:30', end: '13:29' },
+      { start: '13:30', end: '14:29' },
+      { start: '14:30', end: '15:29' },
+      { start: '15:30', end: '16:29' },
+      { start: '16:30', end: '17:29' },
+      { start: '17:30', end: '18:29' },
+      { start: '18:30', end: '19:29' },
+      { start: '19:30', end: '20:29' },
+      { start: '20:30', end: '21:29' },
+      { start: '21:30', end: '22:29' },
+      { start: '22:30', end: '23:29' },
+      { start: '23:30', end: '00:29' },
+      { start: '00:30', end: '01:29' },
+      { start: '01:30', end: '02:29' },
+      { start: '02:30', end: '03:29' },
+      { start: '03:30', end: '04:29' },
+      { start: '04:30', end: '05:29' },
+      { start: '05:30', end: '06:29' }
+    ];
+
+    const parseTime = (timeStr, referenceDate = new Date()) => {
+      const [hours, mins] = timeStr.split(':').map(Number);
+      const date = new Date(referenceDate);
+      date.setHours(hours, mins, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1);
+      return date;
+    };
+
+    const hourlyRecords = [];
+    const completedEntries = log.filter(entry => entry.outTime);
+    timeSlots.forEach(slot => {
+      const slotStart = parseTime(slot.start);
+      const slotEnd = parseTime(slot.end, slotStart);
+      const machineCounts = Array(11).fill(0);
+
+      completedEntries.forEach(entry => {
+        const inTime = parseTime(entry.inTime);
+        const outTime = parseTime(entry.outTime, inTime);
+        if (inTime >= slotStart && outTime <= slotEnd) {
+          machineCounts[entry.machineNumber]++;
+        }
+      });
+
+      if (machineCounts.some(count => count > 0)) {
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        hourlyRecords.push([`${slot.start}-${slot.end}`, ...machineCounts.slice(1), total]);
+      }
+    });
+
+    const cumulativeCounts = Array(11).fill(0);
+    completedEntries.forEach(entry => {
+      cumulativeCounts[entry.machineNumber]++;
+    });
+    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    if (cumulativeTotal > 0) {
+      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+    }
+
+    const hourlyHeaders = ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'];
+    const hourlyCsvContent = [
+      hourlyHeaders.join(','),
+      ...hourlyRecords.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Local download for Hourly Records
+    const hourlyBlob = new Blob([hourlyCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const hourlyUrl = URL.createObjectURL(hourlyBlob);
+    const hourlyLink = document.createElement('a');
+    hourlyLink.setAttribute('href', hourlyUrl);
+    hourlyLink.setAttribute('download', `CPT_HR_${dateStr}.csv`);
+    document.body.appendChild(hourlyLink);
+    hourlyLink.click();
+    document.body.removeChild(hourlyLink);
+    URL.revokeObjectURL(hourlyUrl);
+
+    // Export to Google Sheets with same filenames
+    if (accessToken) {
+      gapi.client.setToken({ access_token: accessToken });
+
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          // Create new spreadsheet for Status Records
+          const statusSpreadsheet = await gapi.client.sheets.spreadsheets.create({
+            properties: {
+              title: `CPT_SR_${dateStr}`
+            }
+          });
+          const statusSpreadsheetId = statusSpreadsheet.result.spreadsheetId;
+
+          // Write Status Records to new spreadsheet
+          if (statusRows.length > 0) {
+            await gapi.client.sheets.spreadsheets.values.update({
+              spreadsheetId: statusSpreadsheetId,
+              range: 'Sheet1!A1',
+              valueInputOption: 'RAW',
+              resource: {
+                values: [statusHeaders, ...statusRows]
+              }
+            });
+          }
+
+          // Create new spreadsheet for Hourly Records
+          const hourlySpreadsheet = await gapi.client.sheets.spreadsheets.create({
+            properties: {
+              title: `CPT_HR_${dateStr}`
+            }
+          });
+          const hourlySpreadsheetId = hourlySpreadsheet.result.spreadsheetId;
+
+          // Write Hourly Records to new spreadsheet
+          if (hourlyRecords.length > 0) {
+            await gapi.client.sheets.spreadsheets.values.update({
+              spreadsheetId: hourlySpreadsheetId,
+              range: 'Sheet1!A1',
+              valueInputOption: 'RAW',
+              resource: {
+                values: [hourlyHeaders, ...hourlyRecords]
+              }
+            });
+          }
+
+          console.log('Data exported to Google Sheets:', { statusSpreadsheetId, hourlySpreadsheetId });
+        } catch (error) {
+          if (error.status === 429 && retries > 0) {
+            const delay = (4 - retries) * 1000;
+            console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            retries--;
+            continue;
+          } else if (error.status === 401) {
+            console.warn('Access token invalid or expired. Requesting new token...');
+            requestAccessToken();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            if (accessToken) {
+              gapi.client.setToken({ access_token: accessToken });
+              retries--;
+              continue;
+            } else {
+              throw new Error('Failed to obtain new access token');
+            }
+          } else {
+            throw error;
+          }
+        }
+      }
+    } else {
+      document.getElementById('error').textContent = 'Please sign in to export data to Google Sheets.';
+    }
+
+    // Sync to main spreadsheet before clearing
+    await syncToGoogleSheets();
+
+    // Clear all data
+    log = [];
+    actionHistory = [];
+
+    localStorage.removeItem('compactorLog');
+    localStorage.removeItem('compactorActionHistory');
+    sessionStorage.removeItem('tempCompactorLog');
+    sessionStorage.removeItem('tempCompactorActionHistory');
+    document.getElementById('error').textContent = '';
+
+    const statusBody = document.getElementById('statusBody');
+    statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+    document.getElementById('statusCount').textContent = '0 records';
+    document.getElementById('pendingCount').textContent = '0 pending';
+    document.getElementById('completedCount').textContent = '0 completed';
+
+    const hourlyBody = document.getElementById('hourlyBody');
+    hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
+    document.getElementById('hourlyCount').textContent = '0 hours';
+
+    document.querySelectorAll('.compactor-btn').forEach(button => {
+      button.classList.remove('active');
+    });
+
+    showAllRecords = false;
+    showAllHourly = false;
+    isBlinkingEnabled = true;
+    const toggleButton = document.getElementById('toggleBlink');
+    toggleButton.innerHTML = `
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+      </svg>
+      Stop Blinking
+    `;
+
+    updateStatusTable();
+    updateHourlyTable();
+    document.getElementById('error').textContent = '';
+    alert('Data exported and cleared successfully.');
+  } catch (error) {
+    const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
+    console.error('Error in exportAndClear:', {
+      message: error.message,
+      details: errorDetails,
+      status: error.status,
+      result: error.result,
+      stack: error.stack
+    });
+    document.getElementById('error').textContent = 'An error occurred while exporting and clearing data. Please try again.';
   }
 }
 
@@ -1718,192 +1960,10 @@ function clearAllData() {
   }
 }
 
-function exportAndClear() {
-  try {
-    if (log.length === 0) {
-      alert('No data to export.');
-      return;
-    }
-
-    const now = new Date();
-    const timestamp = now.toLocaleString('en-US', { 
-      timeZone: 'Asia/Hong_Kong',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    }).replace(/[,/:]/g, '').replace(/\s+/g, '');
-    const dateStr = `${timestamp.slice(0, 8)}_${timestamp.slice(8)}`;
-
-    // Export Status Records
-    const statusHeaders = ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'];
-    const statusRows = log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).map((entry, index) => {
-      const { display } = calculateDuration(entry.inTime, entry.outTime);
-      return [
-        entry.entryTimestamp,
-        log.length - index,
-        entry.machineNumber,
-        entry.inTime,
-        entry.outTime || '',
-        display
-      ];
-    });
-
-    const statusCsvContent = [
-      statusHeaders.join(','),
-      ...statusRows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
-    const statusUrl = URL.createObjectURL(statusBlob);
-    const statusLink = document.createElement('a');
-    statusLink.setAttribute('href', statusUrl);
-    statusLink.setAttribute('download', `CPT_SR_${dateStr}.csv`);
-    document.body.appendChild(statusLink);
-    statusLink.click();
-    document.body.removeChild(statusLink);
-    URL.revokeObjectURL(statusUrl);
-
-    // Export Hourly Records
-    const timeSlots = [
-      { start: '07:30', end: '08:29' },
-      { start: '08:30', end: '09:29' },
-      { start: '09:30', end: '10:29' },
-      { start: '10:30', end: '11:29' },
-      { start: '11:30', end: '12:29' },
-      { start: '12:30', end: '13:29' },
-      { start: '13:30', end: '14:29' },
-      { start: '14:30', end: '15:29' },
-      { start: '15:30', end: '16:29' },
-      { start: '16:30', end: '17:29' },
-      { start: '17:30', end: '18:29' },
-      { start: '18:30', end: '19:29' },
-      { start: '19:30', end: '20:29' },
-      { start: '20:30', end: '21:29' },
-      { start: '21:30', end: '22:29' },
-      { start: '22:30', end: '23:29' },
-      { start: '23:30', end: '00:29' },
-      { start: '00:30', end: '01:29' },
-      { start: '01:30', end: '02:29' },
-      { start: '02:30', end: '03:29' },
-      { start: '03:30', end: '04:29' },
-      { start: '04:30', end: '05:29' },
-      { start: '05:30', end: '06:29' }
-    ];
-
-    const parseTime = (timeStr, referenceDate = new Date()) => {
-      const [hours, mins] = timeStr.split(':').map(Number);
-      const date = new Date(referenceDate);
-      date.setHours(hours, mins, 0, 0);
-      if (hours < 7) date.setDate(date.getDate() + 1);
-      return date;
-    };
-
-    const hourlyRecords = [];
-    const completedEntries = log.filter(entry => entry.outTime);
-    timeSlots.forEach(slot => {
-      const slotStart = parseTime(slot.start);
-      const slotEnd = parseTime(slot.end, slotStart);
-      const machineCounts = Array(11).fill(0);
-
-      completedEntries.forEach(entry => {
-        const inTime = parseTime(entry.inTime);
-        const outTime = parseTime(entry.outTime, inTime);
-        if (inTime >= slotStart && outTime <= slotEnd) {
-          machineCounts[entry.machineNumber]++;
-        }
-      });
-
-      if (machineCounts.some(count => count > 0)) {
-        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-        hourlyRecords.push([`${slot.start}-${slot.end}`, ...machineCounts.slice(1), total]);
-      }
-    });
-
-    const cumulativeCounts = Array(11).fill(0);
-    completedEntries.forEach(entry => {
-      cumulativeCounts[entry.machineNumber]++;
-    });
-    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-    if (cumulativeTotal > 0) {
-      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
-    }
-
-    const hourlyHeaders = ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'];
-    const hourlyCsvContent = [
-      hourlyHeaders.join(','),
-      ...hourlyRecords.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const hourlyBlob = new Blob([hourlyCsvContent], { type: 'text/csv;charset=utf-8;' });
-    const hourlyUrl = URL.createObjectURL(hourlyBlob);
-    const hourlyLink = document.createElement('a');
-    hourlyLink.setAttribute('href', hourlyUrl);
-    hourlyLink.setAttribute('download', `CPT_HR_${dateStr}.csv`);
-    document.body.appendChild(hourlyLink);
-    hourlyLink.click();
-    document.body.removeChild(hourlyLink);
-    URL.revokeObjectURL(hourlyUrl);
-
-    // Sync to Google Sheets before clearing
-    syncToGoogleSheets();
-
-    // Clear all data
-    log = [];
-    actionHistory = [];
-
-    localStorage.removeItem('compactorLog');
-    localStorage.removeItem('compactorActionHistory');
-    sessionStorage.removeItem('tempCompactorLog');
-    sessionStorage.removeItem('tempCompactorActionHistory');
-    document.getElementById('error').textContent = '';
-
-    const statusBody = document.getElementById('statusBody');
-    statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
-    document.getElementById('statusCount').textContent = '0 records';
-    document.getElementById('pendingCount').textContent = '0 pending';
-    document.getElementById('completedCount').textContent = '0 completed';
-
-    const hourlyBody = document.getElementById('hourlyBody');
-    hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
-    document.getElementById('hourlyCount').textContent = '0 hours';
-
-    document.querySelectorAll('.compactor-btn').forEach(button => {
-      button.classList.remove('active');
-    });
-
-    showAllRecords = false;
-    showAllHourly = false;
-    isBlinkingEnabled = true;
-    const toggleButton = document.getElementById('toggleBlink');
-    toggleButton.innerHTML = `
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-      </svg>
-      Stop Blinking
-    `;
-
-    updateStatusTable();
-    updateHourlyTable();
-    document.getElementById('error').textContent = '';
-    alert('Data exported and cleared successfully.');
-  } catch (error) {
-    console.error('Error in exportAndClear:', error);
-    document.getElementById('error').textContent = 'An error occurred while exporting and clearing data. Please try again.';
-  }
-}
-
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
-  if (sessionStorage.getItem('loggedIn') === 'true') {
-    document.getElementById('cover-page').style.display = 'none';
-    document.getElementById('main-container').style.display = 'block';
-    initializeApp();
-  }
+  document.getElementById('main-container').style.display = 'block';
+  initializeApp();
 
   document.querySelectorAll('.compactor-btn').forEach(button => {
     button.addEventListener('click', () => {
