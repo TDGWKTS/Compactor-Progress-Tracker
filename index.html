@@ -836,7 +836,7 @@
                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                 <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
               </svg>
-              Export to CSV
+              Export & Clear Data
             </button>
             <button class="btn btn-clear" id="clearButton">
               <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
@@ -909,6 +909,7 @@
       </div>
     </div>
   </div>
+
 <script>
 const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
 const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
@@ -925,14 +926,24 @@ let syncInterval = null;
 let accessToken = null;
 
 function initializeApp() {
-  const savedLog = localStorage.getItem('compactorLog');
-  if (savedLog) {
-    log = JSON.parse(savedLog);
+  // Restore from sessionStorage first (for accidental refresh)
+  const tempLog = sessionStorage.getItem('tempCompactorLog');
+  const tempHistory = sessionStorage.getItem('tempCompactorActionHistory');
+  if (tempLog) {
+    log = JSON.parse(tempLog);
+  } else {
+    const savedLog = localStorage.getItem('compactorLog');
+    if (savedLog) {
+      log = JSON.parse(savedLog);
+    }
   }
-
-  const savedHistory = localStorage.getItem('compactorActionHistory');
-  if (savedHistory) {
-    actionHistory = JSON.parse(savedHistory);
+  if (tempHistory) {
+    actionHistory = JSON.parse(tempHistory);
+  } else {
+    const savedHistory = localStorage.getItem('compactorActionHistory');
+    if (savedHistory) {
+      actionHistory = JSON.parse(savedHistory);
+    }
   }
 
   updateStatusTable();
@@ -943,6 +954,12 @@ function initializeApp() {
   updateInterval = setInterval(updateStatusTable, 60000);
   syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
   initClient();
+
+  // Save to sessionStorage on page unload to handle accidental refresh
+  window.addEventListener('beforeunload', () => {
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
+  });
 }
 
 async function initClient() {
@@ -1026,7 +1043,8 @@ async function syncToGoogleSheets() {
 
     gapi.client.setToken({ access_token: accessToken });
 
-    const values = log.map(entry => [
+    // Sync Status Records
+    const statusValues = log.map(entry => [
       entry.entryTimestamp,
       entry.machineNumber,
       entry.inTime,
@@ -1034,10 +1052,82 @@ async function syncToGoogleSheets() {
       calculateDuration(entry.inTime, entry.outTime).display
     ]);
 
+    // Sync Hourly Records
+    const timeSlots = [
+      { start: '07:30', end: '08:29' },
+      { start: '08:30', end: '09:29' },
+      { start: '09:30', end: '10:29' },
+      { start: '10:30', end: '11:29' },
+      { start: '11:30', end: '12:29' },
+      { start: '12:30', end: '13:29' },
+      { start: '13:30', end: '14:29' },
+      { start: '14:30', end: '15:29' },
+      { start: '15:30', end: '16:29' },
+      { start: '16:30', end: '17:29' },
+      { start: '17:30', end: '18:29' },
+      { start: '18:30', end: '19:29' },
+      { start: '19:30', end: '20:29' },
+      { start: '20:30', end: '21:29' },
+      { start: '21:30', end: '22:29' },
+      { start: '22:30', end: '23:29' },
+      { start: '23:30', end: '00:29' },
+      { start: '00:30', end: '01:29' },
+      { start: '01:30', end: '02:29' },
+      { start: '02:30', end: '03:29' },
+      { start: '03:30', end: '04:29' },
+      { start: '04:30', end: '05:29' },
+      { start: '05:30', end: '06:29' }
+    ];
+
+    const parseTime = (timeStr, referenceDate = new Date()) => {
+      const [hours, mins] = timeStr.split(':').map(Number);
+      const date = new Date(referenceDate);
+      date.setHours(hours, mins, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1);
+      return date;
+    };
+
+    const hourlyRecords = [];
+    const completedEntries = log.filter(entry => entry.outTime);
+
+    timeSlots.forEach(slot => {
+      const slotStart = parseTime(slot.start);
+      const slotEnd = parseTime(slot.end, slotStart);
+      const machineCounts = Array(11).fill(0);
+
+      completedEntries.forEach(entry => {
+        const inTime = parseTime(entry.inTime);
+        const outTime = parseTime(entry.outTime, inTime);
+
+        if (inTime >= slotStart && outTime <= slotEnd) {
+          machineCounts[entry.machineNumber]++;
+        }
+      });
+
+      if (machineCounts.some(count => count > 0)) {
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        hourlyRecords.push([
+          `${slot.start}-${slot.end}`,
+          ...machineCounts.slice(1),
+          total
+        ]);
+      }
+    });
+
+    const cumulativeCounts = Array(11).fill(0);
+    completedEntries.forEach(entry => {
+      cumulativeCounts[entry.machineNumber]++;
+    });
+    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    if (cumulativeTotal > 0) {
+      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+    }
+
     let retries = 3;
     while (retries > 0) {
       try {
-        const response = await gapi.client.sheets.spreadsheets.values.append({
+        // Sync Status Records to Sheet1
+        await gapi.client.sheets.spreadsheets.values.append({
           spreadsheetId: SPREADSHEET_ID,
           range: 'Sheet1!A:E',
           valueInputOption: 'RAW',
@@ -1045,12 +1135,26 @@ async function syncToGoogleSheets() {
           resource: {
             values: [
               ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'],
-              ...values
+              ...statusValues
             ]
           }
         });
 
-        console.log('Data synced to Google Sheets:', response);
+        // Sync Hourly Records to Sheet2
+        await gapi.client.sheets.spreadsheets.values.append({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Sheet2!A:L',
+          valueInputOption: 'RAW',
+          insertDataOption: 'INSERT_ROWS',
+          resource: {
+            values: [
+              ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
+              ...hourlyRecords
+            ]
+          }
+        });
+
+        console.log('Data synced to Google Sheets');
         document.getElementById('error').textContent = '';
         return true;
       } catch (error) {
@@ -1358,6 +1462,8 @@ function handleMachineButtonClick(machineNum) {
 
     localStorage.setItem('compactorLog', JSON.stringify(log));
     localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
     errorDiv.textContent = '';
   } catch (error) {
     console.error('Error in handleMachineButtonClick:', error);
@@ -1396,6 +1502,8 @@ function promptOutTime(entryIndex) {
 
     localStorage.setItem('compactorLog', JSON.stringify(log));
     localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
 
     updateStatusTable();
     updateHourlyTable();
@@ -1451,6 +1559,8 @@ function editEntry(machineNumber, entryTimestamp, field) {
 
     localStorage.setItem('compactorLog', JSON.stringify(log));
     localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
 
     updateStatusTable();
     updateHourlyTable();
@@ -1488,6 +1598,8 @@ function deleteEntry(machineNumber, entryTimestamp) {
 
     localStorage.setItem('compactorLog', JSON.stringify(log));
     localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
 
     updateStatusTable();
     updateHourlyTable();
@@ -1544,6 +1656,8 @@ function undoLastAction() {
 
     localStorage.setItem('compactorLog', JSON.stringify(log));
     localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+    sessionStorage.setItem('tempCompactorLog', JSON.stringify(log));
+    sessionStorage.setItem('tempCompactorActionHistory', JSON.stringify(actionHistory));
 
     updateStatusTable();
     updateHourlyTable();
@@ -1569,6 +1683,8 @@ function clearAllData() {
 
     localStorage.removeItem('compactorLog');
     localStorage.removeItem('compactorActionHistory');
+    sessionStorage.removeItem('tempCompactorLog');
+    sessionStorage.removeItem('tempCompactorActionHistory');
     document.getElementById('error').textContent = '';
 
     const statusBody = document.getElementById('statusBody');
@@ -1608,15 +1724,22 @@ function clearAllData() {
   }
 }
 
-function exportToCSV() {
+function exportAndClearData() {
   try {
     if (log.length === 0) {
       alert('No data to export.');
       return;
     }
 
-    const headers = ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'];
-    const rows = log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).map((entry, index) => {
+    if (!confirm('Exporting will clear all data after saving to CSV and Google Sheets. Proceed?')) {
+      return;
+    }
+
+    const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }).replace(/[/:,]/g, '-');
+
+    // Export Status Records
+    const statusHeaders = ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'];
+    const statusRows = log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).map((entry, index) => {
       const { display } = calculateDuration(entry.inTime, entry.outTime);
       return [
         entry.entryTimestamp,
@@ -1628,25 +1751,156 @@ function exportToCSV() {
       ];
     });
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    const statusCsvContent = [
+      statusHeaders.join(','),
+      ...statusRows.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `compactor_data_${new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }).replace(/[/:,]/g, '-')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const statusUrl = URL.createObjectURL(statusBlob);
+    const statusLink = document.createElement('a');
+    statusLink.setAttribute('href', statusUrl);
+    statusLink.setAttribute('download', `CPT_SR_${timestamp}.csv`);
+    document.body.appendChild(statusLink);
+    statusLink.click();
+    document.body.removeChild(statusLink);
+    URL.revokeObjectURL(statusUrl);
 
-    document.getElementById('error').textContent = '';
+    // Export Hourly Records
+    const timeSlots = [
+      { start: '07:30', end: '08:29' },
+      { start: '08:30', end: '09:29' },
+      { start: '09:30', end: '10:29' },
+      { start: '10:30', end: '11:29' },
+      { start: '11:30', end: '12:29' },
+      { start: '12:30', end: '13:29' },
+      { start: '13:30', end: '14:29' },
+      { start: '14:30', end: '15:29' },
+      { start: '15:30', end: '16:29' },
+      { start: '16:30', end: '17:29' },
+      { start: '17:30', end: '18:29' },
+      { start: '18:30', end: '19:29' },
+      { start: '19:30', end: '20:29' },
+      { start: '20:30', end: '21:29' },
+      { start: '21:30', end: '22:29' },
+      { start: '22:30', end: '23:29' },
+      { start: '23:30', end: '00:29' },
+      { start: '00:30', end: '01:29' },
+      { start: '01:30', end: '02:29' },
+      { start: '02:30', end: '03:29' },
+      { start: '03:30', end: '04:29' },
+      { start: '04:30', end: '05:29' },
+      { start: '05:30', end: '06:29' }
+    ];
+
+    const parseTime = (timeStr, referenceDate = new Date()) => {
+      const [hours, mins] = timeStr.split(':').map(Number);
+      const date = new Date(referenceDate);
+      date.setHours(hours, mins, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1);
+      return date;
+    };
+
+    const hourlyRecords = [];
+    const completedEntries = log.filter(entry => entry.outTime);
+
+    timeSlots.forEach(slot => {
+      const slotStart = parseTime(slot.start);
+      const slotEnd = parseTime(slot.end, slotStart);
+      const machineCounts = Array(11).fill(0);
+
+      completedEntries.forEach(entry => {
+        const inTime = parseTime(entry.inTime);
+        const outTime = parseTime(entry.outTime, inTime);
+
+        if (inTime >= slotStart && outTime <= slotEnd) {
+          machineCounts[entry.machineNumber]++;
+        }
+      });
+
+      if (machineCounts.some(count => count > 0)) {
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        hourlyRecords.push([
+          `${slot.start}-${slot.end}`,
+          ...machineCounts.slice(1),
+          total
+        ]);
+      }
+    });
+
+    const cumulativeCounts = Array(11).fill(0);
+    completedEntries.forEach(entry => {
+      cumulativeCounts[entry.machineNumber]++;
+    });
+    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    if (cumulativeTotal > 0) {
+      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+    }
+
+    const hourlyHeaders = ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'];
+    const hourlyCsvContent = [
+      hourlyHeaders.join(','),
+      ...hourlyRecords.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const hourlyBlob = new Blob([hourlyCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const hourlyUrl = URL.createObjectURL(hourlyBlob);
+    const hourlyLink = document.createElement('a');
+    hourlyLink.setAttribute('href', hourlyUrl);
+    hourlyLink.setAttribute('download', `CPT_HR_${timestamp}.csv`);
+    document.body.appendChild(hourlyLink);
+    hourlyLink.click();
+    document.body.removeChild(hourlyLink);
+    URL.revokeObjectURL(hourlyUrl);
+
+    // Sync to Google Sheets before clearing
+    syncToGoogleSheets().then(() => {
+      // Clear all data
+      log = [];
+      actionHistory = [];
+
+      localStorage.removeItem('compactorLog');
+      localStorage.removeItem('compactorActionHistory');
+      sessionStorage.removeItem('tempCompactorLog');
+      sessionStorage.removeItem('tempCompactorActionHistory');
+      document.getElementById('error').textContent = '';
+
+      const statusBody = document.getElementById('statusBody');
+      statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+      document.getElementById('statusCount').textContent = '0 records';
+      document.getElementById('pendingCount').textContent = '0 pending';
+      document.getElementById('completedCount').textContent = '0 completed';
+
+      const hourlyBody = document.getElementById('hourlyBody');
+      hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
+      document.getElementById('hourlyCount').textContent = '0 hours';
+
+      document.querySelectorAll('.compactor-btn').forEach(button => {
+        button.classList.remove('active');
+      });
+
+      showAllRecords = false;
+      showAllHourly = false;
+      isBlinkingEnabled = true;
+      const toggleButton = document.getElementById('toggleBlink');
+      toggleButton.innerHTML = `
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+        </svg>
+        Stop Blinking
+      `;
+
+      updateStatusTable();
+      updateHourlyTable();
+      alert('Data exported and cleared successfully.');
+    }).catch(error => {
+      console.error('Error syncing during export:', error);
+      document.getElementById('error').textContent = 'Error syncing data to Google Sheets during export. Data not cleared.';
+    });
   } catch (error) {
-    console.error('Error in exportToCSV:', error);
-    document.getElementById('error').textContent = 'An error occurred while exporting data. Please try again.';
+    console.error('Error in exportAndClearData:', error);
+    document.getElementById('error').textContent = 'An error occurred while exporting and clearing data. Please try again.';
   }
 }
 
@@ -1668,15 +1922,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('toggleRecords').addEventListener('click', () => {
     showAllRecords = !showAllRecords;
     updateStatusTable();
+    syncToGoogleSheets();
   });
 
   document.getElementById('toggleHourly').addEventListener('click', () => {
     showAllHourly = !showAllHourly;
     updateHourlyTable();
+    syncToGoogleSheets();
   });
 
   document.getElementById('toggleBlink').addEventListener('click', () => {
     isBlinkingEnabled = !isBlinkingEnabled;
+    const toggleButton = document.getElementById('toggleBlink');
     toggleButton.innerHTML = `
       <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
         <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
@@ -1685,9 +1942,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
     `;
     updateStatusTable();
+    syncToGoogleSheets();
   });
 
-  document.getElementById('exportButton').addEventListener('click', exportToCSV);
+  document.getElementById('exportButton').addEventListener('click', exportAndClearData);
   document.getElementById('clearButton').addEventListener('click', clearAllData);
   document.getElementById('undoButton').addEventListener('click', undoLastAction);
 });
