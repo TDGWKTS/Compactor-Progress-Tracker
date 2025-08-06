@@ -923,6 +923,7 @@ let isBlinkingEnabled = true;
 let updateInterval = null;
 let syncInterval = null;
 let accessToken = null;
+let sheetCache = { Sheet1: false, Sheet2: false }; // Cache to track sheet existence
 
 const timeSlots = [
   { start: '07:30', end: '08:29' },
@@ -1066,10 +1067,49 @@ function requestAccessToken() {
 
 async function checkAndCreateSheet(sheetName, spreadsheetId) {
   try {
-    const response = await gapi.client.sheets.spreadsheets.get({
-      spreadsheetId: spreadsheetId,
-      fields: 'sheets.properties.title'
-    });
+    // Check cache first to avoid redundant API calls
+    if (sheetCache[sheetName]) {
+      console.log(`Sheet ${sheetName} already verified in cache`);
+      return true;
+    }
+
+    // Ensure access token is available
+    if (!accessToken) {
+      console.warn(`No access token for ${sheetName}. Requesting authentication...`);
+      await requestAccessToken();
+      if (!accessToken) {
+        document.getElementById('error').textContent = `Authentication failed for ${sheetName}. Cannot verify or create sheet.`;
+        return false;
+      }
+    }
+
+    gapi.client.setToken({ access_token: accessToken });
+
+    // Check if sheet exists
+    let response;
+    try {
+      response = await gapi.client.sheets.spreadsheets.get({
+        spreadsheetId: spreadsheetId,
+        fields: 'sheets.properties.title'
+      });
+    } catch (error) {
+      if (error.status === 401) {
+        console.warn(`Access token invalid for ${sheetName}. Requesting new token...`);
+        await requestAccessToken();
+        if (!accessToken) {
+          document.getElementById('error').textContent = `Authentication failed after retry for ${sheetName}. Cannot verify or create sheet.`;
+          return false;
+        }
+        gapi.client.setToken({ access_token: accessToken });
+        response = await gapi.client.sheets.spreadsheets.get({
+          spreadsheetId: spreadsheetId,
+          fields: 'sheets.properties.title'
+        });
+      } else {
+        throw error;
+      }
+    }
+
     const sheets = response.result.sheets || [];
     const sheetExists = sheets.some(sheet => sheet.properties.title === sheetName);
 
@@ -1088,10 +1128,21 @@ async function checkAndCreateSheet(sheetName, spreadsheetId) {
       });
       console.log(`Created sheet: ${sheetName}`);
     }
+
+    // Update cache
+    sheetCache[sheetName] = true;
+    console.log(`Sheet ${sheetName} verified or created`);
     return true;
   } catch (error) {
-    console.error(`Error checking/creating sheet ${sheetName}:`, error);
-    document.getElementById('error').textContent = `Failed to check/create sheet ${sheetName}: ${error.message || 'Unknown error'}.`;
+    const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
+    console.error(`Error checking/creating sheet ${sheetName}:`, {
+      message: error.message,
+      details: errorDetails,
+      status: error.status,
+      result: error.result,
+      stack: error.stack
+    });
+    document.getElementById('error').textContent = `Failed to check/create sheet ${sheetName}: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again.`;
     return false;
   }
 }
