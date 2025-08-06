@@ -1046,7 +1046,7 @@ function requestAccessToken() {
     const tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: SCOPE,
-      callback: (response) => {
+      callback: async (response) => {
         if (response.error) {
           console.error('Token request error:', response);
           document.getElementById('error').textContent = `Authentication failed: ${response.error_description || response.error || 'Unknown error'}. Please try again.`;
@@ -1056,6 +1056,36 @@ function requestAccessToken() {
           accessToken = response.access_token;
           console.log('Access token received:', accessToken);
           document.getElementById('error').textContent = '';
+
+          // Reset sheet cache and delete existing Sheet1 and Sheet2
+          sheetCache = { Sheet1: false, Sheet2: false };
+          try {
+            gapi.client.setToken({ access_token: accessToken });
+            const response = await gapi.client.sheets.spreadsheets.get({
+              spreadsheetId: SPREADSHEET_ID,
+              fields: 'sheets.properties(sheetId,title)'
+            });
+            const sheets = response.result.sheets || [];
+            const deleteRequests = sheets
+              .filter(sheet => ['Sheet1', 'Sheet2'].includes(sheet.properties.title))
+              .map(sheet => ({
+                deleteSheet: {
+                  sheetId: sheet.properties.sheetId
+                }
+              }));
+
+            if (deleteRequests.length > 0) {
+              await gapi.client.sheets.spreadsheets.batchUpdate({
+                spreadsheetId: SPREADSHEET_ID,
+                resource: { requests: deleteRequests }
+              });
+              console.log('Deleted existing Sheet1 and Sheet2');
+            }
+          } catch (error) {
+            console.error('Error deleting existing sheets:', error);
+            document.getElementById('error').textContent = `Failed to delete existing sheets: ${error.result?.error?.message || 'Unknown error'}. New sheets will be created on next operation.`;
+          }
+
           resolve();
         }
       },
@@ -1067,12 +1097,6 @@ function requestAccessToken() {
 
 async function checkAndCreateSheet(sheetName, spreadsheetId) {
   try {
-    // Check cache first to avoid redundant API calls
-    if (sheetCache[sheetName]) {
-      console.log(`Sheet ${sheetName} already verified in cache`);
-      return true;
-    }
-
     // Ensure access token is available
     if (!accessToken) {
       console.warn(`No access token for ${sheetName}. Requesting authentication...`);
@@ -1085,64 +1109,40 @@ async function checkAndCreateSheet(sheetName, spreadsheetId) {
 
     gapi.client.setToken({ access_token: accessToken });
 
-    // Check if sheet exists
-    let response;
-    try {
-      response = await gapi.client.sheets.spreadsheets.get({
-        spreadsheetId: spreadsheetId,
-        fields: 'sheets.properties.title'
-      });
-    } catch (error) {
-      if (error.status === 401) {
-        console.warn(`Access token invalid for ${sheetName}. Requesting new token...`);
-        await requestAccessToken();
-        if (!accessToken) {
-          document.getElementById('error').textContent = `Authentication failed after retry for ${sheetName}. Cannot verify or create sheet.`;
-          return false;
-        }
-        gapi.client.setToken({ access_token: accessToken });
-        response = await gapi.client.sheets.spreadsheets.get({
-          spreadsheetId: spreadsheetId,
-          fields: 'sheets.properties.title'
-        });
-      } else {
-        throw error;
-      }
+    // Check cache first to avoid redundant API calls
+    if (sheetCache[sheetName]) {
+      console.log(`Sheet ${sheetName} already verified in cache`);
+      return true;
     }
 
-    const sheets = response.result.sheets || [];
-    const sheetExists = sheets.some(sheet => sheet.properties.title === sheetName);
-
-    if (!sheetExists) {
-      await gapi.client.sheets.spreadsheets.batchUpdate({
-        spreadsheetId: spreadsheetId,
-        resource: {
-          requests: [{
-            addSheet: {
-              properties: {
-                title: sheetName
-              }
+    // Create new sheet (existing sheet should have been deleted in requestAccessToken)
+    await gapi.client.sheets.spreadsheets.batchUpdate({
+      spreadsheetId: spreadsheetId,
+      resource: {
+        requests: [{
+          addSheet: {
+            properties: {
+              title: sheetName
             }
-          }]
-        }
-      });
-      console.log(`Created sheet: ${sheetName}`);
-    }
+          }
+        }]
+      }
+    });
+    console.log(`Created new sheet: ${sheetName}`);
 
     // Update cache
     sheetCache[sheetName] = true;
-    console.log(`Sheet ${sheetName} verified or created`);
     return true;
   } catch (error) {
     const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
-    console.error(`Error checking/creating sheet ${sheetName}:`, {
+    console.error(`Error creating sheet ${sheetName}:`, {
       message: error.message,
       details: errorDetails,
       status: error.status,
       result: error.result,
       stack: error.stack
     });
-    document.getElementById('error').textContent = `Failed to check/create sheet ${sheetName}: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again.`;
+    document.getElementById('error').textContent = `Failed to create sheet ${sheetName}: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again.`;
     return false;
   }
 }
@@ -1317,7 +1317,15 @@ async function exportAndClearData() {
       return;
     }
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, -1);
+    // Generate timestamp in YYYYMMDD_HHMMSS format
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const timestamp = `${year}${month}${day}_${hours}${minutes}${seconds}`;
 
     // Prepare Status Records for CSV and Google Sheets
     const statusHeaders = ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'];
