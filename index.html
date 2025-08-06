@@ -924,6 +924,7 @@ let updateInterval = null;
 let syncInterval = null;
 let accessToken = null;
 let sheetCache = { Sheet1: false, Sheet2: false }; // Cache to track sheet existence
+let isCreatingSheet = { Sheet1: false, Sheet2: false }; // Prevent concurrent sheet creation
 
 const timeSlots = [
   { start: '07:30', end: '08:29' },
@@ -1048,8 +1049,12 @@ function requestAccessToken() {
       scope: SCOPE,
       callback: async (response) => {
         if (response.error) {
-          console.error('Token request error:', response);
-          document.getElementById('error').textContent = `Authentication failed: ${response.error_description || response.error || 'Unknown error'}. Please try again.`;
+          console.error('Token request error:', {
+            error: response.error,
+            error_description: response.error_description,
+            details: response.details || 'No additional details'
+          });
+          document.getElementById('error').textContent = `Authentication failed: ${response.error_description || response.error || 'Unknown error'}. Please try again or check OAuth configuration at https://console.developers.google.com.`;
           accessToken = null;
           reject(new Error(response.error_description || response.error));
         } else {
@@ -1059,6 +1064,7 @@ function requestAccessToken() {
 
           // Reset sheet cache and delete existing Sheet1 and Sheet2
           sheetCache = { Sheet1: false, Sheet2: false };
+          isCreatingSheet = { Sheet1: false, Sheet2: false };
           try {
             gapi.client.setToken({ access_token: accessToken });
             const response = await gapi.client.sheets.spreadsheets.get({
@@ -1082,7 +1088,11 @@ function requestAccessToken() {
               console.log('Deleted existing Sheet1 and Sheet2');
             }
           } catch (error) {
-            console.error('Error deleting existing sheets:', error);
+            console.error('Error deleting existing sheets:', {
+              message: error.message,
+              details: error.result?.error?.message || error.details || JSON.stringify(error, null, 2),
+              status: error.status
+            });
             document.getElementById('error').textContent = `Failed to delete existing sheets: ${error.result?.error?.message || 'Unknown error'}. New sheets will be created on next operation.`;
           }
 
@@ -1096,43 +1106,65 @@ function requestAccessToken() {
 }
 
 async function checkAndCreateSheet(sheetName, spreadsheetId) {
+  if (isCreatingSheet[sheetName]) {
+    console.log(`Sheet ${sheetName} creation already in progress`);
+    return false;
+  }
+
+  isCreatingSheet[sheetName] = true;
   try {
     // Ensure access token is available
     if (!accessToken) {
       console.warn(`No access token for ${sheetName}. Requesting authentication...`);
       await requestAccessToken();
       if (!accessToken) {
-        document.getElementById('error').textContent = `Authentication failed for ${sheetName}. Cannot verify or create sheet.`;
+        document.getElementById('error').textContent = `Authentication failed for ${sheetName}. Cannot create sheet.`;
         return false;
       }
     }
 
     gapi.client.setToken({ access_token: accessToken });
 
-    // Check cache first to avoid redundant API calls
+    // Check cache first
     if (sheetCache[sheetName]) {
       console.log(`Sheet ${sheetName} already verified in cache`);
       return true;
     }
 
-    // Create new sheet (existing sheet should have been deleted in requestAccessToken)
-    await gapi.client.sheets.spreadsheets.batchUpdate({
-      spreadsheetId: spreadsheetId,
-      resource: {
-        requests: [{
-          addSheet: {
-            properties: {
-              title: sheetName
-            }
+    // Create new sheet with retry for 401 errors
+    let retries = 1;
+    while (retries >= 0) {
+      try {
+        await gapi.client.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: spreadsheetId,
+          resource: {
+            requests: [{
+              addSheet: {
+                properties: {
+                  title: sheetName
+                }
+              }
+            }]
           }
-        }]
+        });
+        console.log(`Created new sheet: ${sheetName}`);
+        sheetCache[sheetName] = true;
+        return true;
+      } catch (error) {
+        if (error.status === 401 && retries > 0) {
+          console.warn(`401 error creating ${sheetName}. Refreshing token...`);
+          await requestAccessToken();
+          if (!accessToken) {
+            document.getElementById('error').textContent = `Authentication failed after retry for ${sheetName}. Cannot create sheet.`;
+            return false;
+          }
+          gapi.client.setToken({ access_token: accessToken });
+          retries--;
+        } else {
+          throw error;
+        }
       }
-    });
-    console.log(`Created new sheet: ${sheetName}`);
-
-    // Update cache
-    sheetCache[sheetName] = true;
-    return true;
+    }
   } catch (error) {
     const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
     console.error(`Error creating sheet ${sheetName}:`, {
@@ -1142,8 +1174,10 @@ async function checkAndCreateSheet(sheetName, spreadsheetId) {
       result: error.result,
       stack: error.stack
     });
-    document.getElementById('error').textContent = `Failed to create sheet ${sheetName}: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again.`;
+    document.getElementById('error').textContent = `Failed to create sheet ${sheetName}: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again. See https://developers.google.com/identity/sign-in/web/devconsole-project for OAuth setup.`;
     return false;
+  } finally {
+    isCreatingSheet[sheetName] = false;
   }
 }
 
