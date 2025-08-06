@@ -1038,26 +1038,30 @@ function requestAccessToken() {
   if (!window.google) {
     console.error('Google Identity Services not loaded');
     document.getElementById('error').textContent = 'Google Identity Services not loaded. Cannot authenticate.';
-    return;
+    return Promise.reject(new Error('Google Identity Services not loaded'));
   }
 
-  const tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPE,
-    callback: (response) => {
-      if (response.error) {
-        console.error('Token request error:', response);
-        document.getElementById('error').textContent = `Authentication failed: ${response.error_description || response.error || 'Unknown error'}. Please try again.`;
-        accessToken = null;
-      } else {
-        accessToken = response.access_token;
-        console.log('Access token received:', accessToken);
-        document.getElementById('error').textContent = '';
-      }
-    },
-  });
+  return new Promise((resolve, reject) => {
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPE,
+      callback: (response) => {
+        if (response.error) {
+          console.error('Token request error:', response);
+          document.getElementById('error').textContent = `Authentication failed: ${response.error_description || response.error || 'Unknown error'}. Please try again.`;
+          accessToken = null;
+          reject(new Error(response.error_description || response.error));
+        } else {
+          accessToken = response.access_token;
+          console.log('Access token received:', accessToken);
+          document.getElementById('error').textContent = '';
+          resolve();
+        }
+      },
+    });
 
-  tokenClient.requestAccessToken();
+    tokenClient.requestAccessToken();
+  });
 }
 
 async function checkAndCreateSheet(sheetName, spreadsheetId) {
@@ -1087,6 +1091,7 @@ async function checkAndCreateSheet(sheetName, spreadsheetId) {
     return true;
   } catch (error) {
     console.error(`Error checking/creating sheet ${sheetName}:`, error);
+    document.getElementById('error').textContent = `Failed to check/create sheet ${sheetName}: ${error.message || 'Unknown error'}.`;
     return false;
   }
 }
@@ -1095,8 +1100,7 @@ async function syncToGoogleSheets() {
   try {
     if (!accessToken) {
       console.warn('No access token. Requesting authentication...');
-      requestAccessToken();
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await requestAccessToken();
       if (!accessToken) {
         document.getElementById('error').textContent = 'Authentication failed. Cannot sync data to Google Sheets.';
         return false;
@@ -1106,8 +1110,9 @@ async function syncToGoogleSheets() {
     gapi.client.setToken({ access_token: accessToken });
 
     // Ensure sheets exist
-    await checkAndCreateSheet('Sheet1', SPREADSHEET_ID);
-    await checkAndCreateSheet('Sheet2', SPREADSHEET_ID);
+    if (!(await checkAndCreateSheet('Sheet1', SPREADSHEET_ID)) || !(await checkAndCreateSheet('Sheet2', SPREADSHEET_ID))) {
+      return false;
+    }
 
     let retries = 3;
     while (retries > 0) {
@@ -1203,8 +1208,7 @@ async function syncToGoogleSheets() {
           retries--;
         } else if (error.status === 401) {
           console.warn('Access token invalid or expired. Requesting new token...');
-          requestAccessToken();
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await requestAccessToken();
           if (accessToken) {
             gapi.client.setToken({ access_token: accessToken });
             retries--;
@@ -1244,9 +1248,27 @@ async function exportAndClearData() {
       return;
     }
 
+    // Ensure authentication
+    if (!accessToken) {
+      console.warn('No access token. Requesting authentication...');
+      await requestAccessToken();
+      if (!accessToken) {
+        document.getElementById('error').textContent = 'Authentication failed. Cannot export data to Google Sheets.';
+        return;
+      }
+    }
+
+    gapi.client.setToken({ access_token: accessToken });
+
+    // Ensure sheets exist
+    if (!(await checkAndCreateSheet('Sheet1', SPREADSHEET_ID)) || !(await checkAndCreateSheet('Sheet2', SPREADSHEET_ID))) {
+      document.getElementById('error').textContent = 'Failed to verify or create Google Sheets. Please try again.';
+      return;
+    }
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, -1);
 
-    // Status Records CSV
+    // Prepare Status Records for CSV and Google Sheets
     const statusHeaders = ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'];
     const statusRows = log.map(entry => [
       entry.entryTimestamp,
@@ -1255,6 +1277,8 @@ async function exportAndClearData() {
       entry.outTime || '',
       calculateDuration(entry.inTime, entry.outTime).display
     ]);
+
+    // Generate Status Records CSV
     const statusCsvContent = [
       statusHeaders.join(','),
       ...statusRows.map(row => row.join(','))
@@ -1266,7 +1290,7 @@ async function exportAndClearData() {
     statusLink.click();
     URL.revokeObjectURL(statusLink.href);
 
-    // Hourly Records CSV
+    // Prepare Hourly Records for CSV and Google Sheets
     const completedEntries = log.filter(entry => entry.outTime);
     const hourlyRecords = [];
     timeSlots.forEach(slot => {
@@ -1310,25 +1334,10 @@ async function exportAndClearData() {
     hourlyLink.click();
     URL.revokeObjectURL(hourlyLink.href);
 
-    // Sync to Google Sheets before clearing
-    if (!accessToken) {
-      console.warn('No access token. Requesting authentication...');
-      requestAccessToken();
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      if (!accessToken) {
-        document.getElementById('error').textContent = 'Authentication failed. Cannot export data to Google Sheets.';
-        return false;
-      }
-    }
-
-    gapi.client.setToken({ access_token: accessToken });
-
-    // Ensure sheets exist
-    await checkAndCreateSheet('Sheet1', SPREADSHEET_ID);
-    await checkAndCreateSheet('Sheet2', SPREADSHEET_ID);
-
+    // Sync to Google Sheets with retries
     let retries = 3;
-    while (retries > 0) {
+    let syncSuccess = false;
+    while (retries > 0 && !syncSuccess) {
       try {
         // Clear Sheet1 and write Status Records
         await gapi.client.sheets.spreadsheets.values.clear({
@@ -1362,8 +1371,8 @@ async function exportAndClearData() {
           });
         }
 
-        console.log('Data exported to Google Sheets');
-        break;
+        console.log('Data exported to Google Sheets successfully');
+        syncSuccess = true;
       } catch (error) {
         if (error.status === 429 && retries > 0) {
           const delay = (4 - retries) * 1000;
@@ -1372,8 +1381,7 @@ async function exportAndClearData() {
           retries--;
         } else if (error.status === 401) {
           console.warn('Access token invalid or expired. Requesting new token...');
-          requestAccessToken();
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await requestAccessToken();
           if (accessToken) {
             gapi.client.setToken({ access_token: accessToken });
             retries--;
@@ -1387,18 +1395,23 @@ async function exportAndClearData() {
       }
     }
 
-    // Clear all data
+    if (!syncSuccess) {
+      throw new Error('Failed to sync data to Google Sheets after retries');
+    }
+
+    // Clear all data only after successful sync
     log = [];
     actionHistory = [];
     localStorage.removeItem('compactorLog');
     localStorage.removeItem('compactorActionHistory');
     sessionStorage.removeItem('tempCompactorLog');
     sessionStorage.removeItem('tempCompactorActionHistory');
+
     updateStatusTable();
     updateHourlyTable();
     updateMachineButtonStates();
     document.getElementById('undoButton').disabled = true;
-    document.getElementById('error').textContent = 'Data exported and cleared successfully.';
+    document.getElementById('error').textContent = 'Data exported to CSV and Google Sheets, and cleared successfully.';
   } catch (error) {
     const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
     console.error('Error in exportAndClearData:', {
@@ -1408,7 +1421,7 @@ async function exportAndClearData() {
       result: error.result,
       stack: error.stack
     });
-    document.getElementById('error').textContent = `Failed to export and clear data: ${errorDetails || 'Unknown error'}. Please try again.`;
+    document.getElementById('error').textContent = `Failed to export and sync data: ${errorDetails || 'Unknown error'}. CSV files were generated, but Google Sheets sync failed. Please try again.`;
   }
 }
 
