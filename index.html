@@ -1,1489 +1,815 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://apis.google.com https://www.gstatic.com https://accounts.google.com https://*.googleapis.com 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://accounts.google.com https://sheets.googleapis.com;">
-    <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <title>Compactor Progress Tracker</title>
-    <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://apis.google.com https://www.gstatic.com https://accounts.google.com https://*.googleapis.com https://ssl.gstatic.com https://www.google.com 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://accounts.google.com https://sheets.googleapis.com https://www.googleapis.com;">
+  <title>Compactor Progress Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    #cover-page {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #007bff;
+      color: white;
+      text-align: center;
+    }
+    #cover-page h1 {
+      font-size: 2.5em;
+      margin-bottom: 20px;
+    }
+    #main-container {
+      display: none;
+      flex-direction: column;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      flex: 1;
+    }
+    .error {
+      color: red;
+      text-align: center;
+      margin: 10px 0;
+    }
+    .compactor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .compactor-btn {
+      padding: 15px;
+      font-size: 1em;
+      cursor: pointer;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+    }
+    .compactor-btn.active {
+      background-color: #dc3545;
+    }
+    .compactor-btn:hover {
+      background-color: #218838;
+    }
+    .compactor-btn.active:hover {
+      background-color: #c82333;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+      border: 1px solid #ddd;
+    }
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+    .time-cell {
+      cursor: pointer;
+    }
+    .blink {
+      animation: blinker 1s linear infinite;
+    }
+    @keyframes blinker {
+      50% {
+        opacity: 0;
       }
-
-      html {
-        height: 100%;
-      }
-
-      body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        margin: 0;
-        padding: clamp(10px, 2vw, 15px);
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        min-height: 100vh;
-        height: auto;
-        color: #333;
-        line-height: 1.5;
-        font-size: clamp(14px, 2.5vw, 16px);
-        display: flex;
-        flex-direction: column;
-        overflow-x: hidden;
-        overflow-y: auto;
-      }
-
-      /* Cover Page Styles */
-      #cover-page {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-        padding: 20px;
-      }
-
-      .login-container {
-        background-color: white;
-        border-radius: 12px;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-        padding: 30px;
-        width: 100%;
-        max-width: 400px;
-        text-align: center;
-      }
-
-      .login-container h1 {
-        color: #2c3e50;
-        margin-bottom: 20px;
-        font-size: 1.8rem;
-      }
-
-      .login-container p {
-        color: #6c757d;
-        margin-bottom: 30px;
-      }
-
-      .error-message {
-        color: #e74c3c;
-        margin-top: 10px;
-        font-weight: bold;
-        min-height: 20px;
-      }
-
-      /* Main Container Styles (hidden initially) */
-      #main-container {
-        display: none;
-      }
-
-      .container {
-        max-width: min(1400px, 95vw);
-        margin: 0 auto;
-        background-color: white;
-        border-radius: 12px;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-        padding: clamp(15px, 2.5vw, 20px);
-        position: relative;
-        flex-grow: 1;
-        height: auto;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        overflow-y: auto;
-      }
-
-      .container::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 6px;
-        background: linear-gradient(90deg, #4CAF50, #2196F3, #FF9800);
-      }
-
-      header {
-        text-align: center;
-        margin-bottom: clamp(15px, 3vw, 25px);
-      }
-
-      h1 {
-        color: #2c3e50;
-        margin: clamp(10px, 2vw, 15px) 0;
-        font-weight: 600;
-        position: relative;
-        padding-bottom: 15px;
-        font-size: clamp(1.5rem, 5vw, 2rem);
-      }
-
-      h1::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: clamp(60px, 10vw, 80px);
-        height: 4px;
-        background: linear-gradient(90deg, #4CAF50, #2196F3);
-        border-radius: 2px;
-      }
-
-      .dashboard {
-        display: flex;
-        flex-direction: column;
-        gap: clamp(15px, 3vw, 25px);
-        margin-bottom: clamp(15px, 3vw, 25px);
-        flex-grow: 1;
-      }
-
-      @media (min-width: 768px) {
-        .dashboard {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-        }
-      }
-
-      .card {
-        background: #f8f9fa;
-        border-radius: 10px;
-        padding: clamp(10px, 2vw, 20px);
-        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05);
-        width: 100%;
-        overflow: visible;
-        flex-grow: 0;
-        min-height: 0;
-        overflow-y: auto;
-      }
-
-      .card-header {
-        font-size: clamp(1rem, 3vw, 1.25rem);
-        font-weight: 600;
-        margin-bottom: clamp(10px, 2vw, 15px);
-        color: #2c3e50;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #e9ecef;
-      }
-
+    }
+    .total-cell {
+      font-weight: bold;
+    }
+    .status-header, .hourly-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .toggle-btn:hover {
+      background-color: #5a6268;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .control-btn {
+      padding: 10px 20px;
+      font-size: 1em;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #007bff;
+      color: white;
+    }
+    .control-btn:hover {
+      background-color: #0056b3;
+    }
+    .control-btn:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+    .delete-icon {
+      cursor: pointer;
+      color: #dc3545;
+    }
+    .delete-icon:hover {
+      color: #c82333;
+    }
+    @media (max-width: 600px) {
       .compactor-grid {
-        display: grid;
-        grid-template-rows: repeat(2, auto);
-        grid-template-columns: repeat(5, minmax(50px, 1fr));
-        grid-template-areas: 
-          "b1 b2 b3 b4 b5"
-          "b6 b7 b8 b9 b10";
-        gap: clamp(8px, 1.5vw, 12px);
-        margin-bottom: clamp(10px, 2vw, 20px);
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
       }
-
-      .compactor-btn[data-machine="1"] { grid-area: b1; }
-      .compactor-btn[data-machine="2"] { grid-area: b2; }
-      .compactor-btn[data-machine="3"] { grid-area: b3; }
-      .compactor-btn[data-machine="4"] { grid-area: b4; }
-      .compactor-btn[data-machine="5"] { grid-area: b5; }
-      .compactor-btn[data-machine="6"] { grid-area: b6; }
-      .compactor-btn[data-machine="7"] { grid-area: b7; }
-      .compactor-btn[data-machine="8"] { grid-area: b8; }
-      .compactor-btn[data-machine="9"] { grid-area: b9; }
-      .compactor-btn[data-machine="10"] { grid-area: b10; }
-
-      .compactor-btn {
-        padding: clamp(8px, 1.5vw, 12px);
-        border: none;
-        border-radius: 8px;
-        font-size: clamp(14px, 2.5vw, 18px);
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        background-color: #4CAF50;
-        color: white;
-        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-        touch-action: manipulation;
+      th, td {
+        font-size: 0.9em;
+        padding: 8px;
       }
-
-      .compactor-btn:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 5px 10px rgba(0,0,0,0.15);
-      }
-
-      .compactor-btn.active {
-        background-color: #6c757d;
-        transform: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      }
-
-      .error {
-        color: #e74c3c;
-        font-size: clamp(0.9rem, 2vw, 1rem);
-        margin: clamp(10px, 1vw, 10px) 0;
-        min-height: 24px;
-        font-weight: bold;
-        text-align: center;
-      }
-
-      .table-container {
-        overflow-x: hidden;
-        overflow-y: auto;
-        margin-top: clamp(10px, 2vw, 20px);
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        width: 100%;
-        max-height: 400px;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        background-color: white;
-        table-layout: fixed;
-      }
-
-      th {
-        background-color: #f1f5f9;
-        padding: clamp(4px, 1vw, 8px);
-        text-align: center;
-        font-weight: 600;
-        color: #2c3e50;
-        border: 1px solid #d1d5db;
-        font-size: clamp(0.7rem, 1.5vw, 0.8rem);
-        width: auto;
-      }
-
-      td {
-        padding: clamp(4px, 1vw, 8px);
-        border: 1px solid #d1d5db;
-        color: #4a5568;
-        text-align: center;
-        font-size: clamp(0.7rem, 1.5vw, 0.8rem);
-        width: auto;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      #hourlyTable th:nth-child(1),
-      #hourlyTable td:nth-child(1) {
-        width: clamp(80px, 15vw, 100px);
-        white-space: normal;
-        overflow: visible;
-        text-overflow: unset;
-      }
-
-      #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-      #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-        width: calc((100% - clamp(80px, 15vw, 100px)) / 11 * 0.9);
-      }
-
-      tr:hover {
-        background-color: #f8fafc;
-      }
-
-      .cumulative-row {
-        background-color: #d4edda !important;
-      }
-
-      .cumulative-row th,
-      .cumulative-row td {
-        background-color: #d4edda !important;
-        font-weight: 700;
-        color: #155724;
-      }
-
-      .time-cell {
-        cursor: pointer;
-        transition: background-color 0.2s;
-      }
-
-      .time-cell:hover {
-        background-color: #e3f2fd;
-      }
-
-      .blink {
-        animation: blink-animation 1s ease-in-out infinite;
-      }
-
-      @keyframes blink-animation {
-        0%, 100% { background-color: #f8f9fa; }
-        50% { background-color: #ffcccb; }
-      }
-
-      .table-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: clamp(10px, 2vw, 15px);
-        flex-wrap: wrap;
-        gap: clamp(5px, 1vw, 10px);
-      }
-
-      .table-header h3 {
-        margin: 0;
-        flex: 1 1 auto;
-        font-size: clamp(1rem, 3vw, 1.2rem);
-      }
-
-      .table-header > div {
-        display: flex;
-        align-items: center;
-        gap: clamp(5px, 1vw, 10px);
-        flex: 0 1 auto;
-      }
-
-      .counter {
-        background-color: #e3f2fd;
-        color: #1976d2;
-        padding: clamp(4px, 1vw, 6px) clamp(8px, 1.5vw, 12px);
-        border-radius: 20px;
-        font-weight: bold;
-        flex: 0 0 auto;
-        font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-      }
-
-      .btn-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: clamp(10px, 2vw, 15px);
-        margin-top: clamp(15px, 3vw, 25px);
-      }
-
-      .btn {
-        flex: 1;
-        padding: clamp(8px, 1.5vw, 12px);
-        border: none;
-        border-radius: 8px;
-        font-size: clamp(0.85rem, 2.2vw, 0.95rem);
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: clamp(5px, 1vw, 8px);
-        min-width: 100px;
-        touch-action: manipulation;
-      }
-
-      .btn-export {
-        background-color: #2196F3;
-        color: white;
-      }
-
-      .btn-export:hover {
-        background-color: #0b7dda;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
-      }
-
-      .btn-clear {
-        background-color: #e74c3c;
-        color: white;
-      }
-
-      .btn-clear:hover {
-        background-color: #c0392b;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
-      }
-
-      .btn-undo {
-        background-color: #f0ad4e;
-        color: white;
-      }
-
-      .btn-undo:hover {
-        background-color: #ec971f;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(240, 173, 78, 0.3);
-      }
-
-      .btn-undo:disabled {
-        background-color: #cccccc;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-      }
-
-      .delete-icon {
-        cursor: pointer;
-        color: #e74c3c;
-        transition: all 0.2s;
-        width: clamp(14px, 2vw, 16px);
-        height: clamp(14px, 2vw, 16px);
-      }
-
-      .delete-icon:hover {
-        color: #c0392b;
-        transform: scale(1.1);
-      }
-
-      .highlight {
-        background: #fff9c4;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-weight: bold;
-      }
-
-      .footer {
-        text-align: center;
-        margin-top: clamp(15px, 3vw, 25px);
-        color: #6c757d;
-        padding-top: clamp(10px, 2vw, 15px);
-        border-top: 1px solid #e9ecef;
-        font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-      }
-
-      .status-counters {
-        display: flex;
-        flex-wrap: wrap;
-        gap: clamp(10px, 2vw, 15px);
-        margin-bottom: clamp(10px, 2vw, 15px);
-        justify-content: center;
-      }
-
-      .counter-badge {
-        background: #e3f2fd;
-        padding: clamp(6px, 1vw, 8px) clamp(10px, 2vw, 15px);
-        border-radius: 20px;
-        font-weight: bold;
-        font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-      }
-
-      .counter-badge.pending {
-        background-color: #fff3cd;
-        color: #856404;
-      }
-
-      .counter-badge.completed {
-        background-color: #d4edda;
-        color: #155724;
-      }
-
-      .toggle-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #1976d2;
-        font-weight: bold;
-        display: flex;
-        align-items: center;
-        gap: clamp(3px, 0.5vw, 5px);
-        padding: clamp(3px, 0.5vw, 5px) clamp(5px, 1vw, 10px);
-        border-radius: 4px;
-        transition: all 0.2s;
-        flex: 0 0 auto;
-        font-size: clamp(0.75rem, 1.8vw, 0.85rem);
-        touch-action: manipulation;
-      }
-
-      .toggle-btn:hover {
-        background-color: #e3f2fd;
-      }
-
-      .blink-toggle {
-        color: #e74c3c;
-      }
-
-      .blink-toggle:hover {
-        color: #c0392b;
-      }
-
-      .status-row {
-        transition: background-color 0.3s;
-      }
-
-      .status-row:hover {
-        background-color: #ebf8ff;
-      }
-
-      @media (min-width: 768px) and (max-width: 1024px) {
-        .table-container {
-          overflow-x: hidden;
-          margin-left: 0;
-          margin-right: 0;
-          padding: 0;
-        }
-
-        table {
-          table-layout: fixed;
-          width: 100%;
-        }
-
-        th, td {
-          padding: clamp(2px, 0.5vw, 4px);
-          font-size: clamp(0.6rem, 1.2vw, 0.7rem);
-          width: auto;
-        }
-
-        #statusTable th:nth-child(1),
-        #statusTable th:nth-child(2),
-        #statusTable th:nth-child(3),
-        #statusTable th:nth-child(4),
-        #statusTable th:nth-child(5),
-        #statusTable th:nth-child(6),
-        #statusTable td:nth-child(1),
-        #statusTable td:nth-child(2),
-        #statusTable td:nth-child(3),
-        #statusTable td:nth-child(4),
-        #statusTable td:nth-child(5),
-        #statusTable td:nth-child(6) {
-          width: calc(100% / 6 * 0.9);
-        }
-
-        #hourlyTable th:nth-child(1),
-        #hourlyTable td:nth-child(1) {
-          width: clamp(70px, 12vw, 90px);
-          white-space: normal;
-          overflow: visible;
-          text-overflow: unset;
-        }
-
-        #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-        #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-          width: calc((100% - clamp(70px, 12vw, 90px)) / 11 * 0.8);
-        }
-      }
-
-      @media (max-width: 1024px) {
-        .card {
-          padding: clamp(8px, 1.5vw, 15px);
-        }
-        
-        .table-container {
-          margin-left: calc(-1vw);
-          margin-right: calc(-1vw);
-          padding: 0 1vw;
-        }
-        
-        table {
-          min-width: 0;
-        }
-        
-        body {
-          padding: clamp(5px, 1vw, 10px);
-        }
-        
-        .container {
-          padding: clamp(10px, 2vw, 15px);
-        }
-      }
-
-      @media (max-width: 768px) {
-        .compactor-grid {
-          grid-template-columns: repeat(5, minmax(45px, 1fr));
-          gap: clamp(6px, 1vw, 10px);
-        }
-        
-        .btn {
-          min-width: 90px;
-          padding: clamp(6px, 1.5vw, 10px);
-        }
-        
-        .table-container {
-          margin-left: calc(-2vw);
-          margin-right: calc(-2vw);
-          padding: 0 2vw;
-        }
-        
-        .dashboard {
-          flex-direction: column;
-        }
-        
-        .card {
-          width: 100%;
-          margin-bottom: clamp(10px, 2vw, 15px);
-        }
-        
-        body {
-          min-height: 100%;
-          height: auto;
-          padding: clamp(5px, 1vw, 8px);
-        }
-        
-        .container {
-          min-height: 100%;
-          height: auto;
-          padding: clamp(8px, 1.5vw, 12px);
-        }
-
-        #hourlyTable th:nth-child(1),
-        #hourlyTable td:nth-child(1) {
-          width: clamp(60px, 20vw, 80px);
-          white-space: normal;
-          overflow: visible;
-          text-overflow: unset;
-        }
-
-        #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-        #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-          width: calc((100% - clamp(60px, 20vw, 80px)) / 11 * 0.8);
-        }
-      }
-
-      @media (max-width: 600px) {
-        .compactor-grid {
-          grid-template-columns: repeat(5, minmax(40px, 1fr));
-          gap: clamp(5px, 1vw, 8px);
-        }
-        
-        .compactor-btn {
-          font-size: clamp(12px, 2.2vw, 16px);
-          padding: clamp(6px, 1.2vw, 12px);
-        }
-        
-        table {
-          min-width: 0;
-          font-size: clamp(0.6rem, 1.4vw, 0.7rem);
-        }
-        
-        th, td {
-          padding: clamp(2px, 0.5vw, 4px);
-        }
-        
-        .btn {
-          min-width: 80px;
-          font-size: clamp(0.75rem, 2vw, 0.85rem);
-        }
-        
-        .table-header {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-        
-        .table-header > div {
-          width: 100%;
-          justify-content: flex-end;
-        }
-
-        #hourlyTable th:nth-child(1),
-        #hourlyTable td:nth-child(1) {
-          width: clamp(50px, 18vw, 70px);
-          white-space: normal;
-          overflow: visible;
-          text-overflow: unset;
-          font-size: clamp(0.65rem, 1.6vw, 0.75rem);
-        }
-
-        #hourlyTable th:nth-child(n+2):nth-child(-n+11),
-        #hourlyTable td:nth-child(n+2):nth-child(-n+11) {
-          width: calc((100% - clamp(50px, 18vw, 70px)) / 11 * 0.7);
-        }
-      }
-
-      @media (max-width: 400px) {
-        body {
-          padding: clamp(5px, 1vw, 8px);
-        }
-        
-        .container {
-          padding: clamp(8px, 1.5vw, 12px);
-        }
-        
-        h1 {
-          font-size: clamp(1.2rem, 4vw, 1.5rem);
-        }
-        
-        .compactor-grid {
-          grid-template-columns: repeat(5, minmax(35px, 1fr));
-          gap: clamp(4px, 0.8vw, 6px);
-        }
-        
-        .compactor-btn {
-          font-size: clamp(10px, 2vw, 14px);
-          padding: clamp(5px, 1vw, 10px);
-        }
-        
-        table {
-          min-width: 0;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <!-- Cover Page with Google Sign-In -->
-    <div id="cover-page">
-      <div class="login-container">
-        <h1>Compactor Progress Tracker</h1>
-        <p>Please sign in with your Google account to access the system</p>
-        <div id="g_id_onload"
-             data-client_id="959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com"
-             data-callback="handleCredentialResponse"
-             data-auto_prompt="false">
-        </div>
-        <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
-        <div id="login-error" class="error-message"></div>
-      </div>
-    </div>
-
-    <!-- Main Content (hidden initially) -->
-    <div id="main-container">
-      <div class="container">
-        <header>
-          <h1>Compactor Progress Tracker</h1>
-        </header>
-        
-        <div class="dashboard">
-          <div class="card">
-            <div class="card-header">Compactor Entry</div>
-            
-            <div class="compactor-grid">
-              <button class="compactor-btn" data-machine="1">1</button>
-              <button class="compactor-btn" data-machine="2">2</button>
-              <button class="compactor-btn" data-machine="3">3</button>
-              <button class="compactor-btn" data-machine="4">4</button>
-              <button class="compactor-btn" data-machine="5">5</button>
-              <button class="compactor-btn" data-machine="6">6</button>
-              <button class="compactor-btn" data-machine="7">7</button>
-              <button class="compactor-btn" data-machine="8">8</button>
-              <button class="compactor-btn" data-machine="9">9</button>
-              <button class="compactor-btn" data-machine="10">10</button>
-            </div>
-            
-            <div class="error" id="error"></div>
-            
-            <div class="table-header">
-              <h3>Hourly Records</h3>
-              <div>
-                <span class="counter" id="hourlyCount">0 hours</span>
-                <button class="toggle-btn" id="toggleHourly">
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-                  </svg>
-                  Show All
-                </button>
-              </div>
-            </div>
-            
-            <div class="table-container">
-              <table id="hourlyTable">
-                <thead>
-                  <tr class="cumulative-row" id="cumulativeRow" style="display: none;">
-                    <th>Cumulative Total</th>
-                    <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
-                    <th></th>
-                  </tr>
-                  <tr>
-                    <th>Time Slot</th>
-                    <th>1</th>
-                    <th>2</th>
-                    <th>3</th>
-                    <th>4</th>
-                    <th>5</th>
-                    <th>6</th>
-                    <th>7</th>
-                    <th>8</th>
-                    <th>9</th>
-                    <th>10</th>
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody id="hourlyBody">
-                  <tr>
-                    <td colspan="12" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No hourly records</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            
-            <div class="btn-group">
-              <button class="btn btn-export" id="exportButton">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                  <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                </svg>
-                Export to CSV
-              </button>
-              <button class="btn btn-clear" id="clearButton">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                  <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                </svg>
-                Clear All Data
-              </button>
-              <button class="btn btn-undo" id="undoButton" disabled>
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M8 0a8 8 0 0 0-2.915 15.452c-.07-.633-.134-1.606.027-2.297.146-.625.938-3.977.938-3.977s-.239-.479-.239-1.187c0-1.113.645-1.943 1.448-1.943.682 0 1.012.512 1.012 1.127 0 .686-.437 1.712-.663 2.663-.188.796.805 1.446 1.742 1.446 2.094 0 3.71-2.205 3.71-5.398 0-2.82-2.03-4.788-4.922-4.788-3.354 0-5.32 2.517-5.32 5.117 0 1.015.388 2.103.873 2.696a.346.346 0 0 1 .078.427c-.066.286-.287.885-.392 1.104-.104.218-.217.243-.334.114C2.29 12.685 2 11.454 2 10.025 2 6.153 5.144 3 8.5 3 11.07 3 14 5.404 14 8.5c0 3.096-2.93 5.5-5.5 5.5-.943 0-1.816-.256-2.557-.683l-.737.552a.5.5 0 0 1-.683-.95l1.293-.97A7.942 7.942 0 0 0 8 0z"/>
-                </svg>
-                Undo
-              </button>
-            </div>
-          </div>
-          
-          <div class="card">
-            <div class="card-header">Current Status</div>
-            
-            <div class="status-counters">
-              <div class="counter-badge pending" id="pendingCount">0 pending</div>
-              <div class="counter-badge completed" id="completedCount">0 completed</div>
-            </div>
-            
-            <div class="table-header">
-              <h3>Status Records</h3>
-              <div>
-                <span class="counter" id="statusCount">0 records</span>
-                <button class="toggle-btn blink-toggle" id="toggleBlink">
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-                  </svg>
-                  Stop Blinking
-                </button>
-                <button class="toggle-btn" id="toggleRecords" style="display: none;">
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-                  </svg>
-                  Show All
-                </button>
-              </div>
-            </div>
-            
-            <div class="table-container">
-              <table id="statusTable">
-                <thead>
-                  <tr>
-                    <th>Container #</th>
-                    <th>Compactor</th>
-                    <th>In Time</th>
-                    <th>Out Time</th>
-                    <th>Duration</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody id="statusBody">
-                  <tr>
-                    <td colspan="6" style="text-align: center; color: #6c757d; padding: clamp(10px, 2vw, 20px);">No records</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        
-        <div class="footer">
-          Compactor Progress Tracker v2.4 | Data is stored locally in your browser
-        </div>
-      </div>
-    </div>
-<script>
-// Google Sheets API configuration
-const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
-const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
-const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo';
-const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
-
-// Global variables
-let log = [];
-let actionHistory = [];
-let showAllRecords = false;
-let showAllHourly = false;
-let isBlinkingEnabled = true;
-let updateInterval = null;
-let syncInterval = null;
-let accessToken = null;
-
-// Initialize Google API client
-async function initClient() {
-  try {
-    if (!window.gapi) {
-      throw new Error('Google API script not loaded');
     }
-    await new Promise((resolve, reject) => {
-      gapi.load('client', {
-        callback: () => {
-          console.log('Google API client loaded');
-          resolve();
-        },
-        onerror: () => reject(new Error('Failed to load gapi client')),
-        timeout: 15000,
-        ontimeout: () => reject(new Error('Google API load timeout'))
-      });
-    });
-    await gapi.client.init({
-      apiKey: API_KEY,
-      discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-    });
-    console.log('Google API client initialized successfully');
-    return true;
-  } catch (error) {
-    console.error('Error initializing Google API:', error);
-    document.getElementById('error').textContent = `Failed to initialize Google API: ${error.message}. Some features may not work.`;
-    return false;
-  }
-}
-
-// Handle Google Sign-In credential response
-function handleCredentialResponse(response) {
-  console.log('handleCredentialResponse called with:', response);
-  if (response.credential) {
-    console.log('Credential received:', response.credential);
-    try {
-      const profile = parseJwt(response.credential);
-      console.log('Parsed profile:', profile);
-      accessToken = response.credential;
-      document.getElementById('cover-page').style.display = 'none';
-      document.getElementById('main-container').style.display = 'block';
-      sessionStorage.setItem('loggedIn', 'true');
-      console.log('Page transition completed, initializing app...');
-      initializeApp();
-    } catch (e) {
-      console.error('Error in handleCredentialResponse:', e);
-      document.getElementById('login-error').textContent = 'Error processing sign-in. Please try again.';
-    }
-  } else {
-    console.error('No credential received in response:', response);
-    document.getElementById('login-error').textContent = 'Sign-in failed: No credential received. Please try again.';
-  }
-}
-
-// Parse JWT token
-function parseJwt(token) {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
-      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-    ).join(''));
-    return JSON.parse(jsonPayload);
-  } catch (e) {
-    console.error('Error parsing JWT:', e);
-    return {};
-  }
-}
-
-// Request access token for Google Sheets
-function requestAccessToken(callback) {
-  if (!window.google) {
-    console.error('Google Identity Services not loaded');
-    document.getElementById('error').textContent = 'Google Identity Services not loaded. Cannot authenticate.';
-    return;
-  }
-  const tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPE,
-    callback: (response) => {
-      if (response.error) {
-        console.error('Token request error:', response);
-        document.getElementById('error').textContent = `Authentication failed: ${response.error_description || response.error || 'Unknown error'}. Please try again.`;
-        accessToken = null;
+  </style>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+    // Define handleCredentialResponse in global scope
+    window.handleCredentialResponse = function(response) {
+      console.log('handleCredentialResponse called with:', response);
+      if (response.credential) {
+        console.log('Credential received:', response.credential);
+        try {
+          const profile = parseJwt(response.credential);
+          console.log('Parsed profile:', profile);
+          accessToken = response.credential;
+          document.getElementById('cover-page').style.display = 'none';
+          document.getElementById('main-container').style.display = 'block';
+          sessionStorage.setItem('loggedIn', 'true');
+          console.log('Page transition completed, initializing app...');
+          initializeApp();
+        } catch (e) {
+          console.error('Error in handleCredentialResponse:', e);
+          document.getElementById('login-error').textContent = 'Error processing sign-in. Please try again.';
+        }
       } else {
-        accessToken = response.access_token;
-        console.log('Access token received:', accessToken);
-        document.getElementById('error').textContent = '';
-        if (callback) callback();
+        console.error('No credential received in response:', response);
+        document.getElementById('login-error').textContent = 'Sign-in failed: No credential received. Please try again.';
       }
-    },
-  });
-  tokenClient.requestAccessToken();
-}
+    };
+  </script>
+</head>
+<body>
+  <div id="cover-page">
+    <h1>Compactor Progress Tracker</h1>
+    <div id="g_id_onload"
+         data-client_id="959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse"
+         data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
+    <div id="login-error" class="error"></div>
+  </div>
+  <div id="main-container">
+    <div id="error" class="error"></div>
+    <div class="compactor-grid">
+      <button class="compactor-btn" data-machine="1">Compactor 1</button>
+      <button class="compactor-btn" data-machine="2">Compactor 2</button>
+      <button class="compactor-btn" data-machine="3">Compactor 3</button>
+      <button class="compactor-btn" data-machine="4">Compactor 4</button>
+      <button class="compactor-btn" data-machine="5">Compactor 5</button>
+      <button class="compactor-btn" data-machine="6">Compactor 6</button>
+      <button class="compactor-btn" data-machine="7">Compactor 7</button>
+      <button class="compactor-btn" data-machine="8">Compactor 8</button>
+      <button class="compactor-btn" data-machine="9">Compactor 9</button>
+      <button class="compactor-btn" data-machine="10">Compactor 10</button>
+    </div>
+    <div class="controls">
+      <button id="exportButton" class="control-btn">Export to CSV</button>
+      <button id="clearButton" class="control-btn">Clear Data</button>
+      <button id="undoButton" class="control-btn" disabled>Undo</button>
+      <button id="toggleBlink" class="control-btn">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+        </svg>
+        Stop Blinking
+      </button>
+    </div>
+    <div class="status-header">
+      <h2>Status Report: <span id="statusCount">0 records</span>, <span id="pendingCount">0 pending</span>, <span id="completedCount">0 completed</span></h2>
+      <button id="toggleRecords" class="toggle-btn" style="display: none;">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+        </svg>
+        Show All
+      </button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Container #</th>
+          <th>Compactor</th>
+          <th>In Time</th>
+          <th>Out Time</th>
+          <th>Duration</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="statusBody">
+        <tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>
+      </tbody>
+    </table>
+    <div class="hourly-header">
+      <h2>Hourly Report: <span id="hourlyCount">0 hours</span></h2>
+      <button id="toggleHourly" class="toggle-btn" style="display: none;">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+        </svg>
+        Show All
+      </button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Time Slot</th>
+          <th>Compactor 1</th>
+          <th>Compactor 2</th>
+          <th>Compactor 3</th>
+          <th>Compactor 4</th>
+          <th>Compactor 5</th>
+          <th>Compactor 6</th>
+          <th>Compactor 7</th>
+          <th>Compactor 8</th>
+          <th>Compactor 9</th>
+          <th>Compactor 10</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody id="hourlyBody">
+        <tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>
+      </tbody>
+      <tfoot>
+        <tr id="cumulativeRow" style="display: none;"></tr>
+      </tfoot>
+    </table>
+  </div>
+  <script>
+    // Google Sheets API configuration
+    const API_KEY = 'AIzaSyD7iPND2yyzqY1JyC5n1la7S5NnDwpNOVM';
+    const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleusercontent.com';
+    const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo';
+    const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 
-// Sync data to Google Sheets
-async function syncToGoogleSheets() {
-  try {
-    if (!accessToken) {
-      console.warn('No access token. Requesting authentication...');
-      await new Promise(resolve => requestAccessToken(resolve));
-      if (!accessToken) {
-        throw new Error('Failed to obtain access token');
-      }
-    }
-    gapi.client.setToken({ access_token: accessToken });
-    const values = log.map(entry => [
-      entry.entryTimestamp,
-      entry.machineNumber,
-      entry.inTime,
-      entry.outTime || '',
-      calculateDuration(entry.inTime, entry.outTime).display
-    ]);
-    let retries = 3;
-    while (retries > 0) {
+    // Global variables
+    let log = [];
+    let actionHistory = [];
+    let showAllRecords = false;
+    let showAllHourly = false;
+    let isBlinkingEnabled = true;
+    let updateInterval = null;
+    let syncInterval = null;
+    let accessToken = null;
+
+    // Initialize Google API client
+    async function initClient() {
       try {
-        const response = await gapi.client.sheets.spreadsheets.values.append({
-          spreadsheetId: SPREADSHEET_ID,
-          range: 'Sheet1!A:E',
-          valueInputOption: 'RAW',
-          insertDataOption: 'INSERT_ROWS',
-          resource: { values: [['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'], ...values] }
+        if (!window.gapi) {
+          throw new Error('Google API script not loaded');
+        }
+        await new Promise((resolve, reject) => {
+          gapi.load('client', {
+            callback: () => {
+              console.log('Google API client loaded');
+              resolve();
+            },
+            onerror: () => reject(new Error('Failed to load gapi client')),
+            timeout: 15000,
+            ontimeout: () => reject(new Error('Google API load timeout'))
+          });
         });
-        console.log('Data synced to Google Sheets:', response);
-        document.getElementById('error').textContent = '';
+        await gapi.client.init({
+          apiKey: API_KEY,
+          discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+        });
+        console.log('Google API client initialized successfully');
         return true;
       } catch (error) {
-        if (error.status === 429 && retries > 0) {
-          const delay = (4 - retries) * 1000;
-          console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          retries--;
-        } else if (error.status === 401) {
-          console.warn('Access token invalid or expired. Requesting new token...');
-          await new Promise(resolve => requestAccessToken(resolve));
-          if (accessToken) {
-            gapi.client.setToken({ access_token: accessToken });
-            retries--;
-            continue;
-          } else {
-            throw new Error('Failed to obtain new access token');
-          }
-        } else {
-          throw error;
-        }
+        console.error('Error initializing Google API:', error);
+        document.getElementById('error').textContent = `Failed to initialize Google API: ${error.message}. Some features may not work.`;
+        return false;
       }
     }
-    throw new Error('Failed to sync after retries');
-  } catch (error) {
-    console.error('Error syncing to Google Sheets:', error);
-    document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${error.message}. Please verify spreadsheet access or try again.`;
-    return false;
-  }
-}
 
-// Initialize the application
-function initializeApp() {
-  const savedLog = localStorage.getItem('compactorLog');
-  if (savedLog) log = JSON.parse(savedLog);
-  const savedHistory = localStorage.getItem('compactorActionHistory');
-  if (savedHistory) actionHistory = JSON.parse(savedHistory);
-  updateStatusTable();
-  updateHourlyTable();
-  updateMachineButtonStates();
-  document.getElementById('undoButton').disabled = actionHistory.length === 0;
-  updateInterval = setInterval(updateStatusTable, 60000);
-  syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
-  initClient();
-}
-
-// Your existing functions (unchanged)
-function updateStatusTable() {
-  const statusBody = document.getElementById('statusBody');
-  const statusCount = document.getElementById('statusCount');
-  const pendingCount = document.getElementById('pendingCount');
-  const completedCount = document.getElementById('completedCount');
-  const toggleButton = document.getElementById('toggleRecords');
-  const pendingRecords = log.filter(entry => !entry.outTime).length;
-  const completedRecords = log.filter(entry => entry.outTime).length;
-  statusCount.textContent = `${log.length} records`;
-  pendingCount.textContent = `${pendingRecords} pending`;
-  completedCount.textContent = `${completedRecords} completed`;
-  toggleButton.style.display = log.length > 10 ? 'flex' : 'none';
-  toggleButton.innerHTML = `
-    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-    </svg>
-    ${showAllRecords ? 'Show Less' : 'Show All'}
-  `;
-  if (log.length === 0) {
-    statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
-    return;
-  }
-  log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
-  const displayEntries = showAllRecords ? log : log.slice(0, 10);
-  statusBody.innerHTML = '';
-  displayEntries.forEach((entry, index) => {
-    const row = document.createElement('tr');
-    row.className = 'status-row';
-    const { display, minutes } = calculateDuration(entry.inTime, entry.outTime);
-    const blinkClass = isBlinkingEnabled && !entry.outTime && minutes > 39 ? 'blink' : '';
-    const containerNumber = log.length - (showAllRecords ? index : index);
-    const entryIndex = log.indexOf(entry);
-    row.innerHTML = `
-      <td>${containerNumber}</td>
-      <td class="${blinkClass}">${entry.machineNumber}</td>
-      <td class="time-cell" onclick="editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'inTime')">${entry.inTime}</td>
-      <td class="time-cell" onclick="${entry.outTime ? `editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'outTime')` : `promptOutTime(${entryIndex})`}">
-        ${entry.outTime || '-'}
-      </td>
-      <td>${display}</td>
-      <td>
-        <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}')">
-          <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-          <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-        </svg>
-      </td>
-    `;
-    statusBody.appendChild(row);
-  });
-}
-
-function updateHourlyTable() {
-  const hourlyBody = document.getElementById('hourlyBody');
-  const hourlyCount = document.getElementById('hourlyCount');
-  const toggleButton = document.getElementById('toggleHourly');
-  const cumulativeRow = document.getElementById('cumulativeRow');
-  const timeSlots = [
-    { start: '07:30', end: '08:29' },
-    { start: '08:30', end: '09:29' },
-    { start: '09:30', end: '10:29' },
-    { start: '10:30', end: '11:29' },
-    { start: '11:30', end: '12:29' },
-    { start: '12:30', end: '13:29' },
-    { start: '13:30', end: '14:29' },
-    { start: '14:30', end: '15:29' },
-    { start: '15:30', end: '16:29' },
-    { start: '16:30', end: '17:29' },
-    { start: '17:30', end: '18:29' },
-    { start: '18:30', end: '19:29' },
-    { start: '19:30', end: '20:29' },
-    { start: '20:30', end: '21:29' },
-    { start: '21:30', end: '22:29' },
-    { start: '22:30', end: '23:29' },
-    { start: '23:30', end: '00:29' },
-    { start: '00:30', end: '01:29' },
-    { start: '01:30', end: '02:29' },
-    { start: '02:30', end: '03:29' },
-    { start: '03:30', end: '04:29' },
-    { start: '04:30', end: '05:29' },
-    { start: '05:30', end: '06:29' }
-  ];
-  const parseTime = (timeStr, referenceDate = new Date()) => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date(referenceDate);
-    date.setHours(hours, minutes, 0, 0);
-    if (hours < 7) date.setDate(date.getDate() + 1);
-    return date;
-  };
-  const hourlyRecords = [];
-  const completedEntries = log.filter(entry => entry.outTime);
-  timeSlots.forEach(slot => {
-    const slotStart = parseTime(slot.start);
-    const slotEnd = parseTime(slot.end, slotStart);
-    const machineCounts = Array(11).fill(0);
-    completedEntries.forEach(entry => {
-      const inTime = parseTime(entry.inTime);
-      const outTime = parseTime(entry.outTime, inTime);
-      if (inTime >= slotStart && outTime <= slotEnd) {
-        machineCounts[entry.machineNumber]++;
+    // Parse JWT token
+    function parseJwt(token) {
+      try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        return JSON.parse(jsonPayload);
+      } catch (e) {
+        console.error('Error parsing JWT:', e);
+        return {};
       }
-    });
-    if (machineCounts.some(count => count > 0)) {
-      hourlyRecords.push({
-        timeSlot: `${slot.start}-${slot.end}`,
-        machineCounts,
-        startTime: slotStart
+    }
+
+    // Request access token for Google Sheets
+    function requestAccessToken(callback) {
+      if (!window.google) {
+        console.error('Google Identity Services not loaded');
+        document.getElementById('error').textContent = 'Google Identity Services not loaded. Cannot authenticate.';
+        return;
+      }
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPE,
+        callback: (response) => {
+          if (response.error) {
+            console.error('Token request error:', response);
+            document.getElementById('error').textContent = `Authentication failed: ${response.error_description || response.error || 'Unknown error'}. Please try again.`;
+            accessToken = null;
+          } else {
+            accessToken = response.access_token;
+            console.log('Access token received:', accessToken);
+            document.getElementById('error').textContent = '';
+            if (callback) callback();
+          }
+        },
+      });
+      tokenClient.requestAccessToken();
+    }
+
+    // Sync data to Google Sheets
+    async function syncToGoogleSheets() {
+      try {
+        if (!accessToken) {
+          console.warn('No access token. Requesting authentication...');
+          await new Promise(resolve => requestAccessToken(resolve));
+          if (!accessToken) {
+            throw new Error('Failed to obtain access token');
+          }
+        }
+        gapi.client.setToken({ access_token: accessToken });
+        const values = log.map(entry => [
+          entry.entryTimestamp,
+          entry.machineNumber,
+          entry.inTime,
+          entry.outTime || '',
+          calculateDuration(entry.inTime, entry.outTime).display
+        ]);
+        let retries = 3;
+        while (retries > 0) {
+          try {
+            const response = await gapi.client.sheets.spreadsheets.values.append({
+              spreadsheetId: SPREADSHEET_ID,
+              range: 'Sheet1!A:E',
+              valueInputOption: 'RAW',
+              insertDataOption: 'INSERT_ROWS',
+              resource: { values: [['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'], ...values] }
+            });
+            console.log('Data synced to Google Sheets:', response);
+            document.getElementById('error').textContent = '';
+            return true;
+          } catch (error) {
+            if (error.status === 429 && retries > 0) {
+              const delay = (4 - retries) * 1000;
+              console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              retries--;
+            } else if (error.status === 401) {
+              console.warn('Access token invalid or expired. Requesting new token...');
+              await new Promise(resolve => requestAccessToken(resolve));
+              if (accessToken) {
+                gapi.client.setToken({ access_token: accessToken });
+                retries--;
+                continue;
+              } else {
+                throw new Error('Failed to obtain new access token');
+              }
+            } else {
+              throw error;
+            }
+          }
+        }
+        throw new Error('Failed to sync after retries');
+      } catch (error) {
+        console.error('Error syncing to Google Sheets:', error);
+        document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${error.message}. Please verify spreadsheet access or try again.`;
+        return false;
+      }
+    }
+
+    // Initialize the application
+    function initializeApp() {
+      const savedLog = localStorage.getItem('compactorLog');
+      if (savedLog) log = JSON.parse(savedLog);
+      const savedHistory = localStorage.getItem('compactorActionHistory');
+      if (savedHistory) actionHistory = JSON.parse(savedHistory);
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      document.getElementById('undoButton').disabled = actionHistory.length === 0;
+      updateInterval = setInterval(updateStatusTable, 60000);
+      syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
+      initClient();
+    }
+
+    // Update status table
+    function updateStatusTable() {
+      const statusBody = document.getElementById('statusBody');
+      const statusCount = document.getElementById('statusCount');
+      const pendingCount = document.getElementById('pendingCount');
+      const completedCount = document.getElementById('completedCount');
+      const toggleButton = document.getElementById('toggleRecords');
+      const pendingRecords = log.filter(entry => !entry.outTime).length;
+      const completedRecords = log.filter(entry => entry.outTime).length;
+      statusCount.textContent = `${log.length} records`;
+      pendingCount.textContent = `${pendingRecords} pending`;
+      completedCount.textContent = `${completedRecords} completed`;
+      toggleButton.style.display = log.length > 10 ? 'flex' : 'none';
+      toggleButton.innerHTML = `
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+        </svg>
+        ${showAllRecords ? 'Show Less' : 'Show All'}
+      `;
+      if (log.length === 0) {
+        statusBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #6c757d;">No records</td></tr>`;
+        return;
+      }
+      log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
+      const displayEntries = showAllRecords ? log : log.slice(0, 10);
+      statusBody.innerHTML = '';
+      displayEntries.forEach((entry, index) => {
+        const row = document.createElement('tr');
+        row.className = 'status-row';
+        const { display, minutes: diffMins } = calculateDuration(entry.inTime, entry.outTime);
+        const blinkClass = isBlinkingEnabled && !entry.outTime && diffMins > 39 ? 'blink' : '';
+        const containerNumber = log.length - (showAllRecords ? index : index);
+        const entryIndex = log.indexOf(entry);
+        row.innerHTML = `
+          <td>${containerNumber}</td>
+          <td class="${blinkClass}">${entry.machineNumber}</td>
+          <td class="time-cell" onclick="editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'inTime')">${entry.inTime}</td>
+          <td class="time-cell" onclick="${entry.outTime ? `editEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}', 'outTime')` : `promptOutTime(${entryIndex})`}">
+            ${entry.outTime || '-'}
+          </td>
+          <td>${display}</td>
+          <td>
+            <svg class="delete-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" onclick="deleteEntry(${entry.machineNumber}, '${entry.entryTimestamp.replace(/'/g, "\\'")}')">
+              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+              <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+            </svg>
+          </td>
+        `;
+        statusBody.appendChild(row);
       });
     }
-  });
-  hourlyCount.textContent = `${hourlyRecords.length} hours`;
-  toggleButton.style.display = hourlyRecords.length > 5 ? 'flex' : 'none';
-  toggleButton.innerHTML = `
-    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-    </svg>
-    ${showAllHourly ? 'Show Less' : 'Show All'}
-  `;
-  const cumulativeCounts = Array(11).fill(0);
-  completedEntries.forEach(entry => {
-    cumulativeCounts[entry.machineNumber]++;
-  });
-  const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-  if (cumulativeTotal > 0) {
-    cumulativeRow.style.display = 'table-row';
-    cumulativeRow.innerHTML = `
-      <th>Cumulative Total</th>
-      ${cumulativeCounts.slice(1).map(count => `<th>${count}</th>`).join('')}
-      <th>${cumulativeTotal}</th>
-    `;
-  } else {
-    cumulativeRow.style.display = 'none';
-  }
-  hourlyBody.innerHTML = '';
-  if (hourlyRecords.length === 0) {
-    hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
-    return hourlyRecords;
-  }
-  hourlyRecords.sort((a, b) => b.startTime - a.startTime);
-  const displayRecords = showAllHourly ? hourlyRecords : hourlyRecords.slice(0, 5);
-  displayRecords.forEach(record => {
-    const row = document.createElement('tr');
-    const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-    row.innerHTML = `
-      <td>${record.timeSlot}</td>
-      ${record.machineCounts.slice(1).map(count => `<td>${count}</td>`).join('')}
-      <td class="total-cell">${total}</td>
-    `;
-    hourlyBody.appendChild(row);
-  });
-  return hourlyRecords;
-}
 
-function updateMachineButtonStates() {
-  document.querySelectorAll('.compactor-btn').forEach(button => {
-    const machineNum = parseInt(button.getAttribute('data-machine'));
-    const hasActiveSession = log.some(entry => 
-      entry.machineNumber === machineNum && !entry.outTime
-    );
-    button.classList.toggle('active', hasActiveSession);
-  });
-}
-
-function calculateDuration(inTime, outTime = null) {
-  const parseTime = timeStr => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-    if (hours < 7) date.setDate(date.getDate() + 1);
-    return date;
-  };
-  try {
-    const start = parseTime(inTime);
-    const end = outTime ? parseTime(outTime, start) : new Date();
-    let diffMs = end - start;
-    if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
-    const diffMins = Math.floor(diffMs / 60000);
-    const hours = Math.floor(diffMins / 60);
-    const minutes = diffMins % 60;
-    const display = outTime 
-      ? `${hours}h ${minutes}m`
-      : `${hours}h ${minutes}m (ongoing)`;
-    return { display, minutes: diffMins };
-  } catch {
-    return { display: 'N/A', minutes: 0 };
-  }
-}
-
-function handleMachineButtonClick(machineNum) {
-  const errorDiv = document.getElementById('error');
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const timeString = `${hours}:${minutes}`;
-  const timestamp = now.toISOString();
-  if (log.some(entry => entry.machineNumber === machineNum && !entry.outTime)) {
-    errorDiv.textContent = `Machine ${machineNum} is already in use.`;
-    return;
-  }
-  errorDiv.textContent = '';
-  const newEntry = {
-    machineNumber: machineNum,
-    inTime: timeString,
-    entryTimestamp: timestamp
-  };
-  log.push(newEntry);
-  actionHistory.push({ action: 'add', entry: { ...newEntry } });
-  localStorage.setItem('compactorLog', JSON.stringify(log));
-  localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-  document.getElementById('undoButton').disabled = false;
-  updateStatusTable();
-  updateHourlyTable();
-  updateMachineButtonStates();
-  syncToGoogleSheets();
-}
-
-function promptOutTime(entryIndex) {
-  const entry = log[entryIndex];
-  if (!entry || entry.outTime) return;
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const defaultTime = `${hours}:${minutes}`;
-  const time = prompt('Enter out time (HH:MM)', defaultTime);
-  if (time === null) return;
-  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-  if (!timeRegex.test(time)) {
-    document.getElementById('error').textContent = 'Invalid time format. Use HH:MM.';
-    return;
-  }
-  const { minutes } = calculateDuration(entry.inTime, time);
-  if (minutes < 0) {
-    document.getElementById('error').textContent = 'Out time cannot be earlier than in time.';
-    return;
-  }
-  entry.outTime = time;
-  actionHistory.push({ 
-    action: 'out', 
-    entry: { ...entry }, 
-    previous: { ...log[entryIndex], outTime: null }
-  });
-  log[entryIndex] = entry;
-  localStorage.setItem('compactorLog', JSON.stringify(log));
-  localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-  document.getElementById('undoButton').disabled = false;
-  updateStatusTable();
-  updateHourlyTable();
-  updateMachineButtonStates();
-  syncToGoogleSheets();
-}
-
-function editEntry(machineNumber, entryTimestamp, field) {
-  const entry = log.find(e => 
-    e.machineNumber === machineNumber && e.entryTimestamp === entryTimestamp
-  );
-  if (!entry) return;
-  const currentTime = field === 'inTime' ? entry.inTime : entry.outTime;
-  const newTime = prompt(`Enter new ${field.replace('Time', ' time')} (HH:MM)`, currentTime);
-  if (newTime === null) return;
-  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-  if (!timeRegex.test(newTime)) {
-    document.getElementById('error').textContent = 'Invalid time format. Use HH:MM.';
-    return;
-  }
-  if (field === 'inTime' && entry.outTime) {
-    const { minutes } = calculateDuration(newTime, entry.outTime);
-    if (minutes < 0) {
-      document.getElementById('error').textContent = 'In time cannot be later than out time.';
-      return;
-    }
-  } else if (field === 'outTime') {
-    const { minutes } = calculateDuration(entry.inTime, newTime);
-    if (minutes < 0) {
-      document.getElementById('error').textContent = 'Out time cannot be earlier than in time.';
-      return;
-    }
-  }
-  const previousEntry = { ...entry };
-  entry[field] = newTime;
-  actionHistory.push({
-    action: 'edit',
-    entry: { ...entry },
-    previous: previousEntry,
-    field
-  });
-  localStorage.setItem('compactorLog', JSON.stringify(log));
-  localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-  document.getElementById('undoButton').disabled = false;
-  updateStatusTable();
-  updateHourlyTable();
-  updateMachineButtonStates();
-  syncToGoogleSheets();
-}
-
-function deleteEntry(machineNumber, entryTimestamp) {
-  const index = log.findIndex(e => 
-    e.machineNumber === machineNumber && e.entryTimestamp === entryTimestamp
-  );
-  if (index === -1) return;
-  if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
-    return;
-  }
-  const entry = log[index];
-  actionHistory.push({ action: 'delete', entry: { ...entry }, index });
-  log.splice(index, 1);
-  localStorage.setItem('compactorLog', JSON.stringify(log));
-  localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-  document.getElementById('undoButton').disabled = false;
-  updateStatusTable();
-  updateHourlyTable();
-  updateMachineButtonStates();
-  syncToGoogleSheets();
-}
-
-function undoAction() {
-  if (actionHistory.length === 0) return;
-  const lastAction = actionHistory.pop();
-  const errorDiv = document.getElementById('error');
-  if (lastAction.action === 'add') {
-    const index = log.findIndex(e => 
-      e.entryTimestamp === lastAction.entry.entryTimestamp &&
-      e.machineNumber === lastAction.entry.machineNumber
-    );
-    if (index !== -1) {
-      log.splice(index, 1);
-    }
-  } else if (lastAction.action === 'out') {
-    const index = log.findIndex(e => 
-      e.entryTimestamp === lastAction.entry.entryTimestamp &&
-      e.machineNumber === lastAction.entry.machineNumber
-    );
-    if (index !== -1) {
-      log[index] = { ...lastAction.previous };
-    }
-  } else if (lastAction.action === 'edit') {
-    const index = log.findIndex(e => 
-      e.entryTimestamp === lastAction.entry.entryTimestamp &&
-      e.machineNumber === lastAction.entry.machineNumber
-    );
-    if (index !== -1) {
-      log[index] = { ...lastAction.previous };
-    }
-  } else if (lastAction.action === 'delete') {
-    log.splice(lastAction.index, 0, lastAction.entry);
-  } else if (lastAction.action === 'clear') {
-    log = [...lastAction.previousLog];
-  }
-  localStorage.setItem('compactorLog', JSON.stringify(log));
-  localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-  document.getElementById('undoButton').disabled = actionHistory.length === 0;
-  updateStatusTable();
-  updateHourlyTable();
-  updateMachineButtonStates();
-  syncToGoogleSheets();
-  errorDiv.textContent = 'Last action undone.';
-  setTimeout(() => errorDiv.textContent = '', 3000);
-}
-
-function clearData() {
-  if (!confirm('Are you sure you want to clear all data? This action can be undone.')) return;
-  actionHistory.push({ action: 'clear', previousLog: [...log] });
-  log = [];
-  localStorage.setItem('compactorLog', JSON.stringify(log));
-  localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-  document.getElementById('undoButton').disabled = false;
-  updateStatusTable();
-  updateHourlyTable();
-  updateMachineButtonStates();
-  syncToGoogleSheets();
-  const errorDiv = document.getElementById('error');
-  errorDiv.textContent = 'All data cleared.';
-  setTimeout(() => errorDiv.textContent = '', 3000);
-}
-
-async function exportToCSV() {
-  try {
-    const now = new Date();
-    const dateTimeStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
-    const statusHeaders = ['Container #', 'Compactor', 'In Time', 'Out Time', 'Duration', 'Timestamp'];
-    const statusData = log.map((entry, index) => {
-      const containerNumber = log.length - index;
-      const { display } = calculateDuration(entry.inTime, entry.outTime);
-      return [
-        containerNumber,
-        entry.machineNumber,
-        entry.inTime,
-        entry.outTime || '',
-        display,
-        entry.entryTimestamp
+    // Update hourly table
+    function updateHourlyTable() {
+      const hourlyBody = document.getElementById('hourlyBody');
+      const hourlyCount = document.getElementById('hourlyCount');
+      const toggleButton = document.getElementById('toggleHourly');
+      const cumulativeRow = document.getElementById('cumulativeRow');
+      const timeSlots = [
+        { start: '07:30', end: '08:29' },
+        { start: '08:30', end: '09:29' },
+        { start: '09:30', end: '10:29' },
+        { start: '10:30', end: '11:29' },
+        { start: '11:30', end: '12:29' },
+        { start: '12:30', end: '13:29' },
+        { start: '13:30', end: '14:29' },
+        { start: '14:30', end: '15:29' },
+        { start: '15:30', end: '16:29' },
+        { start: '16:30', end: '17:29' },
+        { start: '17:30', end: '18:29' },
+        { start: '18:30', end: '19:29' },
+        { start: '19:30', end: '20:29' },
+        { start: '20:30', end: '21:29' },
+        { start: '21:30', end: '22:29' },
+        { start: '22:30', end: '23:29' },
+        { start: '23:30', end: '00:29' },
+        { start: '00:30', end: '01:29' },
+        { start: '01:30', end: '02:29' },
+        { start: '02:30', end: '03:29' },
+        { start: '03:30', end: '04:29' },
+        { start: '04:30', end: '05:29' },
+        { start: '05:30', end: '06:29' }
       ];
-    });
-    const statusCSV = [statusHeaders, ...statusData].map(row => 
-      row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-    ).join('\n');
-    const hourlyRecords = updateHourlyTable();
-    const hourlyHeaders = ['Time Slot', 'Compactor 1', 'Compactor 2', 'Compactor 3', 'Compactor 4', 
-                          'Compactor 5', 'Compactor 6', 'Compactor 7', 'Compactor 8', 'Compactor 9', 
-                          'Compactor 10', 'Total'];
-    const hourlyData = hourlyRecords.map(record => {
-      const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
-      return [record.timeSlot, ...record.machineCounts.slice(1), total];
-    });
-    const completedEntries = log.filter(entry => entry.outTime);
-    const cumulativeCounts = Array(11).fill(0);
-    completedEntries.forEach(entry => cumulativeCounts[entry.machineNumber]++);
-    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
-    if (cumulativeTotal > 0) {
-      hourlyData.push(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+      const parseTime = (timeStr, referenceDate = new Date()) => {
+        const [hours, mins] = timeStr.split(':').map(Number);
+        const date = new Date(referenceDate);
+        date.setHours(hours, mins, 0, 0);
+        if (hours < 7) date.setDate(date.getDate() + 1);
+        return date;
+      };
+      const hourlyRecords = [];
+      const completedEntries = log.filter(entry => entry.outTime);
+      timeSlots.forEach(slot => {
+        const slotStart = parseTime(slot.start);
+        const slotEnd = parseTime(slot.end, slotStart);
+        const machineCounts = Array(11).fill(0);
+        completedEntries.forEach(entry => {
+          const inTime = parseTime(entry.inTime);
+          const outTime = parseTime(entry.outTime, inTime);
+          if (inTime >= slotStart && outTime <= slotEnd) {
+            machineCounts[entry.machineNumber]++;
+          }
+        });
+        if (machineCounts.some(count => count > 0)) {
+          hourlyRecords.push({
+            timeSlot: `${slot.start}-${slot.end}`,
+            machineCounts,
+            startTime: slotStart
+          });
+        }
+      });
+      hourlyCount.textContent = `${hourlyRecords.length} hours`;
+      toggleButton.style.display = hourlyRecords.length > 5 ? 'flex' : 'none';
+      toggleButton.innerHTML = `
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+        </svg>
+        ${showAllHourly ? 'Show Less' : 'Show All'}
+      `;
+      const cumulativeCounts = Array(11).fill(0);
+      completedEntries.forEach(entry => {
+        cumulativeCounts[entry.machineNumber]++;
+      });
+      const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+      if (cumulativeTotal > 0) {
+        cumulativeRow.style.display = 'table-row';
+        cumulativeRow.innerHTML = `
+          <th>Cumulative Total</th>
+          ${cumulativeCounts.slice(1).map(count => `<th>${count}</th>`).join('')}
+          <th>${cumulativeTotal}</th>
+        `;
+      } else {
+        cumulativeRow.style.display = 'none';
+      }
+      hourlyBody.innerHTML = '';
+      if (hourlyRecords.length === 0) {
+        hourlyBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: #6c757d;">No hourly records</td></tr>`;
+        return hourlyRecords;
+      }
+      hourlyRecords.sort((a, b) => b.startTime - a.startTime);
+      const displayRecords = showAllHourly ? hourlyRecords : hourlyRecords.slice(0, 5);
+      displayRecords.forEach(record => {
+        const row = document.createElement('tr');
+        const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        row.innerHTML = `
+          <td>${record.timeSlot}</td>
+          ${record.machineCounts.slice(1).map(count => `<td>${count}</td>`).join('')}
+          <td class="total-cell">${total}</td>
+        `;
+        hourlyBody.appendChild(row);
+      });
+      return hourlyRecords;
     }
-    const hourlyCSV = [hourlyHeaders, ...hourlyData].map(row => 
-      row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-    ).join('\n');
-    const statusBlob = new Blob([statusCSV], { type: 'text/csv;charset=utf-8;' });
-    const statusLink = document.createElement('a');
-    statusLink.setAttribute('href', URL.createObjectURL(statusBlob));
-    statusLink.setAttribute('download', `CPT_SR_${dateTimeStr}.csv`);
-    document.body.appendChild(statusLink);
-    statusLink.click();
-    document.body.removeChild(statusLink);
-    const hourlyBlob = new Blob([hourlyCSV], { type: 'text/csv;charset=utf-8;' });
-    const hourlyLink = document.createElement('a');
-    hourlyLink.setAttribute('href', URL.createObjectURL(hourlyBlob));
-    hourlyLink.setAttribute('download', `CPT_HR_${dateTimeStr}.csv`);
-    document.body.appendChild(hourlyLink);
-    hourlyLink.click();
-    document.body.removeChild(hourlyLink);
-    const synced = await syncToGoogleSheets();
-    if (synced) {
+
+    // Update machine button states
+    function updateMachineButtonStates() {
+      document.querySelectorAll('.compactor-btn').forEach(button => {
+        const machineNum = parseInt(button.getAttribute('data-machine'));
+        const hasActiveSession = log.some(entry =>
+          entry.machineNumber === machineNum && !entry.outTime
+        );
+        button.classList.toggle('active', hasActiveSession);
+      });
+    }
+
+    // Calculate duration
+    function calculateDuration(inTime, outTime = null) {
+      const parseTime = timeStr => {
+        const [hours, mins] = timeStr.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, mins, 0, 0);
+        if (hours < 7) date.setDate(date.getDate() + 1);
+        return date;
+      };
+      try {
+        const start = parseTime(inTime);
+        const end = outTime ? parseTime(outTime, start) : new Date();
+        let diffMs = end - start;
+        if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
+        const diffMins = Math.floor(diffMs / 60000);
+        const hours = Math.floor(diffMins / 60);
+        const minutes = diffMins % 60;
+        const display = outTime
+          ? `${hours}h ${minutes}m`
+          : `${hours}h ${minutes}m (ongoing)`;
+        return { display, minutes: diffMins };
+      } catch {
+        return { display: 'N/A', minutes: 0 };
+      }
+    }
+
+    // Handle machine button click
+    function handleMachineButtonClick(machineNum) {
+      const errorDiv = document.getElementById('error');
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const timeString = `${hours}:${minutes}`;
+      const timestamp = now.toISOString();
+      if (log.some(entry => entry.machineNumber === machineNum && !entry.outTime)) {
+        errorDiv.textContent = `Machine ${machineNum} is already in use.`;
+        return;
+      }
+      errorDiv.textContent = '';
+      const newEntry = {
+        machineNumber: machineNum,
+        inTime: timeString,
+        entryTimestamp: timestamp
+      };
+      log.push(newEntry);
+      actionHistory.push({ action: 'add', entry: { ...newEntry } });
+      localStorage.setItem('compactorLog', JSON.stringify(log));
+      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+      document.getElementById('undoButton').disabled = false;
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      syncToGoogleSheets();
+    }
+
+    // Prompt out time
+    function promptOutTime(entryIndex) {
+      const entry = log[entryIndex];
+      if (!entry || entry.outTime) return;
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const defaultTime = `${hours}:${minutes}`;
+      const time = prompt('Enter out time (HH:MM)', defaultTime);
+      if (time === null) return;
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(time)) {
+        document.getElementById('error').textContent = 'Invalid time format. Use HH:MM.';
+        return;
+      }
+      const { minutes: diffMins } = calculateDuration(entry.inTime, time);
+      if (diffMins < 0) {
+        document.getElementById('error').textContent = 'Out time cannot be earlier than in time.';
+        return;
+      }
+      entry.outTime = time;
+      actionHistory.push({
+        action: 'out',
+        entry: { ...entry },
+        previous: { ...log[entryIndex], outTime: null }
+      });
+      log[entryIndex] = entry;
+      localStorage.setItem('compactorLog', JSON.stringify(log));
+      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+      document.getElementById('undoButton').disabled = false;
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      syncToGoogleSheets();
+    }
+
+    // Edit entry
+    function editEntry(machineNumber, entryTimestamp, field) {
+      const entry = log.find(e =>
+        e.machineNumber === machineNumber && e.entryTimestamp === entryTimestamp
+      );
+      if (!entry) return;
+      const currentTime = field === 'inTime' ? entry.inTime : entry.outTime;
+      const newTime = prompt(`Enter new ${field.replace('Time', ' time')} (HH:MM)`, currentTime);
+      if (newTime === null) return;
+      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      if (!timeRegex.test(newTime)) {
+        document.getElementById('error').textContent = 'Invalid time format. Use HH:MM.';
+        return;
+      }
+      if (field === 'inTime' && entry.outTime) {
+        const { minutes: diffMins } = calculateDuration(newTime, entry.outTime);
+        if (diffMins < 0) {
+          document.getElementById('error').textContent = 'In time cannot be later than out time.';
+          return;
+        }
+      } else if (field === 'outTime') {
+        const { minutes: diffMins } = calculateDuration(entry.inTime, newTime);
+        if (diffMins < 0) {
+          document.getElementById('error').textContent = 'Out time cannot be earlier than in time.';
+          return;
+        }
+      }
+      const previousEntry = { ...entry };
+      entry[field] = newTime;
+      actionHistory.push({
+        action: 'edit',
+        entry: { ...entry },
+        previous: previousEntry,
+        field
+      });
+      localStorage.setItem('compactorLog', JSON.stringify(log));
+      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+      document.getElementById('undoButton').disabled = false;
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      syncToGoogleSheets();
+    }
+
+    // Delete entry
+    function deleteEntry(machineNumber, entryTimestamp) {
+      const index = log.findIndex(e =>
+        e.machineNumber === machineNumber && e.entryTimestamp === entryTimestamp
+      );
+      if (index === -1) return;
+      if (!confirm(`Are you sure you want to delete the record for Machine ${machineNumber} at ${entryTimestamp}?`)) {
+        return;
+      }
+      const entry = log[index];
+      actionHistory.push({ action: 'delete', entry: { ...entry }, index });
+      log.splice(index, 1);
+      localStorage.setItem('compactorLog', JSON.stringify(log));
+      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+      document.getElementById('undoButton').disabled = false;
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      syncToGoogleSheets();
+    }
+
+    // Undo action
+    function undoAction() {
+      if (actionHistory.length === 0) return;
+      const lastAction = actionHistory.pop();
+      const errorDiv = document.getElementById('error');
+      if (lastAction.action === 'add') {
+        const index = log.findIndex(e =>
+          e.entryTimestamp === lastAction.entry.entryTimestamp &&
+          e.machineNumber === lastAction.entry.machineNumber
+        );
+        if (index !== -1) {
+          log.splice(index, 1);
+        }
+      } else if (lastAction.action === 'out') {
+        const index = log.findIndex(e =>
+          e.entryTimestamp === lastAction.entry.entryTimestamp &&
+          e.machineNumber === lastAction.entry.machineNumber
+        );
+        if (index !== -1) {
+          log[index] = { ...lastAction.previous };
+        }
+      } else if (lastAction.action === 'edit') {
+        const index = log.findIndex(e =>
+          e.entryTimestamp === lastAction.entry.entryTimestamp &&
+          e.machineNumber === lastAction.entry.machineNumber
+        );
+        if (index !== -1) {
+          log[index] = { ...lastAction.previous };
+        }
+      } else if (lastAction.action === 'delete') {
+        log.splice(lastAction.index, 0, lastAction.entry);
+      } else if (lastAction.action === 'clear') {
+        log = [...lastAction.previousLog];
+      }
+      localStorage.setItem('compactorLog', JSON.stringify(log));
+      localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+      document.getElementById('undoButton').disabled = actionHistory.length === 0;
+      updateStatusTable();
+      updateHourlyTable();
+      updateMachineButtonStates();
+      syncToGoogleSheets();
+      errorDiv.textContent = 'Last action undone.';
+      setTimeout(() => errorDiv.textContent = '', 3000);
+    }
+
+    // Clear data
+    function clearData() {
+      if (!confirm('Are you sure you want to clear all data? This action can be undone.')) return;
       actionHistory.push({ action: 'clear', previousLog: [...log] });
       log = [];
       localStorage.setItem('compactorLog', JSON.stringify(log));
@@ -1492,61 +818,130 @@ async function exportToCSV() {
       updateStatusTable();
       updateHourlyTable();
       updateMachineButtonStates();
-      document.getElementById('error').textContent = 'Data exported to CSV, synced to Google Sheets, and cleared successfully.';
-      setTimeout(() => document.getElementById('error').textContent = '', 5000);
-    } else {
-      document.getElementById('error').textContent = 'Data exported to CSV but failed to sync to Google Sheets. Data not cleared.';
-      setTimeout(() => document.getElementById('error').textContent = '', 5000);
+      syncToGoogleSheets();
+      const errorDiv = document.getElementById('error');
+      errorDiv.textContent = 'All data cleared.';
+      setTimeout(() => errorDiv.textContent = '', 3000);
     }
-  } catch (error) {
-    console.error('Error in exportToCSV:', error);
-    document.getElementById('error').textContent = `Error exporting data: ${error.message}. Data not cleared.`;
-    setTimeout(() => document.getElementById('error').textContent = '', 5000);
-  }
-}
 
-// Event listeners
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOMContentLoaded fired, loggedIn:', sessionStorage.getItem('loggedIn'));
-  if (sessionStorage.getItem('loggedIn') === 'true') {
-    console.log('User is logged in, showing main container');
-    document.getElementById('cover-page').style.display = 'none';
-    document.getElementById('main-container').style.display = 'block';
-    initializeApp();
-  } else {
-    console.log('User not logged in, showing cover page');
-    document.getElementById('cover-page').style.display = 'flex';
-    document.getElementById('main-container').style.display = 'none';
-  }
-  document.querySelectorAll('.compactor-btn').forEach(button => {
-    button.addEventListener('click', () => {
-      const machineNumber = parseInt(button.getAttribute('data-machine'));
-      handleMachineButtonClick(machineNumber);
+    // Export to CSV
+    async function exportToCSV() {
+      try {
+        const now = new Date();
+        const dateTimeStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+        const statusHeaders = ['Container #', 'Compactor', 'In Time', 'Out Time', 'Duration', 'Timestamp'];
+        const statusData = log.map((entry, index) => {
+          const containerNumber = log.length - index;
+          const { display } = calculateDuration(entry.inTime, entry.outTime);
+          return [
+            containerNumber,
+            entry.machineNumber,
+            entry.inTime,
+            entry.outTime || '',
+            display,
+            entry.entryTimestamp
+          ];
+        });
+        const statusCSV = [statusHeaders, ...statusData].map(row =>
+          row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+        ).join('\n');
+        const hourlyRecords = updateHourlyTable();
+        const hourlyHeaders = ['Time Slot', 'Compactor 1', 'Compactor 2', 'Compactor 3', 'Compactor 4',
+                              'Compactor 5', 'Compactor 6', 'Compactor 7', 'Compactor 8', 'Compactor 9',
+                              'Compactor 10', 'Total'];
+        const hourlyData = hourlyRecords.map(record => {
+          const total = record.machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+          return [record.timeSlot, ...record.machineCounts.slice(1), total];
+        });
+        const completedEntries = log.filter(entry => entry.outTime);
+        const cumulativeCounts = Array(11).fill(0);
+        completedEntries.forEach(entry => cumulativeCounts[entry.machineNumber]++);
+        const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        if (cumulativeTotal > 0) {
+          hourlyData.push(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+        }
+        const hourlyCSV = [hourlyHeaders, ...hourlyData].map(row =>
+          row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+        ).join('\n');
+        const statusBlob = new Blob([statusCSV], { type: 'text/csv;charset=utf-8;' });
+        const statusLink = document.createElement('a');
+        statusLink.setAttribute('href', URL.createObjectURL(statusBlob));
+        statusLink.setAttribute('download', `CPT_SR_${dateTimeStr}.csv`);
+        document.body.appendChild(statusLink);
+        statusLink.click();
+        document.body.removeChild(statusLink);
+        const hourlyBlob = new Blob([hourlyCSV], { type: 'text/csv;charset=utf-8;' });
+        const hourlyLink = document.createElement('a');
+        hourlyLink.setAttribute('href', URL.createObjectURL(hourlyBlob));
+        hourlyLink.setAttribute('download', `CPT_HR_${dateTimeStr}.csv`);
+        document.body.appendChild(hourlyLink);
+        hourlyLink.click();
+        document.body.removeChild(hourlyLink);
+        const synced = await syncToGoogleSheets();
+        if (synced) {
+          actionHistory.push({ action: 'clear', previousLog: [...log] });
+          log = [];
+          localStorage.setItem('compactorLog', JSON.stringify(log));
+          localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
+          document.getElementById('undoButton').disabled = false;
+          updateStatusTable();
+          updateHourlyTable();
+          updateMachineButtonStates();
+          document.getElementById('error').textContent = 'Data exported to CSV, synced to Google Sheets, and cleared successfully.';
+          setTimeout(() => document.getElementById('error').textContent = '', 5000);
+        } else {
+          document.getElementById('error').textContent = 'Data exported to CSV but failed to sync to Google Sheets. Data not cleared.';
+          setTimeout(() => document.getElementById('error').textContent = '', 5000);
+        }
+      } catch (error) {
+        console.error('Error in exportToCSV:', error);
+        document.getElementById('error').textContent = `Error exporting data: ${error.message}. Data not cleared.`;
+        setTimeout(() => document.getElementById('error').textContent = '', 5000);
+      }
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('DOMContentLoaded fired, loggedIn:', sessionStorage.getItem('loggedIn'));
+      if (sessionStorage.getItem('loggedIn') === 'true') {
+        console.log('User is logged in, showing main container');
+        document.getElementById('cover-page').style.display = 'none';
+        document.getElementById('main-container').style.display = 'block';
+        initializeApp();
+      } else {
+        console.log('User not logged in, showing cover page');
+        document.getElementById('cover-page').style.display = 'flex';
+        document.getElementById('main-container').style.display = 'none';
+      }
+      document.querySelectorAll('.compactor-btn').forEach(button => {
+        button.addEventListener('click', () => {
+          const machineNumber = parseInt(button.getAttribute('data-machine'));
+          handleMachineButtonClick(machineNumber);
+        });
+      });
+      document.getElementById('toggleRecords').addEventListener('click', () => {
+        showAllRecords = !showAllRecords;
+        updateStatusTable();
+      });
+      document.getElementById('toggleHourly').addEventListener('click', () => {
+        showAllHourly = !showAllHourly;
+        updateHourlyTable();
+      });
+      document.getElementById('toggleBlink').addEventListener('click', () => {
+        isBlinkingEnabled = !isBlinkingEnabled;
+        document.getElementById('toggleBlink').innerHTML = `
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="${isBlinkingEnabled ? 'M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z' : 'M8 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 4z'}" />
+          </svg>
+          ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
+        `;
+        updateStatusTable();
+      });
+      document.getElementById('exportButton').addEventListener('click', exportToCSV);
+      document.getElementById('clearButton').addEventListener('click', clearData);
+      document.getElementById('undoButton').addEventListener('click', undoAction);
     });
-  });
-  document.getElementById('toggleRecords').addEventListener('click', () => {
-    showAllRecords = !showAllRecords;
-    updateStatusTable();
-  });
-  document.getElementById('toggleHourly').addEventListener('click', () => {
-    showAllHourly = !showAllHourly;
-    updateHourlyTable();
-  });
-  document.getElementById('toggleBlink').addEventListener('click', () => {
-    isBlinkingEnabled = !isBlinkingEnabled;
-    document.getElementById('toggleBlink').innerHTML = `
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-        <path d="${isBlinkingEnabled ? 'M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z' : 'M8 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 4z'}" />
-      </svg>
-      ${isBlinkingEnabled ? 'Stop Blinking' : 'Start Blinking'}
-    `;
-    updateStatusTable();
-  });
-  document.getElementById('exportButton').addEventListener('click', exportToCSV);
-  document.getElementById('clearButton').addEventListener('click', clearData);
-  document.getElementById('undoButton').addEventListener('click', undoAction);
-});
-</script>
-  </body>
+  </script>
+</body>
 </html>
