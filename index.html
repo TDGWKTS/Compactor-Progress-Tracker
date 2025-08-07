@@ -1240,8 +1240,8 @@ async function exportToCSV() {
 
     gapi.client.setToken({ access_token: accessToken });
 
-    // Generate Status CSV
-    const statusRows = [
+    // Generate Status CSV data
+    const statusValues = [
       ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'],
       ...log.map((entry, index) => [
         entry.entryTimestamp,
@@ -1253,7 +1253,8 @@ async function exportToCSV() {
       ])
     ];
 
-    const statusCsvContent = statusRows.map(row => row.join(',')).join('\n');
+    // Generate local Status CSV file
+    const statusCsvContent = statusValues.map(row => row.join(',')).join('\n');
     const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
     const statusUrl = URL.createObjectURL(statusBlob);
     const statusFileName = generateCSVFilename('CPT_SR');
@@ -1265,7 +1266,7 @@ async function exportToCSV() {
     document.body.removeChild(statusLink);
     URL.revokeObjectURL(statusUrl);
 
-    // Generate Hourly CSV
+    // Generate Hourly CSV data
     const timeSlots = [
       { start: '07:30', end: '08:29' },
       { start: '08:30', end: '09:29' },
@@ -1336,6 +1337,7 @@ async function exportToCSV() {
       hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
     }
 
+    // Generate local Hourly CSV file
     const hourlyCsvContent = [
       ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
       ...hourlyRecords
@@ -1363,7 +1365,7 @@ async function exportToCSV() {
     while (retries > 0) {
       try {
         // Create new sheets for CSV data
-        await gapi.client.sheets.spreadsheets.batchUpdate({
+        const createSheetResponse = await gapi.client.sheets.spreadsheets.batchUpdate({
           spreadsheetId: SPREADSHEET_ID,
           resource: {
             requests: [
@@ -1373,22 +1375,34 @@ async function exportToCSV() {
           }
         });
 
-        // Write CSV data to new sheets
+        // Verify sheets were created
+        const createdSheets = createSheetResponse.result.replies;
+        if (!createdSheets || createdSheets.length !== 2) {
+          throw new Error('Failed to create both Status and Hourly sheets');
+        }
+
+        // Write Status data to new sheet
         await gapi.client.sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
           range: `${statusSheetName}!A1`,
           valueInputOption: 'RAW',
-          resource: { values: [ ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'], ...statusValues ] }
+          resource: { values: statusValues }
         });
 
+        // Write Hourly data to new sheet
         await gapi.client.sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
           range: `${hourlySheetName}!A1`,
           valueInputOption: 'RAW',
-          resource: { values: [ ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'], ...hourlyRecords ] }
+          resource: { 
+            values: [
+              ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
+              ...hourlyRecords 
+            ]
+          }
         });
 
-        console.log('CSV files uploaded to Google Sheets:', statusSheetName, hourlySheetName);
+        console.log('CSV data uploaded to Google Sheets:', statusSheetName, hourlySheetName);
         document.getElementById('error').textContent = '';
         // Sync Status and Hourly worksheets
         await syncToGoogleSheets();
@@ -1406,6 +1420,14 @@ async function exportToCSV() {
           sessionStorage.removeItem('loggedIn');
           document.getElementById('error').textContent = 'Session expired. Please sign in again.';
           return;
+        } else if (error.status === 400 && error.result?.error?.message.includes('already exists')) {
+          // Handle case where sheet already exists by appending a suffix
+          const suffix = Date.now().toString().slice(-4);
+          statusSheetName = `${statusFileName}_${suffix}`;
+          hourlySheetName = `${hourlyFileName}_${suffix}`;
+          retries = 3; // Reset retries for new attempt with modified sheet names
+          console.warn(`Sheet names exist. Retrying with new names: ${statusSheetName}, ${hourlySheetName}`);
+          continue;
         } else {
           throw error;
         }
