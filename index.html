@@ -1143,54 +1143,7 @@ async function syncToGoogleSheets() {
           }
         });
 
-        // Generate and upload CSV files
-        const statusCsvContent = [
-          ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'],
-          ...statusValues
-        ].map(row => row.join(',')).join('\n');
-
-        const hourlyCsvContent = [
-          ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
-          ...hourlyRecords
-        ].map(row => row.join(',')).join('\n');
-
-        const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
-        const hourlyBlob = new Blob([hourlyCsvContent], { type: 'text/csv;charset=utf-8;' });
-
-        const statusFileName = generateCSVFilename('CPT_SR');
-        const hourlyFileName = generateCSVFilename('CPT_HR');
-
-        // Upload CSV files to Google Sheets (simulating file upload by appending to new sheets)
-        const statusSheetName = statusFileName.replace('.csv', '');
-        const hourlySheetName = hourlyFileName.replace('.csv', '');
-
-        // Create new sheets for CSV data
-        await gapi.client.sheets.spreadsheets.batchUpdate({
-          spreadsheetId: SPREADSHEET_ID,
-          resource: {
-            requests: [
-              { addSheet: { properties: { title: statusSheetName } } },
-              { addSheet: { properties: { title: hourlySheetName } } }
-            ]
-          }
-        });
-
-        // Write CSV data to new sheets
-        await gapi.client.sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `${statusSheetName}!A1`,
-          valueInputOption: 'RAW',
-          resource: { values: [ ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'], ...statusValues ] }
-        });
-
-        await gapi.client.sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `${hourlySheetName}!A1`,
-          valueInputOption: 'RAW',
-          resource: { values: [ ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'], ...hourlyRecords ] }
-        });
-
-        console.log('Data synced to Google Sheets and CSV files uploaded:', statusSheetName, hourlySheetName);
+        console.log('Data synced to Google Sheets (Status and Hourly worksheets)');
         document.getElementById('error').textContent = '';
         return true;
       } catch (error) {
@@ -1232,6 +1185,32 @@ async function syncToGoogleSheets() {
   }
 }
 
+async function deleteOldCsvWorksheets() {
+  try {
+    const response = await gapi.client.sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+      fields: 'sheets.properties(title,sheetId)'
+    });
+    const sheets = response.result.sheets;
+    const deleteRequests = sheets
+      .filter(sheet => sheet.properties.title.startsWith('CPT_SR_') || sheet.properties.title.startsWith('CPT_HR_'))
+      .map(sheet => ({
+        deleteSheet: { sheetId: sheet.properties.sheetId }
+      }));
+
+    if (deleteRequests.length > 0) {
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        resource: { requests: deleteRequests }
+      });
+      console.log(`Deleted ${deleteRequests.length} old CSV worksheets`);
+    }
+  } catch (error) {
+    console.error('Error deleting old CSV worksheets:', error);
+    throw error;
+  }
+}
+
 function generateCSVFilename(prefix) {
   const now = new Date();
   const year = now.getFullYear();
@@ -1240,11 +1219,27 @@ function generateCSVFilename(prefix) {
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const seconds = String(now.getSeconds()).padStart(2, '0');
-  return `${prefix}_${year}${month}${day}_${hours}${minutes}${seconds}.csv`;
+  return `${prefix}_${year}${month}${day}_${hours}${minutes}${seconds}`;
 }
 
-function exportToCSV() {
+async function exportToCSV() {
   try {
+    if (!window.gapi || !window.gapi.client) {
+      console.warn('Google API client not loaded. Attempting to initialize...');
+      const initialized = await initClient();
+      if (!initialized) {
+        document.getElementById('error').textContent = 'Google API client failed to initialize. Please sign in again or check your network.';
+        return;
+      }
+    }
+    if (!accessToken) {
+      console.warn('No access token. Requesting authentication...');
+      document.getElementById('error').textContent = 'Please sign in to sync data to Google Sheets.';
+      return;
+    }
+
+    gapi.client.setToken({ access_token: accessToken });
+
     // Generate Status CSV
     const statusRows = [
       ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'],
@@ -1261,9 +1256,10 @@ function exportToCSV() {
     const statusCsvContent = statusRows.map(row => row.join(',')).join('\n');
     const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
     const statusUrl = URL.createObjectURL(statusBlob);
+    const statusFileName = generateCSVFilename('CPT_SR');
     const statusLink = document.createElement('a');
     statusLink.setAttribute('href', statusUrl);
-    statusLink.setAttribute('download', generateCSVFilename('CPT_SR'));
+    statusLink.setAttribute('download', `${statusFileName}.csv`);
     document.body.appendChild(statusLink);
     statusLink.click();
     document.body.removeChild(statusLink);
@@ -1347,19 +1343,87 @@ function exportToCSV() {
 
     const hourlyBlob = new Blob([hourlyCsvContent], { type: 'text/csv;charset=utf-8;' });
     const hourlyUrl = URL.createObjectURL(hourlyBlob);
+    const hourlyFileName = generateCSVFilename('CPT_HR');
     const hourlyLink = document.createElement('a');
     hourlyLink.setAttribute('href', hourlyUrl);
-    hourlyLink.setAttribute('download', generateCSVFilename('CPT_HR'));
+    hourlyLink.setAttribute('download', `${hourlyFileName}.csv`);
     document.body.appendChild(hourlyLink);
     hourlyLink.click();
     document.body.removeChild(hourlyLink);
     URL.revokeObjectURL(hourlyUrl);
 
-    // Sync to Google Sheets
-    syncToGoogleSheets();
+    // Delete old CSV worksheets
+    await deleteOldCsvWorksheets();
+
+    // Upload CSV data to new sheets
+    const statusSheetName = statusFileName;
+    const hourlySheetName = hourlyFileName;
+
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        // Create new sheets for CSV data
+        await gapi.client.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: SPREADSHEET_ID,
+          resource: {
+            requests: [
+              { addSheet: { properties: { title: statusSheetName } } },
+              { addSheet: { properties: { title: hourlySheetName } } }
+            ]
+          }
+        });
+
+        // Write CSV data to new sheets
+        await gapi.client.sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${statusSheetName}!A1`,
+          valueInputOption: 'RAW',
+          resource: { values: [ ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'], ...statusValues ] }
+        });
+
+        await gapi.client.sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${hourlySheetName}!A1`,
+          valueInputOption: 'RAW',
+          resource: { values: [ ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'], ...hourlyRecords ] }
+        });
+
+        console.log('CSV files uploaded to Google Sheets:', statusSheetName, hourlySheetName);
+        document.getElementById('error').textContent = '';
+        // Sync Status and Hourly worksheets
+        await syncToGoogleSheets();
+        return;
+      } catch (error) {
+        if ((error.status === 429 || error.result?.error?.code === 429) && retries > 0) {
+          const delay = (4 - retries) * 2000;
+          console.warn(`Rate limit hit (429). Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          retries--;
+        } else if (error.status === 401 || error.result?.error?.code === 401) {
+          console.warn('Access token invalid or expired. Requesting new token...');
+          document.getElementById('signInBtn').classList.remove('hidden');
+          accessToken = null;
+          sessionStorage.removeItem('loggedIn');
+          document.getElementById('error').textContent = 'Session expired. Please sign in again.';
+          return;
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    throw new Error('Failed to upload CSV files after retries');
   } catch (error) {
-    console.error('Error exporting to CSV:', error);
-    document.getElementById('error').textContent = 'An error occurred while exporting data. Please try again.';
+    const errorDetails = error.result?.error?.message || error.result?.error?.details || error.message || JSON.stringify(error, null, 2);
+    const errorCode = error.result?.error?.code || error.status || 'Unknown';
+    console.error('Error exporting to CSV or uploading to Google Sheets:', {
+      message: error.message,
+      details: errorDetails,
+      code: errorCode,
+      result: error.result,
+      stack: error.stack
+    });
+    document.getElementById('error').textContent = `Failed to export or upload data to Google Sheets (Code ${errorCode}): ${errorDetails}. Please verify spreadsheet ID, write permissions, or try again.`;
   }
 }
 
