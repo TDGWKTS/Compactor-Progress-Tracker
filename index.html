@@ -858,6 +858,7 @@ let syncInterval = null;
 let accessToken = null;
 
 function initializeApp() {
+  // Restore data from localStorage
   const savedLog = localStorage.getItem('compactorLog');
   if (savedLog) {
     log = JSON.parse(savedLog);
@@ -875,7 +876,13 @@ function initializeApp() {
 
   updateInterval = setInterval(updateStatusTable, 60000);
   syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
-  initClient();
+
+  // Trigger automatic sign-in if not logged in
+  if (!sessionStorage.getItem('loggedIn')) {
+    requestAccessToken();
+  } else {
+    initClient();
+  }
 }
 
 async function initClient() {
@@ -886,10 +893,7 @@ async function initClient() {
 
     await new Promise((resolve, reject) => {
       gapi.load('client', {
-        callback: () => {
-          console.log('Google API client loaded');
-          resolve();
-        },
+        callback: () => resolve(),
         onerror: () => reject(new Error('Failed to load gapi client')),
         timeout: 15000,
         ontimeout: () => reject(new Error('Google API load timeout'))
@@ -938,7 +942,8 @@ function requestAccessToken() {
         document.getElementById('error').textContent = '';
         sessionStorage.setItem('loggedIn', 'true');
         document.getElementById('signInBtn').classList.add('hidden');
-        initializeApp();
+        initClient();
+        syncToGoogleSheets(); // Sync immediately after sign-in
       }
     },
   });
@@ -956,31 +961,129 @@ async function syncToGoogleSheets() {
 
     gapi.client.setToken({ access_token: accessToken });
 
-    const values = log.map(entry => [
+    // Prepare Status Records
+    const statusValues = log.map((entry, index) => [
       entry.entryTimestamp,
+      log.length - index,
       entry.machineNumber,
       entry.inTime,
       entry.outTime || '',
       calculateDuration(entry.inTime, entry.outTime).display
     ]);
 
+    // Prepare Hourly Records
+    const timeSlots = [
+      { start: '07:30', end: '08:29' },
+      { start: '08:30', end: '09:29' },
+      { start: '09:30', end: '10:29' },
+      { start: '10:30', end: '11:29' },
+      { start: '11:30', end: '12:29' },
+      { start: '12:30', end: '13:29' },
+      { start: '13:30', end: '14:29' },
+      { start: '14:30', end: '15:29' },
+      { start: '15:30', end: '16:29' },
+      { start: '16:30', end: '17:29' },
+      { start: '17:30', end: '18:29' },
+      { start: '18:30', end: '19:29' },
+      { start: '19:30', end: '20:29' },
+      { start: '20:30', end: '21:29' },
+      { start: '21:30', end: '22:29' },
+      { start: '22:30', end: '23:29' },
+      { start: '23:30', end: '00:29' },
+      { start: '00:30', end: '01:29' },
+      { start: '01:30', end: '02:29' },
+      { start: '02:30', end: '03:29' },
+      { start: '03:30', end: '04:29' },
+      { start: '04:30', end: '05:29' },
+      { start: '05:30', end: '06:29' }
+    ];
+
+    const parseTime = (timeStr, referenceDate = new Date()) => {
+      const [hours, mins] = timeStr.split(':').map(Number);
+      const date = new Date(referenceDate);
+      date.setHours(hours, mins, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1);
+      return date;
+    };
+
+    const hourlyRecords = [];
+    const completedEntries = log.filter(entry => entry.outTime);
+
+    timeSlots.forEach(slot => {
+      const slotStart = parseTime(slot.start);
+      const slotEnd = parseTime(slot.end, slotStart);
+      const machineCounts = Array(11).fill(0);
+
+      completedEntries.forEach(entry => {
+        const inTime = parseTime(entry.inTime);
+        const outTime = parseTime(entry.outTime, inTime);
+
+        if (inTime >= slotStart && outTime <= slotEnd) {
+          machineCounts[entry.machineNumber]++;
+        }
+      });
+
+      if (machineCounts.some(count => count > 0)) {
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        hourlyRecords.push([
+          `${slot.start}-${slot.end}`,
+          ...machineCounts.slice(1),
+          total
+        ]);
+      }
+    });
+
+    const cumulativeCounts = Array(11).fill(0);
+    completedEntries.forEach(entry => {
+      cumulativeCounts[entry.machineNumber]++;
+    });
+    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    if (cumulativeTotal > 0) {
+      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+    }
+
+    // Sync Status Records
     let retries = 3;
     while (retries > 0) {
       try {
-        const response = await gapi.client.sheets.spreadsheets.values.append({
+        // Clear existing data in Status worksheet
+        await gapi.client.sheets.spreadsheets.values.clear({
           spreadsheetId: SPREADSHEET_ID,
-          range: 'Sheet1!A:E',
+          range: 'Status!A:F'
+        });
+
+        // Write new data to Status worksheet
+        await gapi.client.sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Status!A1',
           valueInputOption: 'RAW',
-          insertDataOption: 'INSERT_ROWS',
           resource: {
             values: [
-              ['Timestamp', 'Machine Number', 'In Time', 'Out Time', 'Duration'],
-              ...values
+              ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'],
+              ...statusValues
             ]
           }
         });
 
-        console.log('Data synced to Google Sheets:', response);
+        // Sync Hourly Records
+        await gapi.client.sheets.spreadsheets.values.clear({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Hourly!A:L'
+        });
+
+        await gapi.client.sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Hourly!A1',
+          valueInputOption: 'RAW',
+          resource: {
+            values: [
+              ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
+              ...hourlyRecords
+            ]
+          }
+        });
+
+        console.log('Data synced to Google Sheets: Status and Hourly worksheets');
         document.getElementById('error').textContent = '';
         return true;
       } catch (error) {
@@ -1014,6 +1117,150 @@ async function syncToGoogleSheets() {
     });
     document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again.`;
     return false;
+  }
+}
+
+function generateCSVFilename(prefix) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${prefix}_${year}${month}${day}_${hours}${minutes}${seconds}.csv`;
+}
+
+function exportToCSV() {
+  try {
+    // Generate Status CSV
+    const statusRows = [
+      ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'],
+      ...log.map((entry, index) => [
+        entry.entryTimestamp,
+        log.length - index,
+        entry.machineNumber,
+        entry.inTime,
+        entry.outTime || '',
+        calculateDuration(entry.inTime, entry.outTime).display
+      ])
+    ];
+
+    const statusCsvContent = statusRows.map(row => row.join(',')).join('\n');
+    const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const statusUrl = URL.createObjectURL(statusBlob);
+    const statusLink = document.createElement('a');
+    statusLink.setAttribute('href', statusUrl);
+    statusLink.setAttribute('download', generateCSVFilename('CPT_SR'));
+    document.body.appendChild(statusLink);
+    statusLink.click();
+    document.body.removeChild(statusLink);
+    URL.revokeObjectURL(statusUrl);
+
+    // Generate Hourly CSV
+    const timeSlots = [
+      { start: '07:30', end: '08:29' },
+      { start: '08:30', end: '09:29' },
+      { start: '09:30', end: '10:29' },
+      { start: '10:30', end: '11:29' },
+      { start: '11:30', end: '12:29' },
+      { start: '12:30', end: '13:29' },
+      { start: '13:30', end: '14:29' },
+      { start: '14:30', end: '15:29' },
+      { start: '15:30', end: '16:29' },
+      { start: '16:30', end: '17:29' },
+      { start: '17:30', end: '18:29' },
+      { start: '18:30', end: '19:29' },
+      { start: '19:30', end: '20:29' },
+      { start: '20:30', end: '21:29' },
+      { start: '21:30', end: '22:29' },
+      { start: '22:30', end: '23:29' },
+      { start: '23:30', end: '00:29' },
+      { start: '00:30', end: '01:29' },
+      { start: '01:30', end: '02:29' },
+      { start: '02:30', end: '03:29' },
+      { start: '03:30', end: '04:29' },
+      { start: '04:30', end: '05:29' },
+      { start: '05:30', end: '06:29' }
+    ];
+
+    const parseTime = (timeStr, referenceDate = new Date()) => {
+      const [hours, mins] = timeStr.split(':').map(Number);
+      const date = new Date(referenceDate);
+      date.setHours(hours, mins, 0, 0);
+      if (hours < 7) date.setDate(date.getDate() + 1);
+      return date;
+    };
+
+    const hourlyRecords = [];
+    const completedEntries = log.filter(entry => entry.outTime);
+
+    timeSlots.forEach(slot => {
+      const slotStart = parseTime(slot.start);
+      const slotEnd = parseTime(slot.end, slotStart);
+      const machineCounts = Array(11).fill(0);
+
+      completedEntries.forEach(entry => {
+        const inTime = parseTime(entry.inTime);
+        const outTime = parseTime(entry.outTime, inTime);
+
+        if (inTime >= slotStart && outTime <= slotEnd) {
+          machineCounts[entry.machineNumber]++;
+        }
+      });
+
+      if (machineCounts.some(count => count > 0)) {
+        const total = machineCounts.slice(1).reduce((sum, count) => sum + count, 0);
+        hourlyRecords.push([
+          `${slot.start}-${slot.end}`,
+          ...machineCounts.slice(1),
+          total
+        ]);
+      }
+    });
+
+    const cumulativeCounts = Array(11).fill(0);
+    completedEntries.forEach(entry => {
+      cumulativeCounts[entry.machineNumber]++;
+    });
+    const cumulativeTotal = cumulativeCounts.slice(1).reduce((sum, count) => sum + count, 0);
+    if (cumulativeTotal > 0) {
+      hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
+    }
+
+    const hourlyCsvContent = [
+      ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
+      ...hourlyRecords
+    ].map(row => row.join(',')).join('\n');
+
+    const hourlyBlob = new Blob([hourlyCsvContent], { type: 'text/csv;charset=utf-8;' });
+    const hourlyUrl = URL.createObjectURL(hourlyBlob);
+    const hourlyLink = document.createElement('a');
+    hourlyLink.setAttribute('href', hourlyUrl);
+    hourlyLink.setAttribute('download', generateCSVFilename('CPT_HR'));
+    document.body.appendChild(hourlyLink);
+    hourlyLink.click();
+    document.body.removeChild(hourlyLink);
+    URL.revokeObjectURL(hourlyUrl);
+
+    // Sync to Google Sheets and clear data if successful
+    syncToGoogleSheets().then(success => {
+      if (success) {
+        log = [];
+        actionHistory = [];
+        localStorage.removeItem('compactorLog');
+        localStorage.removeItem('compactorActionHistory');
+        updateStatusTable();
+        updateHourlyTable();
+        updateMachineButtonStates();
+        document.getElementById('error').textContent = 'Data exported and synced successfully. Records cleared.';
+      } else {
+        document.getElementById('error').textContent = 'Failed to sync to Google Sheets. Local files downloaded, but records not cleared.';
+      }
+    });
+  } catch (error) {
+    console.error('Error exporting to CSV:', error);
+    document.getElementById('error').textContent = 'An error occurred while exporting data. Please try again.';
   }
 }
 
@@ -1522,9 +1769,9 @@ function clearAllData() {
       </svg>
       Stop Blinking
     `;
+    document.getElementById('toggleRecords').style.display = 'none';
+    document.getElementById('toggleHourly').style.display = 'none';
 
-    updateStatusTable();
-    updateHourlyTable();
     syncToGoogleSheets();
 
     alert('All data cleared successfully.');
@@ -1534,61 +1781,7 @@ function clearAllData() {
   }
 }
 
-function exportToCSV() {
-  try {
-    if (log.length === 0) {
-      alert('No data to export.');
-      return;
-    }
-
-    const headers = ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'];
-    const rows = log.sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp)).map((entry, index) => {
-      const { display } = calculateDuration(entry.inTime, entry.outTime);
-      return [
-        entry.entryTimestamp,
-        log.length - index,
-        entry.machineNumber,
-        entry.inTime,
-        entry.outTime || '',
-        display
-      ];
-    });
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `compactor_data_${new Date().toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }).replace(/[/:,]/g, '-')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    document.getElementById('error').textContent = '';
-  } catch (error) {
-    console.error('Error in exportToCSV:', error);
-    document.getElementById('error').textContent = 'An error occurred while exporting data. Please try again.';
-  }
-}
-
-// Event listeners
 document.addEventListener('DOMContentLoaded', () => {
-  const signInBtn = document.getElementById('signInBtn');
-  signInBtn.addEventListener('click', () => {
-    requestAccessToken();
-  });
-
-  // Check if already logged in
-  if (sessionStorage.getItem('loggedIn') === 'true') {
-    signInBtn.classList.add('hidden');
-    initializeApp();
-  }
-
   document.querySelectorAll('.compactor-btn').forEach(button => {
     button.addEventListener('click', () => {
       const machineNum = parseInt(button.getAttribute('data-machine'));
@@ -1608,8 +1801,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('toggleBlink').addEventListener('click', () => {
     isBlinkingEnabled = !isBlinkingEnabled;
-    const toggleButton = document.getElementById('toggleBlink');
-    toggleButton.innerHTML = `
+    document.getElementById('toggleBlink').innerHTML = `
       <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
         <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
         <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
@@ -1620,11 +1812,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('exportButton').addEventListener('click', exportToCSV);
+
   document.getElementById('clearButton').addEventListener('click', clearAllData);
+
   document.getElementById('undoButton').addEventListener('click', undoLastAction);
+
+  document.getElementById('signInBtn').addEventListener('click', requestAccessToken);
+
+  initializeApp();
+});
+
+// Handle page unload to ensure data persistence
+window.addEventListener('beforeunload', () => {
+  localStorage.setItem('compactorLog', JSON.stringify(log));
+  localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
 });
 </script>
 </body>
 </html>
-
-
