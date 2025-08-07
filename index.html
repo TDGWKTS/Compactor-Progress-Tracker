@@ -913,14 +913,14 @@ async function checkGoogleIdentityServices() {
 async function initClient() {
   try {
     if (!window.gapi) {
-      throw new Error('Google API script not loaded');
-    }
-
-    if (!accessToken) {
-      console.warn('No access token available. Requesting authentication...');
-      document.getElementById('signInBtn').classList.remove('hidden');
-      document.getElementById('error').textContent = 'Please sign in to initialize Google API.';
-      return false;
+      console.warn('Google API script not loaded. Retrying...');
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Failed to load Google API script'));
+        document.head.appendChild(script);
+      });
     }
 
     await new Promise((resolve, reject) => {
@@ -937,7 +937,13 @@ async function initClient() {
       discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
     });
 
-    // Set access token for all API calls
+    if (!accessToken) {
+      console.warn('No access token available. Requesting authentication...');
+      document.getElementById('signInBtn').classList.remove('hidden');
+      document.getElementById('error').textContent = 'Please sign in to initialize Google API.';
+      return false;
+    }
+
     gapi.client.setToken({ access_token: accessToken });
 
     // Verify worksheet existence
@@ -999,6 +1005,14 @@ function requestAccessToken() {
 
 async function syncToGoogleSheets() {
   try {
+    if (!window.gapi || !window.gapi.client) {
+      console.warn('Google API client not loaded. Attempting to initialize...');
+      const initialized = await initClient();
+      if (!initialized) {
+        document.getElementById('error').textContent = 'Google API client failed to initialize. Please sign in again or check your network.';
+        return false;
+      }
+    }
     if (!accessToken) {
       console.warn('No access token. Requesting authentication...');
       document.getElementById('error').textContent = 'Please sign in to sync data to Google Sheets.';
@@ -1033,6 +1047,7 @@ async function syncToGoogleSheets() {
       { start: '18:30', end: '19:29' },
       { start: '19:30', end: '20:29' },
       { start: '20:30', end: '21:29' },
+      { start: '21:30', end: '22:29' },
       { start: '22:30', end: '23:29' },
       { start: '23:30', end: '00:29' },
       { start: '00:30', end: '01:29' },
