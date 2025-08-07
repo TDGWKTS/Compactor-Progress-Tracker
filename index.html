@@ -877,12 +877,37 @@ function initializeApp() {
   updateInterval = setInterval(updateStatusTable, 60000);
   syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
 
-  // Trigger automatic sign-in if not logged in
-  if (!sessionStorage.getItem('loggedIn')) {
-    requestAccessToken();
-  } else {
-    initClient();
-  }
+  // Wait for Google Identity Services to load before attempting sign-in
+  checkGoogleIdentityServices().then(() => {
+    if (!sessionStorage.getItem('loggedIn')) {
+      requestAccessToken();
+    } else {
+      initClient();
+    }
+  }).catch(error => {
+    console.error('Failed to load Google Identity Services:', error);
+    document.getElementById('error').textContent = 'Failed to load Google Identity Services. Please refresh the page or check your network connection.';
+  });
+}
+
+async function checkGoogleIdentityServices() {
+  return new Promise((resolve, reject) => {
+    const maxAttempts = 10;
+    let attempts = 0;
+
+    const check = () => {
+      if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+        resolve();
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(check, 500); // Wait 500ms before retrying
+      } else {
+        reject(new Error('Google Identity Services not loaded after maximum attempts'));
+      }
+    };
+
+    check();
+  });
 }
 
 async function initClient() {
@@ -905,6 +930,16 @@ async function initClient() {
       discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
     });
 
+    // Verify worksheet existence
+    const response = await gapi.client.sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID,
+      fields: 'sheets.properties.title'
+    });
+    const sheetTitles = response.result.sheets.map(sheet => sheet.properties.title);
+    if (!sheetTitles.includes('Hourly') || !sheetTitles.includes('Status')) {
+      throw new Error('Required worksheets "Hourly" and/or "Status" not found in the spreadsheet');
+    }
+
     console.log('Google API client initialized successfully');
     return true;
   } catch (error) {
@@ -922,9 +957,9 @@ async function initClient() {
 }
 
 function requestAccessToken() {
-  if (!window.google) {
+  if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
     console.error('Google Identity Services not loaded');
-    document.getElementById('error').textContent = 'Google Identity Services not loaded. Cannot authenticate.';
+    document.getElementById('error').textContent = 'Google Identity Services not loaded. Please refresh the page or check your network connection.';
     return;
   }
 
@@ -943,7 +978,7 @@ function requestAccessToken() {
         sessionStorage.setItem('loggedIn', 'true');
         document.getElementById('signInBtn').classList.add('hidden');
         initClient();
-        syncToGoogleSheets(); // Sync immediately after sign-in
+        syncToGoogleSheets();
       }
     },
   });
@@ -1115,7 +1150,7 @@ async function syncToGoogleSheets() {
       result: error.result,
       stack: error.stack
     });
-    document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${errorDetails || 'Unknown error'}. Please verify spreadsheet access or try again.`;
+    document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${errorDetails || 'Unknown error'}. Please verify spreadsheet ID, worksheet names (Hourly, Status), access permissions, or try again.`;
     return false;
   }
 }
@@ -1815,14 +1850,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('clearButton').addEventListener('click', clearAllData);
 
-  document.getElementById('undoButton').addEventListener('click', undoLastAction);
-
   document.getElementById('signInBtn').addEventListener('click', requestAccessToken);
 
   initializeApp();
 });
 
-// Handle page unload to ensure data persistence
 window.addEventListener('beforeunload', () => {
   localStorage.setItem('compactorLog', JSON.stringify(log));
   localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
