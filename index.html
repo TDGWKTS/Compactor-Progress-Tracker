@@ -916,6 +916,13 @@ async function initClient() {
       throw new Error('Google API script not loaded');
     }
 
+    if (!accessToken) {
+      console.warn('No access token available. Requesting authentication...');
+      document.getElementById('signInBtn').classList.remove('hidden');
+      document.getElementById('error').textContent = 'Please sign in to initialize Google API.';
+      return false;
+    }
+
     await new Promise((resolve, reject) => {
       gapi.load('client', {
         callback: () => resolve(),
@@ -930,6 +937,9 @@ async function initClient() {
       discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
     });
 
+    // Set access token for all API calls
+    gapi.client.setToken({ access_token: accessToken });
+
     // Verify worksheet existence
     const response = await gapi.client.sheets.spreadsheets.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -940,7 +950,7 @@ async function initClient() {
       throw new Error('Required worksheets "Hourly" and/or "Status" not found in the spreadsheet');
     }
 
-    // Test write access by attempting a small update
+    // Test write access
     await gapi.client.sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Status!A1',
@@ -955,16 +965,16 @@ async function initClient() {
     console.log('Google API client initialized successfully with write access');
     return true;
   } catch (error) {
-    const errorDetails = error.result?.error?.message || error.details || error.message || JSON.stringify(error, null, 2);
+    const errorDetails = error.result?.error?.message || error.result?.error?.details || error.message || JSON.stringify(error, null, 2);
+    const errorCode = error.result?.error?.code || error.status || 'Unknown';
     console.error('Error initializing Google API:', {
       message: error.message,
       details: errorDetails,
-      status: error.status,
-      code: error.result?.error?.code,
+      code: errorCode,
       result: error.result,
       stack: error.stack
     });
-    document.getElementById('error').textContent = `Failed to initialize Google API: ${errorDetails}. Please check your API key, client ID, spreadsheet access (ensure the authenticated user has write permissions), or network connection.`;
+    document.getElementById('error').textContent = `Failed to initialize Google API (Code ${errorCode}): ${errorDetails}. Please check your API key, client ID, spreadsheet access (ensure the authenticated user has write permissions), or network connection.`;
     return false;
   }
 }
@@ -1136,7 +1146,7 @@ async function syncToGoogleSheets() {
         return true;
       } catch (error) {
         if ((error.status === 429 || error.result?.error?.code === 429) && retries > 0) {
-          const delay = (4 - retries) * 2000; // Increased delay
+          const delay = (4 - retries) * 2000;
           console.warn(`Rate limit hit (429). Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           retries--;
