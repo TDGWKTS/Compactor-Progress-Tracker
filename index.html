@@ -1464,7 +1464,7 @@ function updateStatusTable() {
     row.className = 'status-row';
 
     const { display, minutes } = calculateDuration(entry.inTime, entry.outTime);
-    const blinkClass = isBlinkingEnabled && !entry.outTime && minutes > 39 ? 'blink' : '';
+    const blinkClass = isBlinkingEnabled && !entry.outTime && minutes >= 40 ? 'blink' : '';
     const containerNumber = log.length - (showAllRecords ? index : index);
     const entryIndex = log.indexOf(entry);
 
@@ -1663,12 +1663,6 @@ function handleMachineButtonClick(machineNum) {
     );
 
     if (existingEntry) {
-      const { minutes } = calculateDuration(existingEntry.inTime);
-      if (minutes < 40) {
-        errorDiv.textContent = `Cannot complete compacting on machine ${machineNum} yet. Minimum 40 minutes required (current: ${minutes} minutes).`;
-        return;
-      }
-
       existingEntry.outTime = currentTime;
       existingEntry.entryTimestamp = new Date().toISOString();
 
@@ -1732,12 +1726,6 @@ function promptOutTime(index) {
       timeZone: 'Asia/Hong_Kong'
     }).replace("24:", "00:");
 
-    const { minutes } = calculateDuration(entry.inTime);
-    if (minutes < 40) {
-      document.getElementById('error').textContent = `Cannot complete compacting on machine ${entry.machineNumber} yet. Minimum 40 minutes required (current: ${minutes} minutes).`;
-      return;
-    }
-
     const timeInput = prompt('Enter Out Time (HH:MM, 24-hour format):', currentTime);
     if (!timeInput) return;
 
@@ -1790,19 +1778,6 @@ function editEntry(machineNumber, entryTimestamp, field) {
     if (!timeRegex.test(newTime)) {
       document.getElementById('error').textContent = 'Invalid time format. Please use HH:MM (24-hour format).';
       return;
-    }
-
-    if (field === 'outTime' && entry.inTime) {
-      const inTimeDate = parseTime(entry.inTime);
-      const outTimeDate = parseTime(newTime, inTimeDate);
-      if (outTimeDate < inTimeDate) {
-        outTimeDate.setDate(outTimeDate.getDate() + 1);
-      }
-      const duration = calculateDuration(entry.inTime, newTime).minutes;
-      if (duration < 40) {
-        document.getElementById('error').textContent = `Out time must be at least 40 minutes after in time (current: ${duration} minutes).`;
-        return;
-      }
     }
 
     actionHistory.push({
