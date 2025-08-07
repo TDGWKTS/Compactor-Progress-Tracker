@@ -900,7 +900,7 @@ async function checkGoogleIdentityServices() {
         resolve();
       } else if (attempts < maxAttempts) {
         attempts++;
-        setTimeout(check, 500); // Wait 500ms before retrying
+        setTimeout(check, 500);
       } else {
         reject(new Error('Google Identity Services not loaded after maximum attempts'));
       }
@@ -940,18 +940,31 @@ async function initClient() {
       throw new Error('Required worksheets "Hourly" and/or "Status" not found in the spreadsheet');
     }
 
-    console.log('Google API client initialized successfully');
+    // Test write access by attempting a small update
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Status!A1',
+      valueInputOption: 'RAW',
+      resource: { values: [['Test']] }
+    });
+    await gapi.client.sheets.spreadsheets.values.clear({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Status!A1'
+    });
+
+    console.log('Google API client initialized successfully with write access');
     return true;
   } catch (error) {
-    const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
+    const errorDetails = error.result?.error?.message || error.details || error.message || JSON.stringify(error, null, 2);
     console.error('Error initializing Google API:', {
       message: error.message,
       details: errorDetails,
       status: error.status,
+      code: error.result?.error?.code,
       result: error.result,
       stack: error.stack
     });
-    document.getElementById('error').textContent = `Failed to initialize Google API: ${errorDetails || 'Unknown error'}. Please check your API key, client ID, spreadsheet access, or network connection.`;
+    document.getElementById('error').textContent = `Failed to initialize Google API: ${errorDetails}. Please check your API key, client ID, spreadsheet access (ensure the authenticated user has write permissions), or network connection.`;
     return false;
   }
 }
@@ -1122,18 +1135,22 @@ async function syncToGoogleSheets() {
         document.getElementById('error').textContent = '';
         return true;
       } catch (error) {
-        if (error.status === 429 && retries > 0) {
-          const delay = (4 - retries) * 1000;
-          console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
+        if ((error.status === 429 || error.result?.error?.code === 429) && retries > 0) {
+          const delay = (4 - retries) * 2000; // Increased delay
+          console.warn(`Rate limit hit (429). Retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           retries--;
-        } else if (error.status === 401) {
+        } else if (error.status === 401 || error.result?.error?.code === 401) {
           console.warn('Access token invalid or expired. Requesting new token...');
           document.getElementById('signInBtn').classList.remove('hidden');
           accessToken = null;
           sessionStorage.removeItem('loggedIn');
           document.getElementById('error').textContent = 'Session expired. Please sign in again.';
           return false;
+        } else if (error.status === 403 || error.result?.error?.code === 403) {
+          throw new Error('Permission denied: Ensure the authenticated user has write access to the spreadsheet');
+        } else if (error.status === 400 || error.result?.error?.code === 400) {
+          throw new Error('Bad request: Check spreadsheet ID and worksheet ranges (Status!A:F, Hourly!A:L)');
         } else {
           throw error;
         }
@@ -1142,15 +1159,16 @@ async function syncToGoogleSheets() {
 
     throw new Error('Failed to sync after retries');
   } catch (error) {
-    const errorDetails = error.result?.error?.message || error.details || error.error || JSON.stringify(error, null, 2);
+    const errorDetails = error.result?.error?.message || error.result?.error?.details || error.message || JSON.stringify(error, null, 2);
+    const errorCode = error.result?.error?.code || error.status || 'Unknown';
     console.error('Error syncing to Google Sheets:', {
       message: error.message,
       details: errorDetails,
-      status: error.status,
+      code: errorCode,
       result: error.result,
       stack: error.stack
     });
-    document.getElementById('error').textContent = `Failed to sync data to Google Sheets: ${errorDetails || 'Unknown error'}. Please verify spreadsheet ID, worksheet names (Hourly, Status), access permissions, or try again.`;
+    document.getElementById('error').textContent = `Failed to sync data to Google Sheets (Code ${errorCode}): ${errorDetails}. Please verify spreadsheet ID, worksheet names (Hourly, Status), write permissions for the authenticated user, or try again.`;
     return false;
   }
 }
