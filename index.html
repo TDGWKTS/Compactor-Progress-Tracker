@@ -858,6 +858,7 @@ let syncInterval = null;
 let accessToken = null;
 
 function initializeApp() {
+  // Restore data from localStorage
   const savedLog = localStorage.getItem('compactorLog');
   if (savedLog) {
     log = JSON.parse(savedLog);
@@ -876,6 +877,7 @@ function initializeApp() {
   updateInterval = setInterval(updateStatusTable, 60000);
   syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
 
+  // Wait for Google Identity Services to load before attempting sign-in
   checkGoogleIdentityServices().then(() => {
     if (!sessionStorage.getItem('loggedIn')) {
       requestAccessToken();
@@ -944,6 +946,7 @@ async function initClient() {
 
     gapi.client.setToken({ access_token: accessToken });
 
+    // Verify worksheet existence
     const response = await gapi.client.sheets.spreadsheets.get({
       spreadsheetId: SPREADSHEET_ID,
       fields: 'sheets.properties.title'
@@ -965,7 +968,7 @@ async function initClient() {
       result: error.result,
       stack: error.stack
     });
-    document.getElementById('error').textContent = `Failed to initialize Google API (Code ${errorCode}): ${errorDetails}. Please check your API key, client ID, spreadsheet access, or network connection.`;
+    document.getElementById('error').textContent = `Failed to initialize Google API (Code ${errorCode}): ${errorDetails}. Please check your API key, client ID, spreadsheet access (ensure the authenticated user has write permissions), or network connection.`;
     return false;
   }
 }
@@ -1018,6 +1021,7 @@ async function syncToGoogleSheets() {
 
     gapi.client.setToken({ access_token: accessToken });
 
+    // Prepare Status Records
     const statusValues = log.map((entry, index) => [
       entry.entryTimestamp,
       log.length - index,
@@ -1027,6 +1031,7 @@ async function syncToGoogleSheets() {
       calculateDuration(entry.inTime, entry.outTime).display
     ]);
 
+    // Prepare Hourly Records
     const timeSlots = [
       { start: '07:30', end: '08:29' },
       { start: '08:30', end: '09:29' },
@@ -1097,14 +1102,17 @@ async function syncToGoogleSheets() {
       hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
     }
 
+    // Sync Status Records
     let retries = 3;
     while (retries > 0) {
       try {
+        // Clear existing data in Status worksheet
         await gapi.client.sheets.spreadsheets.values.clear({
           spreadsheetId: SPREADSHEET_ID,
           range: 'Status!A:F'
         });
 
+        // Write new data to Status worksheet
         await gapi.client.sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
           range: 'Status!A1',
@@ -1117,6 +1125,7 @@ async function syncToGoogleSheets() {
           }
         });
 
+        // Sync Hourly Records
         await gapi.client.sheets.spreadsheets.values.clear({
           spreadsheetId: SPREADSHEET_ID,
           range: 'Hourly!A:L'
@@ -1136,10 +1145,6 @@ async function syncToGoogleSheets() {
 
         console.log('Data synced to Google Sheets (Status and Hourly worksheets)');
         document.getElementById('error').textContent = '';
-
-        // Clear all data after successful sync
-        clearAllData();
-
         return true;
       } catch (error) {
         if ((error.status === 429 || error.result?.error?.code === 429) && retries > 0) {
@@ -1175,7 +1180,7 @@ async function syncToGoogleSheets() {
       result: error.result,
       stack: error.stack
     });
-    document.getElementById('error').textContent = `Failed to sync data to Google Sheets (Code ${errorCode}): ${errorDetails}. Please verify spreadsheet ID, worksheet names (Hourly, Status), write permissions, or try again.`;
+    document.getElementById('error').textContent = `Failed to sync data to Google Sheets (Code ${errorCode}): ${errorDetails}. Please verify spreadsheet ID, worksheet names (Hourly, Status), write permissions for the authenticated user, or try again.`;
     return false;
   }
 }
@@ -1235,6 +1240,7 @@ async function exportToCSV() {
 
     gapi.client.setToken({ access_token: accessToken });
 
+    // Generate Status CSV data
     const statusValues = [
       ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'],
       ...log.map((entry, index) => [
@@ -1247,6 +1253,7 @@ async function exportToCSV() {
       ])
     ];
 
+    // Generate local Status CSV file
     const statusCsvContent = statusValues.map(row => row.join(',')).join('\n');
     const statusBlob = new Blob([statusCsvContent], { type: 'text/csv;charset=utf-8;' });
     const statusUrl = URL.createObjectURL(statusBlob);
@@ -1259,6 +1266,7 @@ async function exportToCSV() {
     document.body.removeChild(statusLink);
     URL.revokeObjectURL(statusUrl);
 
+    // Generate Hourly CSV data
     const timeSlots = [
       { start: '07:30', end: '08:29' },
       { start: '08:30', end: '09:29' },
@@ -1329,6 +1337,7 @@ async function exportToCSV() {
       hourlyRecords.unshift(['Cumulative Total', ...cumulativeCounts.slice(1), cumulativeTotal]);
     }
 
+    // Generate local Hourly CSV file
     const hourlyCsvContent = [
       ['Time Slot', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Total'],
       ...hourlyRecords
@@ -1345,14 +1354,17 @@ async function exportToCSV() {
     document.body.removeChild(hourlyLink);
     URL.revokeObjectURL(hourlyUrl);
 
+    // Delete old CSV worksheets
     await deleteOldCsvWorksheets();
 
-    let statusSheetName = statusFileName;
-    let hourlySheetName = hourlyFileName;
+    // Upload CSV data to new sheets
+    const statusSheetName = statusFileName;
+    const hourlySheetName = hourlyFileName;
 
     let retries = 3;
     while (retries > 0) {
       try {
+        // Create new sheets for CSV data
         const createSheetResponse = await gapi.client.sheets.spreadsheets.batchUpdate({
           spreadsheetId: SPREADSHEET_ID,
           resource: {
@@ -1363,11 +1375,13 @@ async function exportToCSV() {
           }
         });
 
+        // Verify sheets were created
         const createdSheets = createSheetResponse.result.replies;
         if (!createdSheets || createdSheets.length !== 2) {
           throw new Error('Failed to create both Status and Hourly sheets');
         }
 
+        // Write Status data to new sheet
         await gapi.client.sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
           range: `${statusSheetName}!A1`,
@@ -1375,6 +1389,7 @@ async function exportToCSV() {
           resource: { values: statusValues }
         });
 
+        // Write Hourly data to new sheet
         await gapi.client.sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
           range: `${hourlySheetName}!A1`,
@@ -1389,10 +1404,7 @@ async function exportToCSV() {
 
         console.log('CSV data uploaded to Google Sheets:', statusSheetName, hourlySheetName);
         document.getElementById('error').textContent = '';
-
-        // Clear all data after successful export and upload
-        clearAllData();
-
+        // Sync Status and Hourly worksheets
         await syncToGoogleSheets();
         return;
       } catch (error) {
@@ -1409,10 +1421,11 @@ async function exportToCSV() {
           document.getElementById('error').textContent = 'Session expired. Please sign in again.';
           return;
         } else if (error.status === 400 && error.result?.error?.message.includes('already exists')) {
+          // Handle case where sheet already exists by appending a suffix
           const suffix = Date.now().toString().slice(-4);
           statusSheetName = `${statusFileName}_${suffix}`;
           hourlySheetName = `${hourlyFileName}_${suffix}`;
-          retries = 3;
+          retries = 3; // Reset retries for new attempt with modified sheet names
           console.warn(`Sheet names exist. Retrying with new names: ${statusSheetName}, ${hourlySheetName}`);
           continue;
         } else {
@@ -1957,6 +1970,7 @@ function toggleBlink() {
   updateStatusTable();
 }
 
+// Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
   initializeApp();
 
@@ -1976,6 +1990,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('signInBtn').addEventListener('click', requestAccessToken);
 });
 
+// Cleanup on window unload
 window.addEventListener('unload', () => {
   if (updateInterval) clearInterval(updateInterval);
   if (syncInterval) clearInterval(syncInterval);
@@ -1983,3 +1998,6 @@ window.addEventListener('unload', () => {
 </script>
 </body>
 </html>
+
+
+Here is my code. I just want to add a function that whenever i exported the records locally or synced to google spreadsheet. All the records will be cleared.
