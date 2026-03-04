@@ -152,7 +152,7 @@
       font-size: 0.85rem;
     }
     
-    /* Collapsible Suspension Section */
+    /* Collapsible Suspension Section - Minimal by default */
     .suspension-container {
       margin-bottom: 20px;
       border-radius: 50px;
@@ -240,6 +240,7 @@
       display: block;
     }
     
+    /* Suspension controls - hidden by default, only shown when expanded */
     .suspension-selector {
       display: flex;
       flex-wrap: wrap;
@@ -822,7 +823,7 @@
       <div class="card">
         <div class="card-header">Compactor Entry</div>
         
-        <!-- Collapsible Suspension Section -->
+        <!-- Collapsible Suspension Section - Minimal by default -->
         <div class="suspension-container" id="suspensionContainer">
           <div class="suspension-header" id="suspensionHeader">
             <div class="suspension-header-left">
@@ -1038,8 +1039,9 @@ let updateInterval = null;
 let syncInterval = null;
 let accessToken = null;
 let currentSuspendMachine = null;
+let syncInProgress = false;
 
-// ========== GOOGLE API FUNCTIONS (FULLY RESTORED) ==========
+// ========== GOOGLE API FUNCTIONS (FIXED) ==========
 async function checkGoogleIdentityServices() {
   return new Promise((resolve, reject) => {
     const maxAttempts = 10;
@@ -1094,24 +1096,45 @@ async function initClient() {
     
     gapi.client.setToken({ access_token: accessToken });
     
-    // Verify worksheet existence
-    const response = await gapi.client.sheets.spreadsheets.get({
-      spreadsheetId: SPREADSHEET_ID,
-      fields: 'sheets.properties.title'
-    });
-    
-    const sheetTitles = response.result.sheets.map(sheet => sheet.properties.title);
-    if (!sheetTitles.includes('Hourly') || !sheetTitles.includes('Status')) {
-      throw new Error('Required worksheets "Hourly" and/or "Status" not found in the spreadsheet');
+    // Verify spreadsheet exists and get sheet titles
+    try {
+      const response = await gapi.client.sheets.spreadsheets.get({
+        spreadsheetId: SPREADSHEET_ID,
+        fields: 'sheets.properties.title'
+      });
+      
+      const sheetTitles = response.result.sheets.map(sheet => sheet.properties.title);
+      
+      // Create missing sheets if they don't exist
+      const requests = [];
+      if (!sheetTitles.includes('Status')) {
+        requests.push({ addSheet: { properties: { title: 'Status' } } });
+      }
+      if (!sheetTitles.includes('Suspensions')) {
+        requests.push({ addSheet: { properties: { title: 'Suspensions' } } });
+      }
+      if (!sheetTitles.includes('Hourly')) {
+        requests.push({ addSheet: { properties: { title: 'Hourly' } } });
+      }
+      
+      if (requests.length > 0) {
+        await gapi.client.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: SPREADSHEET_ID,
+          resource: { requests: requests }
+        });
+        console.log('Created missing worksheets');
+      }
+    } catch (error) {
+      console.error('Error checking/creating worksheets:', error);
+      // Continue anyway - we'll try to write and let the API handle errors
     }
     
-    console.log('Google API client initialized successfully with write access');
+    console.log('Google API client initialized successfully');
     return true;
   } catch (error) {
-    const errorDetails = error.result?.error?.message || error.result?.error?.details || error.message || JSON.stringify(error, null, 2);
-    const errorCode = error.result?.error?.code || error.status || 'Unknown';
+    const errorDetails = error.result?.error?.message || error.message || JSON.stringify(error);
     console.error('Error initializing Google API:', error);
-    document.getElementById('error').textContent = `Failed to initialize Google API (Code ${errorCode}): ${errorDetails}. Please check your API key, client ID, and spreadsheet access.`;
+    document.getElementById('error').textContent = `Failed to initialize Google API: ${errorDetails.substring(0, 100)}`;
     return false;
   }
 }
@@ -1137,8 +1160,9 @@ function requestAccessToken() {
         document.getElementById('error').textContent = '';
         sessionStorage.setItem('loggedIn', 'true');
         document.getElementById('signInBtn').classList.add('hidden');
-        initClient();
-        syncToGoogleSheets();
+        initClient().then(() => {
+          syncToGoogleSheets();
+        });
       }
     },
   });
@@ -1147,18 +1171,24 @@ function requestAccessToken() {
 }
 
 async function syncToGoogleSheets() {
+  // Prevent multiple simultaneous syncs
+  if (syncInProgress) return false;
+  syncInProgress = true;
+  
   try {
+    if (!accessToken) {
+      document.getElementById('error').textContent = 'Please sign in to sync data.';
+      syncInProgress = false;
+      return false;
+    }
+    
     if (!window.gapi || !window.gapi.client) {
       const initialized = await initClient();
       if (!initialized) {
         document.getElementById('error').textContent = 'Google API client failed to initialize.';
+        syncInProgress = false;
         return false;
       }
-    }
-    
-    if (!accessToken) {
-      document.getElementById('error').textContent = 'Please sign in to sync data.';
-      return false;
     }
     
     gapi.client.setToken({ access_token: accessToken });
@@ -1174,7 +1204,7 @@ async function syncToGoogleSheets() {
     ]);
     
     // Prepare Suspension Records
-    const suspensionValues = suspensions.map((susp, index) => {
+    const suspensionValues = suspensions.map((susp) => {
       const duration = susp.suspendEnd 
         ? calculateSuspensionDuration(susp.suspendStart, susp.suspendEnd) 
         : 'Active';
@@ -1190,8 +1220,8 @@ async function syncToGoogleSheets() {
       ];
     });
     
-    // Prepare Hourly Records (counted by Out Time)
-    const timeSlots = [
+    // Prepare Hourly Records
+    const slots = [
       '07:30-08:29', '08:30-09:29', '09:30-10:29', '10:30-11:29', '11:30-12:29',
       '12:30-13:29', '13:30-14:29', '14:30-15:29', '15:30-16:29', '16:30-17:29',
       '17:30-18:29', '18:30-19:29', '19:30-20:29', '20:30-21:29', '21:30-22:29',
@@ -1199,56 +1229,65 @@ async function syncToGoogleSheets() {
       '03:30-04:29', '04:30-05:29', '05:30-06:29'
     ];
     
-    const parseTime = (timeStr, referenceDate = new Date()) => {
-      const [hours, mins] = timeStr.split(':').map(Number);
-      const date = new Date(referenceDate);
-      date.setHours(hours, mins, 0, 0);
-      if (hours < 7) date.setDate(date.getDate() + 1);
-      return date;
-    };
+    function timeToMins(t) { 
+      let [h, m] = t.split(':').map(Number); 
+      return h * 60 + m; 
+    }
     
-    const completedEntries = log.filter(entry => entry.outTime);
-    let hourlyRecordsForSheet = [];
+    const slotMap = {};
+    slots.forEach(s => slotMap[s] = Array(machineOrder.length + 1).fill(0));
     
-    timeSlots.forEach(slot => {
-      const [start, end] = slot.split('-');
-      const slotStart = parseTime(start);
-      const slotEnd = parseTime(end, slotStart);
-      const machineCounts = Object.fromEntries(machineOrder.map(m => [m, 0]));
+    log.filter(e => e.outTime).forEach(entry => {
+      const outMin = timeToMins(entry.outTime);
+      let targetSlot = null;
       
-      completedEntries.forEach(entry => {
-        const outTimeDate = parseTime(entry.outTime);
-        if (outTimeDate >= slotStart && outTimeDate <= slotEnd) {
-          machineCounts[entry.machineNumber] = (machineCounts[entry.machineNumber] || 0) + 1;
+      for (let s of slots) {
+        let [start, end] = s.split('-');
+        let startMin = timeToMins(start);
+        let endMin = timeToMins(end);
+        if (endMin < startMin) endMin += 1440;
+        let outCompare = outMin;
+        if (startMin >= 720 && outMin < 720) outCompare += 1440;
+        if (outCompare >= startMin && outCompare <= endMin) { 
+          targetSlot = s; 
+          break; 
         }
-      });
+      }
       
-      const countsArray = machineOrder.map(m => machineCounts[m]);
-      const total = countsArray.reduce((sum, c) => sum + c, 0);
-      if (total > 0) {
-        hourlyRecordsForSheet.push([slot, ...countsArray, total]);
+      if (targetSlot) {
+        const idx = machineOrder.indexOf(entry.machineNumber) + 1;
+        if (idx > 0) slotMap[targetSlot][idx] += 1;
       }
     });
     
-    const cumulativeCountsObj = Object.fromEntries(machineOrder.map(m => [m, 0]));
-    completedEntries.forEach(entry => {
-      cumulativeCountsObj[entry.machineNumber] = (cumulativeCountsObj[entry.machineNumber] || 0) + 1;
+    const hourlyRows = [['Time Slot', ...machineOrder, 'Total']];
+    slots.forEach(s => {
+      let arr = slotMap[s];
+      let tot = arr.slice(1).reduce((a, b) => a + b, 0);
+      if (tot > 0) hourlyRows.push([s, ...arr.slice(1), tot]);
     });
-    const cumArray = machineOrder.map(m => cumulativeCountsObj[m]);
-    const cumTotal = cumArray.reduce((sum, c) => sum + c, 0);
-    if (cumTotal > 0) {
-      hourlyRecordsForSheet.unshift(['Cumulative Total', ...cumArray, cumTotal]);
+    
+    const cum = Array(machineOrder.length + 1).fill(0);
+    log.filter(e => e.outTime).forEach(e => { 
+      let idx = machineOrder.indexOf(e.machineNumber) + 1; 
+      if (idx > 0) cum[idx]++; 
+    });
+    
+    const cumTot = cum.slice(1).reduce((a, b) => a + b, 0);
+    if (cumTot > 0) {
+      hourlyRows.unshift(['Cumulative Total', ...cum.slice(1), cumTot]);
     }
     
-    // Sync Status Records
-    let retries = 3;
-    while (retries > 0) {
-      try {
-        await gapi.client.sheets.spreadsheets.values.clear({
-          spreadsheetId: SPREADSHEET_ID,
-          range: 'Status!A:F'
-        });
-        
+    // Sync to Google Sheets with error handling
+    try {
+      // Clear existing data
+      await gapi.client.sheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Status!A:F'
+      });
+      
+      // Write Status headers and data
+      if (statusValues.length > 0) {
         await gapi.client.sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
           range: 'Status!A1',
@@ -1260,13 +1299,25 @@ async function syncToGoogleSheets() {
             ]
           }
         });
-        
-        // Sync Suspension Records
-        await gapi.client.sheets.spreadsheets.values.clear({
+      } else {
+        // Just write headers
+        await gapi.client.sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
-          range: 'Suspensions!A:G'
+          range: 'Status!A1',
+          valueInputOption: 'RAW',
+          resource: {
+            values: [['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration']]
+          }
         });
-        
+      }
+      
+      // Sync Suspension Records
+      await gapi.client.sheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Suspensions!A:G'
+      });
+      
+      if (suspensionValues.length > 0) {
         await gapi.client.sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
           range: 'Suspensions!A1',
@@ -1278,46 +1329,55 @@ async function syncToGoogleSheets() {
             ]
           }
         });
-        
-        await gapi.client.sheets.spreadsheets.values.clear({
-          spreadsheetId: SPREADSHEET_ID,
-          range: 'Hourly!A:M'
-        });
-        
+      } else {
+        // Just write headers
         await gapi.client.sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
-          range: 'Hourly!A1',
+          range: 'Suspensions!A1',
           valueInputOption: 'RAW',
           resource: {
-            values: [
-              ['Time Slot', ...machineOrder, 'Total'],
-              ...hourlyRecordsForSheet
-            ]
+            values: [['Timestamp', 'Machine', 'Start Time', 'End Time', 'Duration', 'Reason', 'Status']]
           }
         });
-        
-        console.log('Data synced to Google Sheets');
-        document.getElementById('error').textContent = '';
-        return true;
-      } catch (error) {
-        if ((error.status === 429 || error.result?.error?.code === 429) && retries > 0) {
-          const delay = (4 - retries) * 2000;
-          await new Promise(resolve => setTimeout(resolve, delay));
-          retries--;
-        } else if (error.status === 401) {
-          document.getElementById('signInBtn').classList.remove('hidden');
-          accessToken = null;
-          sessionStorage.removeItem('loggedIn');
-          document.getElementById('error').textContent = 'Session expired. Please sign in again.';
-          return false;
-        } else {
-          throw error;
-        }
       }
+      
+      // Sync Hourly Records
+      await gapi.client.sheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Hourly!A:M'
+      });
+      
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Hourly!A1',
+        valueInputOption: 'RAW',
+        resource: {
+          values: hourlyRows
+        }
+      });
+      
+      console.log('Data synced to Google Sheets successfully');
+      document.getElementById('error').textContent = '';
+      syncInProgress = false;
+      return true;
+      
+    } catch (error) {
+      console.error('Error during sheet operations:', error);
+      if (error.status === 401) {
+        document.getElementById('signInBtn').classList.remove('hidden');
+        accessToken = null;
+        sessionStorage.removeItem('loggedIn');
+        document.getElementById('error').textContent = 'Session expired. Please sign in again.';
+      } else {
+        document.getElementById('error').textContent = `Sync error: ${error.result?.error?.message || error.message || 'Unknown error'}`;
+      }
+      syncInProgress = false;
+      return false;
     }
   } catch (error) {
-    console.error('Error syncing to Google Sheets:', error);
+    console.error('Error in syncToGoogleSheets:', error);
     document.getElementById('error').textContent = 'Failed to sync data to Google Sheets.';
+    syncInProgress = false;
     return false;
   }
 }
@@ -1425,6 +1485,13 @@ function initializeApp() {
   const savedExpanded = localStorage.getItem('suspensionExpanded');
   isSuspensionExpanded = savedExpanded === 'true' ? true : false;
 
+  // Clear any default checkbox states
+  document.getElementById('susMaintenance').checked = false;
+  document.getElementById('susTesting').checked = false;
+  document.getElementById('susOther').checked = false;
+  document.getElementById('otherReasonText').disabled = true;
+  document.getElementById('otherReasonText').value = '';
+
   // Render UI
   renderMachineButtons();
   buildMachineSusRow();
@@ -1451,7 +1518,11 @@ function initializeApp() {
   
   // Set up intervals
   updateInterval = setInterval(updateStatusTable, 60000);
-  syncInterval = setInterval(syncToGoogleSheets, 5 * 60 * 1000);
+  syncInterval = setInterval(() => {
+    if (accessToken) {
+      syncToGoogleSheets();
+    }
+  }, 5 * 60 * 1000);
   
   // Initialize suspension listeners
   initSusListeners();
@@ -1465,10 +1536,10 @@ function initializeApp() {
 
   // Google sign-in
   checkGoogleIdentityServices().then(() => {
-    if (!sessionStorage.getItem('loggedIn')) {
-      requestAccessToken();
-    } else {
-      initClient();
+    if (sessionStorage.getItem('loggedIn')) {
+      initClient().then(() => {
+        syncToGoogleSheets();
+      });
     }
   }).catch(console.error);
 }
@@ -1757,7 +1828,7 @@ function updateSuspensionTable() {
   const disp = showAllSuspensions ? sorted : sorted.slice(0, 10);
   body.innerHTML = '';
   
-  disp.forEach((susp, idx) => {
+  disp.forEach((susp) => {
     const isActive = !susp.suspendEnd;
     const duration = isActive ? 'Active' : calculateSuspensionDuration(susp.suspendStart, susp.suspendEnd);
     const rowClass = isActive ? 'suspension-active-row' : 'suspension-ended-row';
@@ -1903,17 +1974,17 @@ function updateHourlyTable() {
     
     if (targetSlot) {
       const idx = machineOrder.indexOf(entry.machineNumber) + 1;
-      slotMap[targetSlot][idx] += 1;
+      if (idx > 0) slotMap[targetSlot][idx] += 1;
     }
   });
   
   const cum = Array(machineOrder.length + 1).fill(0);
   log.filter(e => e.outTime).forEach(e => { 
     let i = machineOrder.indexOf(e.machineNumber) + 1; 
-    cum[i]++; 
+    if (i > 0) cum[i]++; 
   });
   
-  const cumTot = cum.reduce((a, b, i) => i > 0 ? a + b : a, 0);
+  const cumTot = cum.slice(1).reduce((a, b) => a + b, 0);
   
   if (cumTot > 0) {
     cumRow.style.display = 'table-row';
@@ -2218,7 +2289,7 @@ async function exportToCSV() {
       if (sMin >= 720 && outMin < 720) outCmp += 1440;
       if (outCmp >= sMin && outCmp <= eMin) {
         let idx = machineOrder.indexOf(e.machineNumber) + 1;
-        slotMap[s][idx]++; 
+        if (idx > 0) slotMap[s][idx]++; 
         break;
       }
     }
@@ -2234,7 +2305,7 @@ async function exportToCSV() {
   const cum = Array(machineOrder.length + 1).fill(0);
   log.filter(e => e.outTime).forEach(e => { 
     let idx = machineOrder.indexOf(e.machineNumber) + 1; 
-    cum[idx]++; 
+    if (idx > 0) cum[idx]++; 
   });
   
   const cumTot = cum.slice(1).reduce((a, b) => a + b, 0);
