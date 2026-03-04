@@ -116,7 +116,7 @@
       margin-bottom: clamp(15px, 3vw, 25px);
       flex-grow: 1;
     }
-    @media (min-width: 768px) {
+    @media (min-width: 1200px) {
       .dashboard {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -140,6 +140,16 @@
       color: #2c3e50;
       padding-bottom: 10px;
       border-bottom: 2px solid #e9ecef;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .suspension-count {
+      background-color: #667eea;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
     }
     
     /* Collapsible Suspension Section */
@@ -368,6 +378,36 @@
       text-align: center;
     }
     
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #e9ecef;
+      padding-bottom: 10px;
+    }
+    
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #6c757d;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn:hover {
+      background-color: #e9ecef;
+      color: #495057;
+    }
+    
+    .tab-btn.active {
+      background-color: #667eea;
+      color: white;
+    }
+    
     .table-container {
       overflow-x: hidden;
       overflow-y: auto;
@@ -375,7 +415,7 @@
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
       width: 100%;
-      max-height: 400px;
+      max-height: 350px;
     }
     
     table {
@@ -434,6 +474,24 @@
       background-color: #d4edda !important;
       font-weight: 700;
       color: #155724;
+    }
+    
+    .suspension-active-row {
+      background-color: #fff3cd !important;
+    }
+    
+    .suspension-active-row td {
+      background-color: #fff3cd !important;
+      color: #856404;
+    }
+    
+    .suspension-ended-row {
+      background-color: #e2e3e5 !important;
+    }
+    
+    .suspension-ended-row td {
+      background-color: #e2e3e5 !important;
+      color: #383d41;
     }
     
     .time-cell {
@@ -563,6 +621,20 @@
       transform: scale(1.1);
     }
     
+    .resume-icon {
+      cursor: pointer;
+      color: #28a745;
+      transition: all 0.2s;
+      width: clamp(14px, 2vw, 16px);
+      height: clamp(14px, 2vw, 16px);
+      margin-right: 8px;
+    }
+    
+    .resume-icon:hover {
+      color: #218838;
+      transform: scale(1.1);
+    }
+    
     .footer {
       text-align: center;
       margin-top: clamp(15px, 3vw, 25px);
@@ -596,6 +668,11 @@
     .counter-badge.completed {
       background-color: #d4edda;
       color: #155724;
+    }
+    
+    .counter-badge.suspended {
+      background-color: #f8d7da;
+      color: #721c24;
     }
     
     .toggle-btn {
@@ -704,6 +781,15 @@
       .compactor-grid {
         grid-template-columns: repeat(6, minmax(45px, 1fr));
         gap: clamp(6px, 1vw, 10px);
+      }
+      
+      .tabs {
+        flex-wrap: wrap;
+      }
+      
+      .tab-btn {
+        flex: 1;
+        text-align: center;
       }
     }
     
@@ -837,44 +923,79 @@
       </div>
      
       <div class="card">
-        <div class="card-header">Current Status</div>
-       
+        <div class="card-header">
+          Records
+          <span class="suspension-count" id="totalSuspensions">0 suspensions</span>
+        </div>
+        
         <div class="status-counters">
           <div class="counter-badge pending" id="pendingCount">0 pending</div>
           <div class="counter-badge completed" id="completedCount">0 completed</div>
+          <div class="counter-badge suspended" id="activeSuspensionsCount">0 active</div>
         </div>
-       
-        <div class="table-header">
-          <h3>Status Records</h3>
-          <div>
-            <span class="counter" id="statusCount">0 records</span>
-            <button class="toggle-btn blink-toggle" id="toggleBlink">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-              </svg>
-              Stop Blinking
-            </button>
-            <button class="toggle-btn" id="toggleRecords" style="display: none;">
-              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-              </svg>
-              Show All
-            </button>
+        
+        <div class="tabs">
+          <button class="tab-btn active" id="statusTabBtn">Status Records</button>
+          <button class="tab-btn" id="suspensionTabBtn">Suspension Records</button>
+        </div>
+        
+        <!-- Status Records Table -->
+        <div id="statusTableContainer">
+          <div class="table-header">
+            <h3>Container Status</h3>
+            <div>
+              <span class="counter" id="statusCount">0 records</span>
+              <button class="toggle-btn blink-toggle" id="toggleBlink">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                  <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                Stop Blinking
+              </button>
+              <button class="toggle-btn" id="toggleRecords" style="display: none;">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+                </svg>
+                Show All
+              </button>
+            </div>
+          </div>
+          
+          <div class="table-container">
+            <table id="statusTable">
+              <thead><tr><th>Container #</th><th>Compactor</th><th>In Time</th><th>Out Time</th><th>Duration</th><th>Action</th></tr></thead>
+              <tbody id="statusBody"><tr><td colspan="6">No records</td></tr></tbody>
+            </table>
           </div>
         </div>
-       
-        <div class="table-container">
-          <table id="statusTable">
-            <thead><tr><th>Container #</th><th>Compactor</th><th>In Time</th><th>Out Time</th><th>Duration</th><th>Action</th></tr></thead>
-            <tbody id="statusBody"><tr><td colspan="6">No records</td></tr></tbody>
-          </table>
+        
+        <!-- Suspension Records Table -->
+        <div id="suspensionTableContainer" style="display: none;">
+          <div class="table-header">
+            <h3>Suspension History</h3>
+            <div>
+              <span class="counter" id="suspensionCount">0 records</span>
+              <button class="toggle-btn" id="toggleSuspensionRecords" style="display: none;">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+                </svg>
+                Show All
+              </button>
+            </div>
+          </div>
+          
+          <div class="table-container">
+            <table id="suspensionTable">
+              <thead><tr><th>Machine</th><th>Start Time</th><th>End Time</th><th>Duration</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="suspensionBody"><tr><td colspan="7">No suspension records</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
    
     <div class="footer">
-      Compactor Progress Tracker v2.7 | 6A added | Hourly by OutTime | Full Google Integration
+      Compactor Progress Tracker v2.8 | 6A added | Hourly by OutTime | Full Google Integration | Suspension Records Added
     </div>
   </div>
 
@@ -909,8 +1030,10 @@ let actionHistory = [];
 let suspensions = [];       // { machineNumber, suspendStart, suspendEnd, reason, entryTimestamp }
 let showAllRecords = false;
 let showAllHourly = false;
+let showAllSuspensions = false;
 let isBlinkingEnabled = true;
 let isSuspensionExpanded = false; // Default collapsed
+let activeTab = 'status'; // 'status' or 'suspension'
 let updateInterval = null;
 let syncInterval = null;
 let accessToken = null;
@@ -1050,6 +1173,23 @@ async function syncToGoogleSheets() {
       calculateDuration(entry.inTime, entry.outTime).display
     ]);
     
+    // Prepare Suspension Records
+    const suspensionValues = suspensions.map((susp, index) => {
+      const duration = susp.suspendEnd 
+        ? calculateSuspensionDuration(susp.suspendStart, susp.suspendEnd) 
+        : 'Active';
+      const status = susp.suspendEnd ? 'Ended' : 'Active';
+      return [
+        susp.entryTimestamp,
+        susp.machineNumber,
+        susp.suspendStart,
+        susp.suspendEnd || '',
+        duration,
+        susp.reason,
+        status
+      ];
+    });
+    
     // Prepare Hourly Records (counted by Out Time)
     const timeSlots = [
       '07:30-08:29', '08:30-09:29', '09:30-10:29', '10:30-11:29', '11:30-12:29',
@@ -1121,6 +1261,24 @@ async function syncToGoogleSheets() {
           }
         });
         
+        // Sync Suspension Records
+        await gapi.client.sheets.spreadsheets.values.clear({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Suspensions!A:G'
+        });
+        
+        await gapi.client.sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: 'Suspensions!A1',
+          valueInputOption: 'RAW',
+          resource: {
+            values: [
+              ['Timestamp', 'Machine', 'Start Time', 'End Time', 'Duration', 'Reason', 'Status'],
+              ...suspensionValues
+            ]
+          }
+        });
+        
         await gapi.client.sheets.spreadsheets.values.clear({
           spreadsheetId: SPREADSHEET_ID,
           range: 'Hourly!A:M'
@@ -1173,7 +1331,7 @@ async function deleteOldCsvWorksheets() {
     
     const sheets = response.result.sheets;
     const deleteRequests = sheets
-      .filter(sheet => sheet.properties.title.startsWith('CPT_SR_') || sheet.properties.title.startsWith('CPT_HR_'))
+      .filter(sheet => sheet.properties.title.startsWith('CPT_SR_') || sheet.properties.title.startsWith('CPT_HR_') || sheet.properties.title.startsWith('CPT_SUS_'))
       .map(sheet => ({
         deleteSheet: { sheetId: sheet.properties.sheetId }
       }));
@@ -1222,6 +1380,29 @@ function updateActiveSuspensionsPreview() {
   }
 }
 
+// ========== TAB FUNCTIONS ==========
+function switchTab(tab) {
+  activeTab = tab;
+  const statusTab = document.getElementById('statusTabBtn');
+  const suspensionTab = document.getElementById('suspensionTabBtn');
+  const statusContainer = document.getElementById('statusTableContainer');
+  const suspensionContainer = document.getElementById('suspensionTableContainer');
+  
+  if (tab === 'status') {
+    statusTab.classList.add('active');
+    suspensionTab.classList.remove('active');
+    statusContainer.style.display = 'block';
+    suspensionContainer.style.display = 'none';
+    updateStatusTable();
+  } else {
+    suspensionTab.classList.add('active');
+    statusTab.classList.remove('active');
+    suspensionContainer.style.display = 'block';
+    statusContainer.style.display = 'none';
+    updateSuspensionTable();
+  }
+}
+
 // ========== INITIALIZATION ==========
 function initializeApp() {
   // Restore data from localStorage
@@ -1251,7 +1432,9 @@ function initializeApp() {
   updateSuspensionButtonStates();
   updateStatusTable();
   updateHourlyTable();
+  updateSuspensionTable();
   updateActiveSuspensionsPreview();
+  updateSuspensionCounts();
   
   // Set initial suspension section state
   const content = document.getElementById('suspensionContent');
@@ -1275,6 +1458,10 @@ function initializeApp() {
   
   // Add collapse button listener
   document.getElementById('expandSuspensionBtn').addEventListener('click', toggleSuspensionSection);
+  
+  // Add tab listeners
+  document.getElementById('statusTabBtn').addEventListener('click', () => switchTab('status'));
+  document.getElementById('suspensionTabBtn').addEventListener('click', () => switchTab('suspension'));
 
   // Google sign-in
   checkGoogleIdentityServices().then(() => {
@@ -1360,7 +1547,10 @@ function resumeSuspension(machine) {
     updateSuspensionButtonStates();
     updateMachineButtonStates();
     updateActiveSuspensionsPreview();
+    updateSuspensionTable();
+    updateSuspensionCounts();
     document.getElementById('error').textContent = `Compactor ${machine} resumed.`;
+    syncToGoogleSheets();
   }
 }
 
@@ -1415,7 +1605,10 @@ window.confirmSuspension = function() {
   updateSuspensionButtonStates();
   updateMachineButtonStates();
   updateActiveSuspensionsPreview();
+  updateSuspensionTable();
+  updateSuspensionCounts();
   document.getElementById('error').textContent = `Compactor ${currentSuspendMachine} suspended for: ${reason}`;
+  syncToGoogleSheets();
 };
 
 function updateSusReason() {
@@ -1426,6 +1619,7 @@ function updateSusReason() {
       if (!s.suspendEnd) s.reason = newReason;
     });
     saveSuspensions();
+    updateSuspensionTable();
   }
 }
 
@@ -1442,6 +1636,19 @@ function getSelectedReason() {
 
 function isMachineSuspended(machine) {
   return suspensions.some(s => s.machineNumber === machine && !s.suspendEnd);
+}
+
+function calculateSuspensionDuration(start, end) {
+  function toMins(t) { 
+    let [h, m] = t.split(':').map(Number); 
+    return h * 60 + m; 
+  }
+  
+  let startMins = toMins(start);
+  let endMins = toMins(end);
+  if (endMins < startMins) endMins += 1440;
+  let diff = endMins - startMins;
+  return Math.floor(diff / 60) + 'h ' + (diff % 60) + 'm';
 }
 
 // ========== CORE MACHINE FUNCTIONS ==========
@@ -1512,6 +1719,70 @@ function updateSuspensionButtonStates() {
   document.querySelectorAll('.machine-suspension-btn').forEach(btn => {
     const m = btn.dataset.machine;
     btn.classList.toggle('active-sus', isMachineSuspended(m));
+  });
+}
+
+function updateSuspensionCounts() {
+  const totalSuspensions = document.getElementById('totalSuspensions');
+  const activeSuspensionsCount = document.getElementById('activeSuspensionsCount');
+  const suspensionCount = document.getElementById('suspensionCount');
+  const toggleSuspensionBtn = document.getElementById('toggleSuspensionRecords');
+  
+  const activeCount = suspensions.filter(s => !s.suspendEnd).length;
+  totalSuspensions.textContent = suspensions.length + ' suspensions';
+  activeSuspensionsCount.textContent = activeCount + ' active';
+  suspensionCount.textContent = suspensions.length + ' records';
+  
+  toggleSuspensionBtn.style.display = suspensions.length > 10 ? 'flex' : 'none';
+  toggleSuspensionBtn.innerHTML = `
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+    </svg>
+    ${showAllSuspensions ? 'Show Less' : 'Show All'}
+  `;
+}
+
+function updateSuspensionTable() {
+  const body = document.getElementById('suspensionBody');
+  if (!body) return;
+  
+  updateSuspensionCounts();
+  
+  if (!suspensions.length) { 
+    body.innerHTML = '<tr><td colspan="7">No suspension records</td></tr>'; 
+    return; 
+  }
+  
+  const sorted = [...suspensions].sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
+  const disp = showAllSuspensions ? sorted : sorted.slice(0, 10);
+  body.innerHTML = '';
+  
+  disp.forEach((susp, idx) => {
+    const isActive = !susp.suspendEnd;
+    const duration = isActive ? 'Active' : calculateSuspensionDuration(susp.suspendStart, susp.suspendEnd);
+    const rowClass = isActive ? 'suspension-active-row' : 'suspension-ended-row';
+    
+    body.innerHTML += `
+      <tr class="${rowClass}">
+        <td>${susp.machineNumber}</td>
+        <td class="time-cell" onclick="editSuspensionTime('${susp.machineNumber}', '${susp.entryTimestamp}', 'suspendStart')">${susp.suspendStart}</td>
+        <td class="time-cell" onclick="${!isActive ? `editSuspensionTime('${susp.machineNumber}', '${susp.entryTimestamp}', 'suspendEnd')` : ''}">${susp.suspendEnd || '-'}</td>
+        <td>${duration}</td>
+        <td>${susp.reason}</td>
+        <td>${isActive ? 'Active' : 'Ended'}</td>
+        <td>
+          ${isActive ? `
+            <svg class="resume-icon" width="16" height="16" viewBox="0 0 16 16" onclick="resumeSuspension('${susp.machineNumber}')" title="Resume">
+              <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+            </svg>
+          ` : ''}
+          <svg class="delete-icon" width="16" height="16" viewBox="0 0 16 16" onclick="deleteSuspension('${susp.machineNumber}', '${susp.entryTimestamp}')" title="Delete">
+            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+          </svg>
+        </td>
+      </tr>`;
   });
 }
 
@@ -1669,7 +1940,7 @@ function updateHourlyTable() {
   });
 }
 
-// ========== HELPER FUNCTIONS (edit, delete, prompt, undo, clear) ==========
+// ========== HELPER FUNCTIONS ==========
 window.promptOutTime = function(idx) {
   let entry = log[idx]; 
   if (!entry || entry.outTime) return;
@@ -1748,13 +2019,59 @@ window.deleteEntry = function(machine, ts) {
   }
 };
 
+window.editSuspensionTime = function(machine, ts, field) {
+  let susp = suspensions.find(s => s.machineNumber === machine && s.entryTimestamp === ts);
+  if (!susp) return;
+  
+  let cur = field === 'suspendStart' ? susp.suspendStart : susp.suspendEnd;
+  if (field === 'suspendEnd' && !cur) cur = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit', 
+    minute: '2-digit', 
+    hour12: false
+  }).replace("24:", "00:");
+  
+  let newTime = prompt(`New ${field === 'suspendStart' ? 'start' : 'end'} time (HH:MM):`, cur);
+  if (!newTime) return;
+  
+  if (field === 'suspendStart') {
+    susp.suspendStart = newTime;
+  } else {
+    susp.suspendEnd = newTime;
+  }
+  
+  susp.entryTimestamp = new Date().toISOString();
+  saveSuspensions();
+  updateSuspensionTable();
+  updateSuspensionButtonStates();
+  updateMachineButtonStates();
+  updateActiveSuspensionsPreview();
+  syncToGoogleSheets();
+};
+
+window.deleteSuspension = function(machine, ts) {
+  let idx = suspensions.findIndex(s => s.machineNumber === machine && s.entryTimestamp === ts);
+  if (idx >= 0) {
+    suspensions.splice(idx, 1);
+    saveSuspensions();
+    updateSuspensionTable();
+    updateSuspensionButtonStates();
+    updateMachineButtonStates();
+    updateActiveSuspensionsPreview();
+    syncToGoogleSheets();
+  }
+};
+
 function clearAllData() {
   if (log.length === 0 && suspensions.length === 0) { 
     document.getElementById('error').textContent = 'No data to clear'; 
     return; 
   }
   
-  actionHistory.push({ type: 'clear', previousState: [...log] });
+  actionHistory.push({ 
+    type: 'clear', 
+    previousState: { log: [...log], suspensions: [...suspensions] } 
+  });
+  
   log = []; 
   suspensions = [];
   
@@ -1764,9 +2081,11 @@ function clearAllData() {
   
   updateStatusTable(); 
   updateHourlyTable(); 
+  updateSuspensionTable();
   updateMachineButtonStates(); 
   updateSuspensionButtonStates(); 
   updateActiveSuspensionsPreview();
+  updateSuspensionCounts();
   syncToGoogleSheets();
 }
 
@@ -1788,7 +2107,9 @@ function undoLastAction() {
       log.push({ ...last.previousState });
       break;
     case 'clear':
-      log = [...last.previousState];
+      log = [...last.previousState.log];
+      suspensions = [...last.previousState.suspensions];
+      saveSuspensions();
       break;
   }
   
@@ -1797,7 +2118,11 @@ function undoLastAction() {
   
   updateStatusTable(); 
   updateHourlyTable(); 
+  updateSuspensionTable();
   updateMachineButtonStates(); 
+  updateSuspensionButtonStates();
+  updateActiveSuspensionsPreview();
+  updateSuspensionCounts();
   syncToGoogleSheets();
 }
 
@@ -1811,12 +2136,17 @@ function toggleHourly() {
   updateHourlyTable(); 
 }
 
+function toggleSuspensionRecords() { 
+  showAllSuspensions = !showAllSuspensions; 
+  updateSuspensionTable(); 
+}
+
 function toggleBlink() { 
   isBlinkingEnabled = !isBlinkingEnabled; 
   updateStatusTable(); 
 }
 
-// ========== EXPORT TO CSV (FIXED) ==========
+// ========== EXPORT TO CSV ==========
 async function exportToCSV() {
   // Status CSV
   const statusRows = [
@@ -1837,6 +2167,33 @@ async function exportToCSV() {
   statusLink.href = URL.createObjectURL(statusBlob);
   statusLink.download = `CPT_SR_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}.csv`;
   statusLink.click();
+
+  // Suspension CSV
+  const suspensionRows = [
+    ['Timestamp', 'Machine', 'Start Time', 'End Time', 'Duration', 'Reason', 'Status'],
+    ...suspensions.map(s => {
+      const duration = s.suspendEnd 
+        ? calculateSuspensionDuration(s.suspendStart, s.suspendEnd) 
+        : 'Active';
+      const status = s.suspendEnd ? 'Ended' : 'Active';
+      return [
+        s.entryTimestamp,
+        s.machineNumber,
+        s.suspendStart,
+        s.suspendEnd || '',
+        duration,
+        s.reason,
+        status
+      ];
+    })
+  ];
+  
+  const suspensionCsv = suspensionRows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const suspensionBlob = new Blob(["\uFEFF" + suspensionCsv], { type: 'text/csv;charset=utf-8;' });
+  const suspensionLink = document.createElement('a');
+  suspensionLink.href = URL.createObjectURL(suspensionBlob);
+  suspensionLink.download = `CPT_SUS_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}.csv`;
+  suspensionLink.click();
 
   // Hourly CSV
   const slots = [
@@ -1890,7 +2247,7 @@ async function exportToCSV() {
   hourlyLink.download = `CPT_HR_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}.csv`;
   hourlyLink.click();
   
-  document.getElementById('error').textContent = 'CSV exported successfully (2 files).';
+  document.getElementById('error').textContent = 'CSV exported successfully (3 files).';
   
   // Also try to sync to Google Sheets if signed in
   if (accessToken) {
@@ -1898,6 +2255,7 @@ async function exportToCSV() {
       await deleteOldCsvWorksheets();
       // Create new sheets for CSV data
       const statusFileName = `CPT_SR_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}`;
+      const suspensionFileName = `CPT_SUS_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}`;
       const hourlyFileName = `CPT_HR_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}`;
       
       await gapi.client.sheets.spreadsheets.batchUpdate({
@@ -1905,6 +2263,7 @@ async function exportToCSV() {
         resource: {
           requests: [
             { addSheet: { properties: { title: statusFileName } } },
+            { addSheet: { properties: { title: suspensionFileName } } },
             { addSheet: { properties: { title: hourlyFileName } } }
           ]
         }
@@ -1915,6 +2274,13 @@ async function exportToCSV() {
         range: `${statusFileName}!A1`,
         valueInputOption: 'RAW',
         resource: { values: statusRows }
+      });
+      
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${suspensionFileName}!A1`,
+        valueInputOption: 'RAW',
+        resource: { values: suspensionRows }
       });
       
       await gapi.client.sheets.spreadsheets.values.update({
@@ -1945,6 +2311,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('undoButton').addEventListener('click', undoLastAction);
   document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
   document.getElementById('toggleHourly').addEventListener('click', toggleHourly);
+  document.getElementById('toggleSuspensionRecords').addEventListener('click', toggleSuspensionRecords);
   document.getElementById('toggleBlink').addEventListener('click', toggleBlink);
   document.getElementById('signInBtn').addEventListener('click', requestAccessToken);
 });
