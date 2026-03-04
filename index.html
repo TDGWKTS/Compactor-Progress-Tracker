@@ -240,50 +240,7 @@
       display: block;
     }
     
-    /* Suspension controls - hidden by default, only shown when expanded */
-    .suspension-selector {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      align-items: center;
-      background: rgba(255,255,255,0.2);
-      padding: 10px 15px;
-      border-radius: 40px;
-      backdrop-filter: blur(5px);
-      margin-bottom: 10px;
-    }
-    
-    .suspension-selector label {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      color: white;
-      font-size: 0.9rem;
-      cursor: pointer;
-    }
-    
-    .suspension-selector input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-      accent-color: #667eea;
-    }
-    
-    .other-reason-input {
-      border: none;
-      border-radius: 20px;
-      padding: 5px 12px;
-      width: 130px;
-      background: white;
-      border: 1px solid #ddd;
-      font-size: 0.85rem;
-    }
-    
-    .other-reason-input:disabled {
-      background: #f0f0f0;
-      opacity: 0.7;
-    }
-    
+    /* Simplified suspension controls - only machine buttons */
     .machine-suspension-row {
       display: flex;
       flex-wrap: wrap;
@@ -750,14 +707,6 @@
       cursor: pointer;
     }
     
-    #otherReasonText {
-      margin-left: 10px;
-      padding: 5px;
-      width: 65%;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    
     /* Responsive adjustments */
     @media (max-width: 1024px) {
       .suspension-header {
@@ -774,7 +723,7 @@
         padding: 0 15px 15px 15px;
       }
       
-      .suspension-selector, .machine-suspension-row {
+      .machine-suspension-row {
         width: 100%;
         justify-content: center;
       }
@@ -823,7 +772,7 @@
       <div class="card">
         <div class="card-header">Compactor Entry</div>
         
-        <!-- Collapsible Suspension Section - Minimal by default -->
+        <!-- Collapsible Suspension Section - Only machine buttons -->
         <div class="suspension-container" id="suspensionContainer">
           <div class="suspension-header" id="suspensionHeader">
             <div class="suspension-header-left">
@@ -842,19 +791,7 @@
           </div>
           
           <div class="suspension-content" id="suspensionContent">
-            <div class="suspension-selector" id="suspensionReasons">
-              <label>
-                <input type="checkbox" value="Maintenance" id="susMaintenance"> Maintenance
-              </label>
-              <label>
-                <input type="checkbox" value="Testing" id="susTesting"> Testing
-              </label>
-              <label>
-                <input type="checkbox" id="susOther"> Other
-              </label>
-              <input type="text" class="other-reason-input" id="otherReasonText" placeholder="reason" disabled>
-            </div>
-            
+            <!-- Only machine suspension buttons - no reason checkboxes -->
             <div class="machine-suspension-row" id="machineSusRow">
               <!-- Suspension buttons will be injected by JavaScript -->
             </div>
@@ -1485,13 +1422,6 @@ function initializeApp() {
   const savedExpanded = localStorage.getItem('suspensionExpanded');
   isSuspensionExpanded = savedExpanded === 'true' ? true : false;
 
-  // Clear any default checkbox states
-  document.getElementById('susMaintenance').checked = false;
-  document.getElementById('susTesting').checked = false;
-  document.getElementById('susOther').checked = false;
-  document.getElementById('otherReasonText').disabled = true;
-  document.getElementById('otherReasonText').value = '';
-
   // Render UI
   renderMachineButtons();
   buildMachineSusRow();
@@ -1524,9 +1454,6 @@ function initializeApp() {
     }
   }, 5 * 60 * 1000);
   
-  // Initialize suspension listeners
-  initSusListeners();
-  
   // Add collapse button listener
   document.getElementById('expandSuspensionBtn').addEventListener('click', toggleSuspensionSection);
   
@@ -1545,26 +1472,6 @@ function initializeApp() {
 }
 
 // ========== SUSPENSION UI ==========
-function initSusListeners() {
-  const maint = document.getElementById('susMaintenance');
-  const test = document.getElementById('susTesting');
-  const other = document.getElementById('susOther');
-  const otherText = document.getElementById('otherReasonText');
-  
-  function updateOtherDisabled() {
-    otherText.disabled = !other.checked;
-    if (!other.checked) otherText.value = '';
-  }
-  
-  maint.addEventListener('change', updateSusReason);
-  test.addEventListener('change', updateSusReason);
-  other.addEventListener('change', () => {
-    updateOtherDisabled();
-    updateSusReason();
-  });
-  otherText.addEventListener('input', updateSusReason);
-}
-
 function buildMachineSusRow() {
   const container = document.getElementById('machineSusRow');
   container.innerHTML = '';
@@ -1681,29 +1588,6 @@ window.confirmSuspension = function() {
   document.getElementById('error').textContent = `Compactor ${currentSuspendMachine} suspended for: ${reason}`;
   syncToGoogleSheets();
 };
-
-function updateSusReason() {
-  // Update reason for active suspensions if needed
-  if (Object.values(suspensions).some(s => !s.suspendEnd)) {
-    const newReason = getSelectedReason();
-    suspensions.forEach(s => {
-      if (!s.suspendEnd) s.reason = newReason;
-    });
-    saveSuspensions();
-    updateSuspensionTable();
-  }
-}
-
-function getSelectedReason() {
-  const reasons = [];
-  if (document.getElementById('susMaintenance').checked) reasons.push('Maintenance');
-  if (document.getElementById('susTesting').checked) reasons.push('Testing');
-  if (document.getElementById('susOther').checked) {
-    const otherText = document.getElementById('otherReasonText').value.trim();
-    reasons.push(otherText ? `Other: ${otherText}` : 'Other');
-  }
-  return reasons.length ? reasons.join(' + ') : 'No reason';
-}
 
 function isMachineSuspended(machine) {
   return suspensions.some(s => s.machineNumber === machine && !s.suspendEnd);
