@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://apis.google.com https://www.gstatic.com https://accounts.google.com https://*.googleapis.com https://ssl.gstatic.com https://www.google.com 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://accounts.google.com https://sheets.googleapis.com https://www.googleapis.com https://apis.google.com;">
-  <title>Compactor Progress Tracker</title>
+  <title>Compactor Progress Tracker - Overnight Shift (04:30-04:29)</title>
   <script src="https://apis.google.com/js/api.js" async defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
@@ -318,7 +318,7 @@
     }
     
     .compactor-btn.suspended::after {
-      content: "⛔";
+      content: "?";
       position: absolute;
       top: 50%;
       left: 50%;
@@ -759,7 +759,7 @@
 <body>
   <div class="container">
     <header>
-      <h1>Compactor Progress Tracker</h1>
+      <h1>Compactor Progress Tracker <span style="font-size:0.7rem;">(Overnight: 04:30 → Next Day 04:29)</span></h1>
       <button class="btn btn-signin" id="signInBtn">
         <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
           <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
@@ -777,7 +777,7 @@
           <div class="suspension-header" id="suspensionHeader">
             <div class="suspension-header-left">
               <div class="suspension-badge">
-                <span>⏸️</span> Suspension
+                <span>⛔</span> Suspension
               </div>
               <div class="active-suspensions-preview" id="activeSuspensionsPreview">
                 <span>0 active</span>
@@ -933,7 +933,7 @@
     </div>
    
     <div class="footer">
-      Compactor Progress Tracker v2.8 | 6A added | Hourly by OutTime | Full Google Integration | Suspension Records Added
+      Compactor Progress Tracker v2.8 | 6A added | Hourly by OutTime | Full Google Integration | Overnight Support (04:30 → 04:29)
     </div>
   </div>
 
@@ -961,6 +961,66 @@ const CLIENT_ID = '959994109190-rrpedrd8vg3es3meibc9gbim7a1r0254.apps.googleuser
 const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo';
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const machineOrder = ['1','2','3','4','5','6','6A','7','8','9','10'];
+
+// ========== OVERNIGHT TIME HELPERS (04:30 start of day) ==========
+// Convert time string to minutes from 04:30 (shift start)
+function minutesFromShiftStart(timeStr) {
+  let [h, m] = timeStr.split(':').map(Number);
+  let totalMinutes = h * 60 + m;
+  let shiftStart = 4 * 60 + 30; // 04:30 = 270 minutes
+  if (totalMinutes >= shiftStart) {
+    return totalMinutes - shiftStart;
+  } else {
+    // Time is before 04:30 (like 00:00-04:29) - belongs to next shift day
+    return (totalMinutes + 1440) - shiftStart;
+  }
+}
+
+// Calculate duration correctly for overnight operations
+function calculateOvernightDuration(inTime, outTime) {
+  if (!outTime) {
+    // For running jobs, calculate from inTime to current time
+    const now = new Date().toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      hour12: false, 
+      timeZone: 'Asia/Hong_Kong' 
+    }).replace("24:", "00:");
+    let startMins = minutesFromShiftStart(inTime);
+    let currentMins = minutesFromShiftStart(now);
+    let diff = currentMins - startMins;
+    if (diff < 0) diff += 1440;
+    return { display: 'running', minutes: diff };
+  }
+  
+  let startMins = minutesFromShiftStart(inTime);
+  let endMins = minutesFromShiftStart(outTime);
+  let diff = endMins - startMins;
+  if (diff < 0) diff += 1440;
+  let hours = Math.floor(diff / 60);
+  let mins = diff % 60;
+  return { display: hours + 'h ' + mins + 'm', minutes: diff };
+}
+
+// Determine hour slot for overnight shift (slots from 04:30 to next day 04:29)
+function getHourSlot(outTime) {
+  if (!outTime) return null;
+  let minsFrom430 = minutesFromShiftStart(outTime);
+  let slotIndex = Math.floor(minsFrom430 / 60);
+  if (slotIndex >= 24) slotIndex = 23;
+  
+  // Build slots starting at 04:30
+  const startTime = 4 * 60 + 30;
+  let slotStart = (startTime + slotIndex * 60) % 1440;
+  let slotEnd = (startTime + (slotIndex + 1) * 60) % 1440;
+  
+  let startHour = Math.floor(slotStart / 60);
+  let startMin = slotStart % 60;
+  let endHour = Math.floor(slotEnd / 60);
+  let endMin = slotEnd % 60;
+  
+  return `${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}-${String(endHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`;
+}
 
 // ========== GLOBAL STATE ==========
 let log = [];               // { machineNumber, inTime, outTime, entryTimestamp }
@@ -1137,13 +1197,13 @@ async function syncToGoogleSheets() {
       entry.machineNumber,
       entry.inTime,
       entry.outTime || '',
-      calculateDuration(entry.inTime, entry.outTime).display
+      calculateOvernightDuration(entry.inTime, entry.outTime).display
     ]);
     
     // Prepare Suspension Records
     const suspensionValues = suspensions.map((susp) => {
       const duration = susp.suspendEnd 
-        ? calculateSuspensionDuration(susp.suspendStart, susp.suspendEnd) 
+        ? calculateOvernightDuration(susp.suspendStart, susp.suspendEnd).display 
         : 'Active';
       const status = susp.suspendEnd ? 'Ended' : 'Active';
       return [
@@ -1157,41 +1217,24 @@ async function syncToGoogleSheets() {
       ];
     });
     
-    // Prepare Hourly Records
-    const slots = [
-      '07:30-08:29', '08:30-09:29', '09:30-10:29', '10:30-11:29', '11:30-12:29',
-      '12:30-13:29', '13:30-14:29', '14:30-15:29', '15:30-16:29', '16:30-17:29',
-      '17:30-18:29', '18:30-19:29', '19:30-20:29', '20:30-21:29', '21:30-22:29',
-      '22:30-23:29', '23:30-00:29', '00:30-01:29', '01:30-02:29', '02:30-03:29',
-      '03:30-04:29', '04:30-05:29', '05:30-06:29'
-    ];
-    
-    function timeToMins(t) { 
-      let [h, m] = t.split(':').map(Number); 
-      return h * 60 + m; 
+    // Prepare Hourly Records with overnight slots
+    const slots = [];
+    for (let i = 0; i < 24; i++) {
+      const startTime = (4 * 60 + 30 + i * 60) % 1440;
+      const endTime = (4 * 60 + 30 + (i + 1) * 60) % 1440;
+      const startHour = Math.floor(startTime / 60);
+      const startMin = startTime % 60;
+      const endHour = Math.floor(endTime / 60);
+      const endMin = endTime % 60;
+      slots.push(`${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}-${String(endHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`);
     }
     
     const slotMap = {};
     slots.forEach(s => slotMap[s] = Array(machineOrder.length + 1).fill(0));
     
     log.filter(e => e.outTime).forEach(entry => {
-      const outMin = timeToMins(entry.outTime);
-      let targetSlot = null;
-      
-      for (let s of slots) {
-        let [start, end] = s.split('-');
-        let startMin = timeToMins(start);
-        let endMin = timeToMins(end);
-        if (endMin < startMin) endMin += 1440;
-        let outCompare = outMin;
-        if (startMin >= 720 && outMin < 720) outCompare += 1440;
-        if (outCompare >= startMin && outCompare <= endMin) { 
-          targetSlot = s; 
-          break; 
-        }
-      }
-      
-      if (targetSlot) {
+      const targetSlot = getHourSlot(entry.outTime);
+      if (targetSlot && slotMap[targetSlot]) {
         const idx = machineOrder.indexOf(entry.machineNumber) + 1;
         if (idx > 0) slotMap[targetSlot][idx] += 1;
       }
@@ -1594,16 +1637,7 @@ function isMachineSuspended(machine) {
 }
 
 function calculateSuspensionDuration(start, end) {
-  function toMins(t) { 
-    let [h, m] = t.split(':').map(Number); 
-    return h * 60 + m; 
-  }
-  
-  let startMins = toMins(start);
-  let endMins = toMins(end);
-  if (endMins < startMins) endMins += 1440;
-  let diff = endMins - startMins;
-  return Math.floor(diff / 60) + 'h ' + (diff % 60) + 'm';
+  return calculateOvernightDuration(start, end).display;
 }
 
 // ========== CORE MACHINE FUNCTIONS ==========
@@ -1686,15 +1720,17 @@ function updateSuspensionCounts() {
   const activeCount = suspensions.filter(s => !s.suspendEnd).length;
   totalSuspensions.textContent = suspensions.length + ' suspensions';
   activeSuspensionsCount.textContent = activeCount + ' active';
-  suspensionCount.textContent = suspensions.length + ' records';
+  if (suspensionCount) suspensionCount.textContent = suspensions.length + ' records';
   
-  toggleSuspensionBtn.style.display = suspensions.length > 10 ? 'flex' : 'none';
-  toggleSuspensionBtn.innerHTML = `
-    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-    </svg>
-    ${showAllSuspensions ? 'Show Less' : 'Show All'}
-  `;
+  if (toggleSuspensionBtn) {
+    toggleSuspensionBtn.style.display = suspensions.length > 10 ? 'flex' : 'none';
+    toggleSuspensionBtn.innerHTML = `
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+      </svg>
+      ${showAllSuspensions ? 'Show Less' : 'Show All'}
+    `;
+  }
 }
 
 function updateSuspensionTable() {
@@ -1714,7 +1750,7 @@ function updateSuspensionTable() {
   
   disp.forEach((susp) => {
     const isActive = !susp.suspendEnd;
-    const duration = isActive ? 'Active' : calculateSuspensionDuration(susp.suspendStart, susp.suspendEnd);
+    const duration = isActive ? 'Active' : calculateOvernightDuration(susp.suspendStart, susp.suspendEnd).display;
     const rowClass = isActive ? 'suspension-active-row' : 'suspension-ended-row';
     
     body.innerHTML += `
@@ -1727,12 +1763,12 @@ function updateSuspensionTable() {
         <td>${isActive ? 'Active' : 'Ended'}</td>
         <td>
           ${isActive ? `
-            <svg class="resume-icon" width="16" height="16" viewBox="0 0 16 16" onclick="resumeSuspension('${susp.machineNumber}')" title="Resume">
+            <svg class="resume-icon" width="16" height="16" viewBox="0 0 16 16" onclick="resumeSuspension('${susp.machineNumber}')" title="Resume" fill="currentColor">
               <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
               <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
             </svg>
           ` : ''}
-          <svg class="delete-icon" width="16" height="16" viewBox="0 0 16 16" onclick="deleteSuspension('${susp.machineNumber}', '${susp.entryTimestamp}')" title="Delete">
+          <svg class="delete-icon" width="16" height="16" viewBox="0 0 16 16" onclick="deleteSuspension('${susp.machineNumber}', '${susp.entryTimestamp}')" title="Delete" fill="currentColor">
             <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
             <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
           </svg>
@@ -1755,13 +1791,15 @@ function updateStatusTable() {
   pendingCount.textContent = pending + ' pending';
   completedCount.textContent = completed + ' completed';
   
-  toggleRec.style.display = log.length > 10 ? 'flex' : 'none';
-  toggleRec.innerHTML = `
-    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-      <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-    </svg>
-    ${showAllRecords ? 'Show Less' : 'Show All'}
-  `;
+  if (toggleRec) {
+    toggleRec.style.display = log.length > 10 ? 'flex' : 'none';
+    toggleRec.innerHTML = `
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
+      </svg>
+      ${showAllRecords ? 'Show Less' : 'Show All'}
+    `;
+  }
   
   if (!log.length) { 
     body.innerHTML = '<tr><td colspan="6">No records</td></tr>'; 
@@ -1774,8 +1812,8 @@ function updateStatusTable() {
   
   disp.forEach((entry, idx) => {
     const containerNum = log.length - (showAllRecords ? idx : idx);
-    const { display, minutes } = calculateDuration(entry.inTime, entry.outTime);
-    const blink = isBlinkingEnabled && !entry.outTime && minutes >= 40 ? 'blink' : '';
+    const duration = calculateOvernightDuration(entry.inTime, entry.outTime);
+    const blink = isBlinkingEnabled && !entry.outTime && duration.minutes >= 40 ? 'blink' : '';
     const entryIdx = log.findIndex(e => e.entryTimestamp === entry.entryTimestamp);
     
     body.innerHTML += `
@@ -1784,9 +1822,9 @@ function updateStatusTable() {
         <td class="${blink}">${entry.machineNumber}</td>
         <td class="time-cell" onclick="editEntry('${entry.machineNumber}', '${entry.entryTimestamp}', 'inTime')">${entry.inTime}</td>
         <td class="time-cell" onclick="${entry.outTime ? `editEntry('${entry.machineNumber}', '${entry.entryTimestamp}', 'outTime')` : `promptOutTime(${entryIdx})`}">${entry.outTime || '-'}</td>
-        <td>${display}</td>
+        <td>${duration.display}</td>
         <td>
-          <svg class="delete-icon" width="16" height="16" viewBox="0 0 16 16" onclick="deleteEntry('${entry.machineNumber}', '${entry.entryTimestamp}')">
+          <svg class="delete-icon" width="16" height="16" viewBox="0 0 16 16" onclick="deleteEntry('${entry.machineNumber}', '${entry.entryTimestamp}')" fill="currentColor">
             <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
             <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
           </svg>
@@ -1795,68 +1833,30 @@ function updateStatusTable() {
   });
 }
 
-function calculateDuration(inTime, outTime) {
-  function toMins(t) { 
-    let [h, m] = t.split(':').map(Number); 
-    return h * 60 + m; 
-  }
-  
-  if (!outTime) { 
-    const now = new Date();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
-    const startMins = toMins(inTime);
-    let diff = currentMins - startMins;
-    if (diff < 0) diff += 1440;
-    return { display: 'running', minutes: diff }; 
-  }
-  
-  let start = toMins(inTime);
-  let end = toMins(outTime);
-  if (end < start) end += 1440;
-  let diff = end - start; 
-  return { display: Math.floor(diff / 60) + 'h ' + (diff % 60) + 'm', minutes: diff };
-}
-
 function updateHourlyTable() {
   const tbody = document.getElementById('hourlyBody');
   const hourCount = document.getElementById('hourlyCount');
   const toggleBtn = document.getElementById('toggleHourly');
   const cumRow = document.getElementById('cumulativeRow');
   
-  const slots = [
-    '07:30-08:29', '08:30-09:29', '09:30-10:29', '10:30-11:29', '11:30-12:29',
-    '12:30-13:29', '13:30-14:29', '14:30-15:29', '15:30-16:29', '16:30-17:29',
-    '17:30-18:29', '18:30-19:29', '19:30-20:29', '20:30-21:29', '21:30-22:29',
-    '22:30-23:29', '23:30-00:29', '00:30-01:29', '01:30-02:29', '02:30-03:29',
-    '03:30-04:29', '04:30-05:29', '05:30-06:29'
-  ];
-  
-  function timeToMins(t) { 
-    let [h, m] = t.split(':').map(Number); 
-    return h * 60 + m; 
+  // Build 24 slots starting at 04:30
+  const slots = [];
+  for (let i = 0; i < 24; i++) {
+    const startTime = (4 * 60 + 30 + i * 60) % 1440;
+    const endTime = (4 * 60 + 30 + (i + 1) * 60) % 1440;
+    const startHour = Math.floor(startTime / 60);
+    const startMin = startTime % 60;
+    const endHour = Math.floor(endTime / 60);
+    const endMin = endTime % 60;
+    slots.push(`${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}-${String(endHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`);
   }
   
   const slotMap = {};
   slots.forEach(s => slotMap[s] = Array(machineOrder.length + 1).fill(0));
   
   log.filter(e => e.outTime).forEach(entry => {
-    const outMin = timeToMins(entry.outTime);
-    let targetSlot = null;
-    
-    for (let s of slots) {
-      let [start, end] = s.split('-');
-      let startMin = timeToMins(start);
-      let endMin = timeToMins(end);
-      if (endMin < startMin) endMin += 1440;
-      let outCompare = outMin;
-      if (startMin >= 720 && outMin < 720) outCompare += 1440;
-      if (outCompare >= startMin && outCompare <= endMin) { 
-        targetSlot = s; 
-        break; 
-      }
-    }
-    
-    if (targetSlot) {
+    const targetSlot = getHourSlot(entry.outTime);
+    if (targetSlot && slotMap[targetSlot]) {
       const idx = machineOrder.indexOf(entry.machineNumber) + 1;
       if (idx > 0) slotMap[targetSlot][idx] += 1;
     }
@@ -1878,9 +1878,19 @@ function updateHourlyTable() {
   }
   
   let records = slots.filter(s => slotMap[s].some((v, i) => i > 0 && v > 0)).map(s => ({ slot: s, counts: slotMap[s] }));
-  hourCount.textContent = records.length + ' hours';
-  toggleBtn.style.display = records.length > 5 ? 'flex' : 'none';
-  records.sort((a, b) => a.slot.localeCompare(b.slot));
+  if (hourCount) hourCount.textContent = records.length + ' hours';
+  if (toggleBtn) toggleBtn.style.display = records.length > 5 ? 'flex' : 'none';
+  records.sort((a, b) => {
+    // Sort by slot start time
+    const getStartMin = (slot) => {
+      let start = slot.split('-')[0];
+      let [h, m] = start.split(':').map(Number);
+      let mins = h * 60 + m;
+      if (mins < 270) mins += 1440;
+      return mins;
+    };
+    return getStartMin(a.slot) - getStartMin(b.slot);
+  });
   const disp = showAllHourly ? records : records.slice(0, 5);
   
   tbody.innerHTML = '';
@@ -1903,7 +1913,8 @@ window.promptOutTime = function(idx) {
   let newTime = prompt('Out time (HH:MM):', new Date().toLocaleTimeString('en-US', {
     hour: '2-digit', 
     minute: '2-digit', 
-    hour12: false
+    hour12: false,
+    timeZone: 'Asia/Hong_Kong'
   }).replace("24:", "00:"));
   
   if (!newTime) return;
@@ -1982,7 +1993,8 @@ window.editSuspensionTime = function(machine, ts, field) {
   if (field === 'suspendEnd' && !cur) cur = new Date().toLocaleTimeString('en-US', {
     hour: '2-digit', 
     minute: '2-digit', 
-    hour12: false
+    hour12: false,
+    timeZone: 'Asia/Hong_Kong'
   }).replace("24:", "00:");
   
   let newTime = prompt(`New ${field === 'suspendStart' ? 'start' : 'end'} time (HH:MM):`, cur);
@@ -2112,7 +2124,7 @@ async function exportToCSV() {
       e.machineNumber, 
       e.inTime, 
       e.outTime || '', 
-      calculateDuration(e.inTime, e.outTime).display
+      calculateOvernightDuration(e.inTime, e.outTime).display
     ])
   ];
   
@@ -2128,7 +2140,7 @@ async function exportToCSV() {
     ['Timestamp', 'Machine', 'Start Time', 'End Time', 'Duration', 'Reason', 'Status'],
     ...suspensions.map(s => {
       const duration = s.suspendEnd 
-        ? calculateSuspensionDuration(s.suspendStart, s.suspendEnd) 
+        ? calculateOvernightDuration(s.suspendStart, s.suspendEnd).display 
         : 'Active';
       const status = s.suspendEnd ? 'Ended' : 'Active';
       return [
@@ -2151,31 +2163,25 @@ async function exportToCSV() {
   suspensionLink.click();
 
   // Hourly CSV
-  const slots = [
-    '07:30-08:29', '08:30-09:29', '09:30-10:29', '10:30-11:29', '11:30-12:29',
-    '12:30-13:29', '13:30-14:29', '14:30-15:29', '15:30-16:29', '16:30-17:29',
-    '17:30-18:29', '18:30-19:29', '19:30-20:29', '20:30-21:29', '21:30-22:29',
-    '22:30-23:29', '23:30-00:29', '00:30-01:29', '01:30-02:29', '02:30-03:29',
-    '03:30-04:29', '04:30-05:29', '05:30-06:29'
-  ];
+  const slots = [];
+  for (let i = 0; i < 24; i++) {
+    const startTime = (4 * 60 + 30 + i * 60) % 1440;
+    const endTime = (4 * 60 + 30 + (i + 1) * 60) % 1440;
+    const startHour = Math.floor(startTime / 60);
+    const startMin = startTime % 60;
+    const endHour = Math.floor(endTime / 60);
+    const endMin = endTime % 60;
+    slots.push(`${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}-${String(endHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`);
+  }
   
   const slotMap = {};
   slots.forEach(s => slotMap[s] = Array(machineOrder.length + 1).fill(0));
   
   log.filter(e => e.outTime).forEach(e => {
-    const outMin = (h => h[0] * 60 + h[1])(e.outTime.split(':').map(Number));
-    for (let s of slots) {
-      let [st, en] = s.split('-');
-      let sMin = (h => h[0] * 60 + h[1])(st.split(':').map(Number));
-      let eMin = (h => h[0] * 60 + h[1])(en.split(':').map(Number));
-      if (eMin < sMin) eMin += 1440;
-      let outCmp = outMin;
-      if (sMin >= 720 && outMin < 720) outCmp += 1440;
-      if (outCmp >= sMin && outCmp <= eMin) {
-        let idx = machineOrder.indexOf(e.machineNumber) + 1;
-        if (idx > 0) slotMap[s][idx]++; 
-        break;
-      }
+    const targetSlot = getHourSlot(e.outTime);
+    if (targetSlot && slotMap[targetSlot]) {
+      let idx = machineOrder.indexOf(e.machineNumber) + 1;
+      if (idx > 0) slotMap[targetSlot][idx]++; 
     }
   });
   
@@ -2264,11 +2270,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('exportButton').addEventListener('click', exportToCSV);
   document.getElementById('clearButton').addEventListener('click', clearAllData);
   document.getElementById('undoButton').addEventListener('click', undoLastAction);
-  document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
-  document.getElementById('toggleHourly').addEventListener('click', toggleHourly);
-  document.getElementById('toggleSuspensionRecords').addEventListener('click', toggleSuspensionRecords);
-  document.getElementById('toggleBlink').addEventListener('click', toggleBlink);
-  document.getElementById('signInBtn').addEventListener('click', requestAccessToken);
+  
+  const toggleRecordsBtn = document.getElementById('toggleRecords');
+  if (toggleRecordsBtn) toggleRecordsBtn.addEventListener('click', toggleRecords);
+  
+  const toggleHourlyBtn = document.getElementById('toggleHourly');
+  if (toggleHourlyBtn) toggleHourlyBtn.addEventListener('click', toggleHourly);
+  
+  const toggleSuspensionBtn = document.getElementById('toggleSuspensionRecords');
+  if (toggleSuspensionBtn) toggleSuspensionBtn.addEventListener('click', toggleSuspensionRecords);
+  
+  const toggleBlinkBtn = document.getElementById('toggleBlink');
+  if (toggleBlinkBtn) toggleBlinkBtn.addEventListener('click', toggleBlink);
+  
+  const signInBtn = document.getElementById('signInBtn');
+  if (signInBtn) signInBtn.addEventListener('click', requestAccessToken);
 });
 
 // Cleanup on window unload
