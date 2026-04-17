@@ -933,7 +933,7 @@
     </div>
    
     <div class="footer">
-      Compactor Progress Tracker v2.8 | 6A added | Hourly by OutTime | Full Google Integration | Overnight Support (04:30 → 04:29)
+      Compactor Progress Tracker v2.8 | 6A added | Hourly by OutTime | Full Google Integration | Overnight Support (04:30 → Next Day 04:29)
     </div>
   </div>
 
@@ -962,16 +962,20 @@ const SPREADSHEET_ID = '1w6suOx0R43BUGhi_ylAohNzj7j3Z_quO9k2yoJ5CcSo';
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const machineOrder = ['1','2','3','4','5','6','6A','7','8','9','10'];
 
-// ========== OVERNIGHT TIME HELPERS (04:30 start of day) ==========
+// ========== OVERNIGHT TIME HELPERS (04:30 start of day, 00:00-04:29 belongs to previous day) ==========
 // Convert time string to minutes from 04:30 (shift start)
+// For times 00:00-04:29, they are treated as belonging to the previous day's shift
 function minutesFromShiftStart(timeStr) {
   let [h, m] = timeStr.split(':').map(Number);
   let totalMinutes = h * 60 + m;
   let shiftStart = 4 * 60 + 30; // 04:30 = 270 minutes
+  
   if (totalMinutes >= shiftStart) {
+    // Time is 04:30 or later - belongs to current shift day
     return totalMinutes - shiftStart;
   } else {
-    // Time is before 04:30 (like 00:00-04:29) - belongs to next shift day
+    // Time is 00:00-04:29 - belongs to previous day's shift
+    // Add 1440 minutes to represent "previous day" offset
     return (totalMinutes + 1440) - shiftStart;
   }
 }
@@ -1008,6 +1012,7 @@ function getHourSlot(outTime) {
   let minsFrom430 = minutesFromShiftStart(outTime);
   let slotIndex = Math.floor(minsFrom430 / 60);
   if (slotIndex >= 24) slotIndex = 23;
+  if (slotIndex < 0) slotIndex = 0;
   
   // Build slots starting at 04:30
   const startTime = 4 * 60 + 30;
@@ -1030,15 +1035,15 @@ let showAllRecords = false;
 let showAllHourly = false;
 let showAllSuspensions = false;
 let isBlinkingEnabled = true;
-let isSuspensionExpanded = false; // Default collapsed
-let activeTab = 'status'; // 'status' or 'suspension'
+let isSuspensionExpanded = false;
+let activeTab = 'status';
 let updateInterval = null;
 let syncInterval = null;
 let accessToken = null;
 let currentSuspendMachine = null;
 let syncInProgress = false;
 
-// ========== GOOGLE API FUNCTIONS (FIXED) ==========
+// ========== GOOGLE API FUNCTIONS ==========
 async function checkGoogleIdentityServices() {
   return new Promise((resolve, reject) => {
     const maxAttempts = 10;
@@ -1050,7 +1055,7 @@ async function checkGoogleIdentityServices() {
         attempts++;
         setTimeout(check, 500);
       } else {
-        reject(new Error('Google Identity Services not loaded after maximum attempts'));
+        reject(new Error('Google Identity Services not loaded'));
       }
     };
     check();
@@ -1060,7 +1065,6 @@ async function checkGoogleIdentityServices() {
 async function initClient() {
   try {
     if (!window.gapi) {
-      console.warn('Google API script not loaded. Retrying...');
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = 'https://apis.google.com/js/api.js';
@@ -1085,7 +1089,6 @@ async function initClient() {
     });
     
     if (!accessToken) {
-      console.warn('No access token available. Requesting authentication...');
       document.getElementById('signInBtn').classList.remove('hidden');
       document.getElementById('error').textContent = 'Please sign in to initialize Google API.';
       return false;
@@ -1093,7 +1096,6 @@ async function initClient() {
     
     gapi.client.setToken({ access_token: accessToken });
     
-    // Verify spreadsheet exists and get sheet titles
     try {
       const response = await gapi.client.sheets.spreadsheets.get({
         spreadsheetId: SPREADSHEET_ID,
@@ -1101,45 +1103,31 @@ async function initClient() {
       });
       
       const sheetTitles = response.result.sheets.map(sheet => sheet.properties.title);
-      
-      // Create missing sheets if they don't exist
       const requests = [];
-      if (!sheetTitles.includes('Status')) {
-        requests.push({ addSheet: { properties: { title: 'Status' } } });
-      }
-      if (!sheetTitles.includes('Suspensions')) {
-        requests.push({ addSheet: { properties: { title: 'Suspensions' } } });
-      }
-      if (!sheetTitles.includes('Hourly')) {
-        requests.push({ addSheet: { properties: { title: 'Hourly' } } });
-      }
+      if (!sheetTitles.includes('Status')) requests.push({ addSheet: { properties: { title: 'Status' } } });
+      if (!sheetTitles.includes('Suspensions')) requests.push({ addSheet: { properties: { title: 'Suspensions' } } });
+      if (!sheetTitles.includes('Hourly')) requests.push({ addSheet: { properties: { title: 'Hourly' } } });
       
       if (requests.length > 0) {
         await gapi.client.sheets.spreadsheets.batchUpdate({
           spreadsheetId: SPREADSHEET_ID,
           resource: { requests: requests }
         });
-        console.log('Created missing worksheets');
       }
     } catch (error) {
-      console.error('Error checking/creating worksheets:', error);
-      // Continue anyway - we'll try to write and let the API handle errors
+      console.error('Error checking worksheets:', error);
     }
     
-    console.log('Google API client initialized successfully');
     return true;
   } catch (error) {
-    const errorDetails = error.result?.error?.message || error.message || JSON.stringify(error);
     console.error('Error initializing Google API:', error);
-    document.getElementById('error').textContent = `Failed to initialize Google API: ${errorDetails.substring(0, 100)}`;
     return false;
   }
 }
 
 function requestAccessToken() {
   if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
-    console.error('Google Identity Services not loaded');
-    document.getElementById('error').textContent = 'Google Identity Services not loaded. Please refresh the page.';
+    document.getElementById('error').textContent = 'Google Identity Services not loaded.';
     return;
   }
   
@@ -1148,85 +1136,45 @@ function requestAccessToken() {
     scope: SCOPE,
     callback: (response) => {
       if (response.error) {
-        console.error('Token request error:', response);
-        document.getElementById('error').textContent = `Authentication failed: ${response.error_description || response.error}`;
         accessToken = null;
+        document.getElementById('error').textContent = `Auth failed: ${response.error}`;
       } else {
         accessToken = response.access_token;
-        console.log('Access token received');
         document.getElementById('error').textContent = '';
         sessionStorage.setItem('loggedIn', 'true');
         document.getElementById('signInBtn').classList.add('hidden');
-        initClient().then(() => {
-          syncToGoogleSheets();
-        });
+        initClient().then(() => syncToGoogleSheets());
       }
     },
   });
-  
   tokenClient.requestAccessToken();
 }
 
 async function syncToGoogleSheets() {
-  // Prevent multiple simultaneous syncs
-  if (syncInProgress) return false;
+  if (syncInProgress || !accessToken) return false;
   syncInProgress = true;
   
   try {
-    if (!accessToken) {
-      document.getElementById('error').textContent = 'Please sign in to sync data.';
-      syncInProgress = false;
-      return false;
-    }
-    
-    if (!window.gapi || !window.gapi.client) {
-      const initialized = await initClient();
-      if (!initialized) {
-        document.getElementById('error').textContent = 'Google API client failed to initialize.';
-        syncInProgress = false;
-        return false;
-      }
-    }
-    
+    if (!window.gapi || !window.gapi.client) await initClient();
     gapi.client.setToken({ access_token: accessToken });
     
-    // Prepare Status Records
     const statusValues = log.map((entry, index) => [
-      entry.entryTimestamp,
-      log.length - index,
-      entry.machineNumber,
-      entry.inTime,
-      entry.outTime || '',
-      calculateOvernightDuration(entry.inTime, entry.outTime).display
+      entry.entryTimestamp, log.length - index, entry.machineNumber,
+      entry.inTime, entry.outTime || '', calculateOvernightDuration(entry.inTime, entry.outTime).display
     ]);
     
-    // Prepare Suspension Records
-    const suspensionValues = suspensions.map((susp) => {
-      const duration = susp.suspendEnd 
-        ? calculateOvernightDuration(susp.suspendStart, susp.suspendEnd).display 
-        : 'Active';
-      const status = susp.suspendEnd ? 'Ended' : 'Active';
-      return [
-        susp.entryTimestamp,
-        susp.machineNumber,
-        susp.suspendStart,
-        susp.suspendEnd || '',
-        duration,
-        susp.reason,
-        status
-      ];
-    });
+    const suspensionValues = suspensions.map((susp) => [
+      susp.entryTimestamp, susp.machineNumber, susp.suspendStart,
+      susp.suspendEnd || '', susp.suspendEnd ? calculateOvernightDuration(susp.suspendStart, susp.suspendEnd).display : 'Active',
+      susp.reason, susp.suspendEnd ? 'Ended' : 'Active'
+    ]);
     
-    // Prepare Hourly Records with overnight slots
+    // Build overnight slots
     const slots = [];
     for (let i = 0; i < 24; i++) {
       const startTime = (4 * 60 + 30 + i * 60) % 1440;
       const endTime = (4 * 60 + 30 + (i + 1) * 60) % 1440;
-      const startHour = Math.floor(startTime / 60);
-      const startMin = startTime % 60;
-      const endHour = Math.floor(endTime / 60);
-      const endMin = endTime % 60;
-      slots.push(`${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}-${String(endHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`);
+      slots.push(`${String(Math.floor(startTime/60)).padStart(2,'0')}:${String(startTime%60).padStart(2,'0')}-${String(Math.floor(endTime/60)).padStart(2,'0')}:${String(endTime%60).padStart(2,'0')}`);
     }
     
     const slotMap = {};
@@ -1242,9 +1190,8 @@ async function syncToGoogleSheets() {
     
     const hourlyRows = [['Time Slot', ...machineOrder, 'Total']];
     slots.forEach(s => {
-      let arr = slotMap[s];
-      let tot = arr.slice(1).reduce((a, b) => a + b, 0);
-      if (tot > 0) hourlyRows.push([s, ...arr.slice(1), tot]);
+      let tot = slotMap[s].slice(1).reduce((a,b)=>a+b,0);
+      if (tot > 0) hourlyRows.push([s, ...slotMap[s].slice(1), tot]);
     });
     
     const cum = Array(machineOrder.length + 1).fill(0);
@@ -1252,168 +1199,49 @@ async function syncToGoogleSheets() {
       let idx = machineOrder.indexOf(e.machineNumber) + 1; 
       if (idx > 0) cum[idx]++; 
     });
+    const cumTot = cum.slice(1).reduce((a,b)=>a+b,0);
+    if (cumTot > 0) hourlyRows.unshift(['Cumulative Total', ...cum.slice(1), cumTot]);
     
-    const cumTot = cum.slice(1).reduce((a, b) => a + b, 0);
-    if (cumTot > 0) {
-      hourlyRows.unshift(['Cumulative Total', ...cum.slice(1), cumTot]);
-    }
-    
-    // Sync to Google Sheets with error handling
-    try {
-      // Clear existing data
-      await gapi.client.sheets.spreadsheets.values.clear({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'Status!A:F'
-      });
-      
-      // Write Status headers and data
-      if (statusValues.length > 0) {
-        await gapi.client.sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: 'Status!A1',
-          valueInputOption: 'RAW',
-          resource: {
-            values: [
-              ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'],
-              ...statusValues
-            ]
-          }
-        });
-      } else {
-        // Just write headers
-        await gapi.client.sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: 'Status!A1',
-          valueInputOption: 'RAW',
-          resource: {
-            values: [['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration']]
-          }
-        });
-      }
-      
-      // Sync Suspension Records
-      await gapi.client.sheets.spreadsheets.values.clear({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'Suspensions!A:G'
-      });
-      
-      if (suspensionValues.length > 0) {
-        await gapi.client.sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: 'Suspensions!A1',
-          valueInputOption: 'RAW',
-          resource: {
-            values: [
-              ['Timestamp', 'Machine', 'Start Time', 'End Time', 'Duration', 'Reason', 'Status'],
-              ...suspensionValues
-            ]
-          }
-        });
-      } else {
-        // Just write headers
-        await gapi.client.sheets.spreadsheets.values.update({
-          spreadsheetId: SPREADSHEET_ID,
-          range: 'Suspensions!A1',
-          valueInputOption: 'RAW',
-          resource: {
-            values: [['Timestamp', 'Machine', 'Start Time', 'End Time', 'Duration', 'Reason', 'Status']]
-          }
-        });
-      }
-      
-      // Sync Hourly Records
-      await gapi.client.sheets.spreadsheets.values.clear({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'Hourly!A:M'
-      });
-      
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'Hourly!A1',
-        valueInputOption: 'RAW',
-        resource: {
-          values: hourlyRows
-        }
-      });
-      
-      console.log('Data synced to Google Sheets successfully');
-      document.getElementById('error').textContent = '';
-      syncInProgress = false;
-      return true;
-      
-    } catch (error) {
-      console.error('Error during sheet operations:', error);
-      if (error.status === 401) {
-        document.getElementById('signInBtn').classList.remove('hidden');
-        accessToken = null;
-        sessionStorage.removeItem('loggedIn');
-        document.getElementById('error').textContent = 'Session expired. Please sign in again.';
-      } else {
-        document.getElementById('error').textContent = `Sync error: ${error.result?.error?.message || error.message || 'Unknown error'}`;
-      }
-      syncInProgress = false;
-      return false;
-    }
-  } catch (error) {
-    console.error('Error in syncToGoogleSheets:', error);
-    document.getElementById('error').textContent = 'Failed to sync data to Google Sheets.';
-    syncInProgress = false;
-    return false;
-  }
-}
-
-async function deleteOldCsvWorksheets() {
-  try {
-    const response = await gapi.client.sheets.spreadsheets.get({
-      spreadsheetId: SPREADSHEET_ID,
-      fields: 'sheets.properties(title,sheetId)'
+    await gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: SPREADSHEET_ID, range: 'Status!A:F' });
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID, range: 'Status!A1', valueInputOption: 'RAW',
+      resource: { values: [['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'], ...statusValues] }
     });
     
-    const sheets = response.result.sheets;
-    const deleteRequests = sheets
-      .filter(sheet => sheet.properties.title.startsWith('CPT_SR_') || sheet.properties.title.startsWith('CPT_HR_') || sheet.properties.title.startsWith('CPT_SUS_'))
-      .map(sheet => ({
-        deleteSheet: { sheetId: sheet.properties.sheetId }
-      }));
+    await gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: SPREADSHEET_ID, range: 'Suspensions!A:G' });
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID, range: 'Suspensions!A1', valueInputOption: 'RAW',
+      resource: { values: [['Timestamp', 'Machine', 'Start Time', 'End Time', 'Duration', 'Reason', 'Status'], ...suspensionValues] }
+    });
     
-    if (deleteRequests.length > 0) {
-      await gapi.client.sheets.spreadsheets.batchUpdate({
-        spreadsheetId: SPREADSHEET_ID,
-        resource: { requests: deleteRequests }
-      });
-    }
+    await gapi.client.sheets.spreadsheets.values.clear({ spreadsheetId: SPREADSHEET_ID, range: 'Hourly!A:M' });
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID, range: 'Hourly!A1', valueInputOption: 'RAW',
+      resource: { values: hourlyRows }
+    });
+    
+    syncInProgress = false;
+    return true;
   } catch (error) {
-    console.error('Error deleting old CSV worksheets:', error);
+    console.error('Sync error:', error);
+    syncInProgress = false;
+    return false;
   }
 }
 
 // ========== SUSPENSION COLLAPSE FUNCTIONS ==========
 function toggleSuspensionSection() {
   isSuspensionExpanded = !isSuspensionExpanded;
-  const content = document.getElementById('suspensionContent');
-  const btn = document.getElementById('expandSuspensionBtn');
-  
-  if (isSuspensionExpanded) {
-    content.classList.add('expanded');
-    btn.classList.add('expanded');
-  } else {
-    content.classList.remove('expanded');
-    btn.classList.remove('expanded');
-  }
-  
-  // Save preference to localStorage
+  document.getElementById('suspensionContent').classList.toggle('expanded', isSuspensionExpanded);
+  document.getElementById('expandSuspensionBtn').classList.toggle('expanded', isSuspensionExpanded);
   localStorage.setItem('suspensionExpanded', isSuspensionExpanded);
 }
 
 function updateActiveSuspensionsPreview() {
   const activeCount = suspensions.filter(s => !s.suspendEnd).length;
   const preview = document.getElementById('activeSuspensionsPreview');
-  
   if (activeCount > 0) {
-    const activeMachines = suspensions
-      .filter(s => !s.suspendEnd)
-      .map(s => s.machineNumber)
-      .join(', ');
+    const activeMachines = suspensions.filter(s => !s.suspendEnd).map(s => s.machineNumber).join(',');
     preview.innerHTML = `<span>${activeCount} active (${activeMachines})</span>`;
   } else {
     preview.innerHTML = '<span>0 active</span>';
@@ -1423,10 +1251,10 @@ function updateActiveSuspensionsPreview() {
 // ========== TAB FUNCTIONS ==========
 function switchTab(tab) {
   activeTab = tab;
-  const statusTab = document.getElementById('statusTabBtn');
-  const suspensionTab = document.getElementById('suspensionTabBtn');
   const statusContainer = document.getElementById('statusTableContainer');
   const suspensionContainer = document.getElementById('suspensionTableContainer');
+  const statusTab = document.getElementById('statusTabBtn');
+  const suspensionTab = document.getElementById('suspensionTabBtn');
   
   if (tab === 'status') {
     statusTab.classList.add('active');
@@ -1445,27 +1273,18 @@ function switchTab(tab) {
 
 // ========== INITIALIZATION ==========
 function initializeApp() {
-  // Restore data from localStorage
   const savedLog = localStorage.getItem('compactorLog');
-  if (savedLog) {
-    log = JSON.parse(savedLog).map(e => ({ ...e, machineNumber: String(e.machineNumber) }));
-  }
+  if (savedLog) log = JSON.parse(savedLog).map(e => ({ ...e, machineNumber: String(e.machineNumber) }));
   
   const savedHistory = localStorage.getItem('compactorActionHistory');
-  if (savedHistory) {
-    actionHistory = JSON.parse(savedHistory);
-  }
+  if (savedHistory) actionHistory = JSON.parse(savedHistory);
   
   const savedSuspensions = localStorage.getItem('compactorSuspensions');
-  if (savedSuspensions) {
-    suspensions = JSON.parse(savedSuspensions).map(s => ({ ...s, machineNumber: String(s.machineNumber) }));
-  }
+  if (savedSuspensions) suspensions = JSON.parse(savedSuspensions).map(s => ({ ...s, machineNumber: String(s.machineNumber) }));
   
-  // Restore suspension expanded state (default to false/collapsed)
   const savedExpanded = localStorage.getItem('suspensionExpanded');
-  isSuspensionExpanded = savedExpanded === 'true' ? true : false;
-
-  // Render UI
+  isSuspensionExpanded = savedExpanded === 'true';
+  
   renderMachineButtons();
   buildMachineSusRow();
   updateMachineButtonStates();
@@ -1476,40 +1295,24 @@ function initializeApp() {
   updateActiveSuspensionsPreview();
   updateSuspensionCounts();
   
-  // Set initial suspension section state
   const content = document.getElementById('suspensionContent');
   const btn = document.getElementById('expandSuspensionBtn');
   if (isSuspensionExpanded) {
     content.classList.add('expanded');
     btn.classList.add('expanded');
-  } else {
-    content.classList.remove('expanded');
-    btn.classList.remove('expanded');
   }
   
   document.getElementById('undoButton').disabled = actionHistory.length === 0;
-  
-  // Set up intervals
   updateInterval = setInterval(updateStatusTable, 60000);
-  syncInterval = setInterval(() => {
-    if (accessToken) {
-      syncToGoogleSheets();
-    }
-  }, 5 * 60 * 1000);
+  syncInterval = setInterval(() => { if (accessToken) syncToGoogleSheets(); }, 5 * 60 * 1000);
   
-  // Add collapse button listener
   document.getElementById('expandSuspensionBtn').addEventListener('click', toggleSuspensionSection);
-  
-  // Add tab listeners
   document.getElementById('statusTabBtn').addEventListener('click', () => switchTab('status'));
   document.getElementById('suspensionTabBtn').addEventListener('click', () => switchTab('suspension'));
-
-  // Google sign-in
+  
   checkGoogleIdentityServices().then(() => {
     if (sessionStorage.getItem('loggedIn')) {
-      initClient().then(() => {
-        syncToGoogleSheets();
-      });
+      initClient().then(() => syncToGoogleSheets());
     }
   }).catch(console.error);
 }
@@ -1523,10 +1326,7 @@ function buildMachineSusRow() {
     btn.className = `machine-suspension-btn ${isMachineSuspended(m) ? 'active-sus' : ''}`;
     btn.textContent = m;
     btn.dataset.machine = m;
-    btn.addEventListener('click', (e) => { 
-      e.preventDefault(); 
-      handleSuspensionToggle(m); 
-    });
+    btn.addEventListener('click', () => handleSuspensionToggle(m));
     container.appendChild(btn);
   });
 }
@@ -1556,12 +1356,8 @@ function resumeSuspension(machine) {
   const openIdx = suspensions.findIndex(s => s.machineNumber === machine && !s.suspendEnd);
   if (openIdx !== -1) {
     const currentTime = new Date().toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      hour12: false, 
-      timeZone: 'Asia/Hong_Kong' 
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Hong_Kong' 
     }).replace("24:", "00:");
-    
     suspensions[openIdx].suspendEnd = currentTime;
     suspensions[openIdx].entryTimestamp = new Date().toISOString();
     saveSuspensions();
@@ -1606,21 +1402,17 @@ window.confirmSuspension = function() {
   
   const reason = reasonsList.length ? reasonsList.join(' + ') : 'No reason specified';
   const currentTime = new Date().toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit', 
-    hour12: false, 
-    timeZone: 'Asia/Hong_Kong' 
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Hong_Kong' 
   }).replace("24:", "00:");
   
-  const newSusp = {
+  suspensions.push({
     machineNumber: currentSuspendMachine,
     suspendStart: currentTime,
     suspendEnd: null,
     reason: reason,
     entryTimestamp: new Date().toISOString()
-  };
+  });
   
-  suspensions.push(newSusp);
   saveSuspensions();
   hideSuspensionModal();
   updateSuspensionButtonStates();
@@ -1636,10 +1428,6 @@ function isMachineSuspended(machine) {
   return suspensions.some(s => s.machineNumber === machine && !s.suspendEnd);
 }
 
-function calculateSuspensionDuration(start, end) {
-  return calculateOvernightDuration(start, end).display;
-}
-
 // ========== CORE MACHINE FUNCTIONS ==========
 function handleMachineButtonClick(machine) {
   if (isMachineSuspended(machine)) {
@@ -1647,12 +1435,8 @@ function handleMachineButtonClick(machine) {
     return;
   }
   
-  const errorDiv = document.getElementById('error');
   const currentTime = new Date().toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit', 
-    hour12: false, 
-    timeZone: 'Asia/Hong_Kong' 
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Hong_Kong' 
   }).replace("24:", "00:");
   
   const existing = log.find(e => e.machineNumber === machine && !e.outTime);
@@ -1660,29 +1444,14 @@ function handleMachineButtonClick(machine) {
   if (existing) {
     existing.outTime = currentTime;
     existing.entryTimestamp = new Date().toISOString();
-    actionHistory.push({ 
-      type: 'outTime', 
-      machineNumber: machine, 
-      timestamp: existing.entryTimestamp, 
-      previousState: { ...existing, outTime: null } 
-    });
+    actionHistory.push({ type: 'outTime', machineNumber: machine, timestamp: existing.entryTimestamp, previousState: { ...existing, outTime: null } });
   } else {
-    const newEntry = { 
-      machineNumber: machine, 
-      inTime: currentTime, 
-      outTime: null, 
-      entryTimestamp: new Date().toISOString() 
-    };
+    const newEntry = { machineNumber: machine, inTime: currentTime, outTime: null, entryTimestamp: new Date().toISOString() };
     log.push(newEntry);
-    actionHistory.push({ 
-      type: 'inTime', 
-      machineNumber: machine, 
-      timestamp: newEntry.entryTimestamp, 
-      previousState: null 
-    });
+    actionHistory.push({ type: 'inTime', machineNumber: machine, timestamp: newEntry.entryTimestamp, previousState: null });
   }
   
-  errorDiv.textContent = '';
+  document.getElementById('error').textContent = '';
   document.getElementById('undoButton').disabled = false;
   localStorage.setItem('compactorLog', JSON.stringify(log));
   localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
@@ -1712,36 +1481,20 @@ function updateSuspensionButtonStates() {
 }
 
 function updateSuspensionCounts() {
-  const totalSuspensions = document.getElementById('totalSuspensions');
-  const activeSuspensionsCount = document.getElementById('activeSuspensionsCount');
+  document.getElementById('totalSuspensions').textContent = suspensions.length + ' suspensions';
+  document.getElementById('activeSuspensionsCount').textContent = suspensions.filter(s => !s.suspendEnd).length + ' active';
   const suspensionCount = document.getElementById('suspensionCount');
-  const toggleSuspensionBtn = document.getElementById('toggleSuspensionRecords');
-  
-  const activeCount = suspensions.filter(s => !s.suspendEnd).length;
-  totalSuspensions.textContent = suspensions.length + ' suspensions';
-  activeSuspensionsCount.textContent = activeCount + ' active';
   if (suspensionCount) suspensionCount.textContent = suspensions.length + ' records';
-  
-  if (toggleSuspensionBtn) {
-    toggleSuspensionBtn.style.display = suspensions.length > 10 ? 'flex' : 'none';
-    toggleSuspensionBtn.innerHTML = `
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-      </svg>
-      ${showAllSuspensions ? 'Show Less' : 'Show All'}
-    `;
-  }
 }
 
 function updateSuspensionTable() {
   const body = document.getElementById('suspensionBody');
   if (!body) return;
-  
   updateSuspensionCounts();
   
-  if (!suspensions.length) { 
-    body.innerHTML = '<tr><td colspan="7">No suspension records</td></tr>'; 
-    return; 
+  if (!suspensions.length) {
+    body.innerHTML = '<tr><td colspan="7">No suspension records</td></tr>';
+    return;
   }
   
   const sorted = [...suspensions].sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
@@ -1762,16 +1515,8 @@ function updateSuspensionTable() {
         <td>${susp.reason}</td>
         <td>${isActive ? 'Active' : 'Ended'}</td>
         <td>
-          ${isActive ? `
-            <svg class="resume-icon" width="16" height="16" viewBox="0 0 16 16" onclick="resumeSuspension('${susp.machineNumber}')" title="Resume" fill="currentColor">
-              <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-            </svg>
-          ` : ''}
-          <svg class="delete-icon" width="16" height="16" viewBox="0 0 16 16" onclick="deleteSuspension('${susp.machineNumber}', '${susp.entryTimestamp}')" title="Delete" fill="currentColor">
-            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-          </svg>
+          ${isActive ? `<svg class="resume-icon" width="16" height="16" viewBox="0 0 16 16" onclick="resumeSuspension('${susp.machineNumber}')" fill="currentColor"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>` : ''}
+          <svg class="delete-icon" width="16" height="16" viewBox="0 0 16 16" onclick="deleteSuspension('${susp.machineNumber}', '${susp.entryTimestamp}')" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
         </td>
       </tr>`;
   });
@@ -1782,7 +1527,6 @@ function updateStatusTable() {
   const statusCount = document.getElementById('statusCount');
   const pendingCount = document.getElementById('pendingCount');
   const completedCount = document.getElementById('completedCount');
-  const toggleRec = document.getElementById('toggleRecords');
   
   const pending = log.filter(e => !e.outTime).length;
   const completed = log.filter(e => e.outTime).length;
@@ -1791,19 +1535,9 @@ function updateStatusTable() {
   pendingCount.textContent = pending + ' pending';
   completedCount.textContent = completed + ' completed';
   
-  if (toggleRec) {
-    toggleRec.style.display = log.length > 10 ? 'flex' : 'none';
-    toggleRec.innerHTML = `
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M3.5 3a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 2a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z"/>
-      </svg>
-      ${showAllRecords ? 'Show Less' : 'Show All'}
-    `;
-  }
-  
-  if (!log.length) { 
-    body.innerHTML = '<tr><td colspan="6">No records</td></tr>'; 
-    return; 
+  if (!log.length) {
+    body.innerHTML = '<tr><td colspan="6">No records</td></tr>';
+    return;
   }
   
   const sorted = [...log].sort((a, b) => new Date(b.entryTimestamp) - new Date(a.entryTimestamp));
@@ -1823,12 +1557,7 @@ function updateStatusTable() {
         <td class="time-cell" onclick="editEntry('${entry.machineNumber}', '${entry.entryTimestamp}', 'inTime')">${entry.inTime}</td>
         <td class="time-cell" onclick="${entry.outTime ? `editEntry('${entry.machineNumber}', '${entry.entryTimestamp}', 'outTime')` : `promptOutTime(${entryIdx})`}">${entry.outTime || '-'}</td>
         <td>${duration.display}</td>
-        <td>
-          <svg class="delete-icon" width="16" height="16" viewBox="0 0 16 16" onclick="deleteEntry('${entry.machineNumber}', '${entry.entryTimestamp}')" fill="currentColor">
-            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-          </svg>
-        </td>
+        <td><svg class="delete-icon" width="16" height="16" viewBox="0 0 16 16" onclick="deleteEntry('${entry.machineNumber}', '${entry.entryTimestamp}')" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg></td>
       </tr>`;
   });
 }
@@ -1836,19 +1565,13 @@ function updateStatusTable() {
 function updateHourlyTable() {
   const tbody = document.getElementById('hourlyBody');
   const hourCount = document.getElementById('hourlyCount');
-  const toggleBtn = document.getElementById('toggleHourly');
   const cumRow = document.getElementById('cumulativeRow');
   
-  // Build 24 slots starting at 04:30
   const slots = [];
   for (let i = 0; i < 24; i++) {
     const startTime = (4 * 60 + 30 + i * 60) % 1440;
     const endTime = (4 * 60 + 30 + (i + 1) * 60) % 1440;
-    const startHour = Math.floor(startTime / 60);
-    const startMin = startTime % 60;
-    const endHour = Math.floor(endTime / 60);
-    const endMin = endTime % 60;
-    slots.push(`${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}-${String(endHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`);
+    slots.push(`${String(Math.floor(startTime/60)).padStart(2,'0')}:${String(startTime%60).padStart(2,'0')}-${String(Math.floor(endTime/60)).padStart(2,'0')}:${String(endTime%60).padStart(2,'0')}`);
   }
   
   const slotMap = {};
@@ -1863,11 +1586,10 @@ function updateHourlyTable() {
   });
   
   const cum = Array(machineOrder.length + 1).fill(0);
-  log.filter(e => e.outTime).forEach(e => { 
-    let i = machineOrder.indexOf(e.machineNumber) + 1; 
-    if (i > 0) cum[i]++; 
+  log.filter(e => e.outTime).forEach(e => {
+    let i = machineOrder.indexOf(e.machineNumber) + 1;
+    if (i > 0) cum[i]++;
   });
-  
   const cumTot = cum.slice(1).reduce((a, b) => a + b, 0);
   
   if (cumTot > 0) {
@@ -1879,24 +1601,21 @@ function updateHourlyTable() {
   
   let records = slots.filter(s => slotMap[s].some((v, i) => i > 0 && v > 0)).map(s => ({ slot: s, counts: slotMap[s] }));
   if (hourCount) hourCount.textContent = records.length + ' hours';
-  if (toggleBtn) toggleBtn.style.display = records.length > 5 ? 'flex' : 'none';
-  records.sort((a, b) => {
-    // Sort by slot start time
-    const getStartMin = (slot) => {
-      let start = slot.split('-')[0];
-      let [h, m] = start.split(':').map(Number);
-      let mins = h * 60 + m;
-      if (mins < 270) mins += 1440;
-      return mins;
-    };
-    return getStartMin(a.slot) - getStartMin(b.slot);
-  });
+  
+  const getStartMin = (slot) => {
+    let start = slot.split('-')[0];
+    let [h, m] = start.split(':').map(Number);
+    let mins = h * 60 + m;
+    if (mins < 270) mins += 1440;
+    return mins;
+  };
+  records.sort((a, b) => getStartMin(a.slot) - getStartMin(b.slot));
   const disp = showAllHourly ? records : records.slice(0, 5);
   
   tbody.innerHTML = '';
-  if (!disp.length) { 
-    tbody.innerHTML = '<tr><td colspan="13">No hourly records</td></tr>'; 
-    return; 
+  if (!disp.length) {
+    tbody.innerHTML = '<tr><td colspan="13">No hourly records</td></tr>';
+    return;
   }
   
   disp.forEach(r => {
@@ -1907,80 +1626,49 @@ function updateHourlyTable() {
 
 // ========== HELPER FUNCTIONS ==========
 window.promptOutTime = function(idx) {
-  let entry = log[idx]; 
+  let entry = log[idx];
   if (!entry || entry.outTime) return;
-  
-  let newTime = prompt('Out time (HH:MM):', new Date().toLocaleTimeString('en-US', {
-    hour: '2-digit', 
-    minute: '2-digit', 
-    hour12: false,
-    timeZone: 'Asia/Hong_Kong'
-  }).replace("24:", "00:"));
-  
+  let newTime = prompt('Out time (HH:MM):', new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Hong_Kong' }).replace("24:", "00:"));
   if (!newTime) return;
-  
-  entry.outTime = newTime; 
+  entry.outTime = newTime;
   entry.entryTimestamp = new Date().toISOString();
-  actionHistory.push({
-    type: 'outTime', 
-    machineNumber: entry.machineNumber, 
-    timestamp: entry.entryTimestamp, 
-    previousState: { ...entry, outTime: null }
-  });
-  
+  actionHistory.push({ type: 'outTime', machineNumber: entry.machineNumber, timestamp: entry.entryTimestamp, previousState: { ...entry, outTime: null } });
   localStorage.setItem('compactorLog', JSON.stringify(log));
   localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-  updateStatusTable(); 
-  updateHourlyTable(); 
-  updateMachineButtonStates(); 
+  updateStatusTable();
+  updateHourlyTable();
+  updateMachineButtonStates();
   syncToGoogleSheets();
 };
 
 window.editEntry = function(machine, ts, field) {
   let entry = log.find(e => e.machineNumber === machine && e.entryTimestamp === ts);
   if (!entry) return;
-  
   let cur = field === 'inTime' ? entry.inTime : entry.outTime;
   let newTime = prompt(`New ${field} time (HH:MM):`, cur);
   if (!newTime) return;
-  
-  actionHistory.push({
-    type: 'edit', 
-    machineNumber: machine, 
-    timestamp: ts, 
-    previousState: { ...entry }
-  });
-  
-  if (field === 'inTime') entry.inTime = newTime; 
+  actionHistory.push({ type: 'edit', machineNumber: machine, timestamp: ts, previousState: { ...entry } });
+  if (field === 'inTime') entry.inTime = newTime;
   else entry.outTime = newTime;
-  
   entry.entryTimestamp = new Date().toISOString();
-  
   localStorage.setItem('compactorLog', JSON.stringify(log));
   localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-  updateStatusTable(); 
-  updateHourlyTable(); 
-  updateMachineButtonStates(); 
+  updateStatusTable();
+  updateHourlyTable();
+  updateMachineButtonStates();
   syncToGoogleSheets();
 };
 
 window.deleteEntry = function(machine, ts) {
   let idx = log.findIndex(e => e.machineNumber === machine && e.entryTimestamp === ts);
   if (idx >= 0) {
-    actionHistory.push({
-      type: 'delete', 
-      machineNumber: machine, 
-      timestamp: ts, 
-      previousState: { ...log[idx] }
-    });
-    
+    actionHistory.push({ type: 'delete', machineNumber: machine, timestamp: ts, previousState: { ...log[idx] } });
     log.splice(idx, 1);
-    
     localStorage.setItem('compactorLog', JSON.stringify(log));
     localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-    updateStatusTable(); 
-    updateHourlyTable(); 
-    updateMachineButtonStates(); 
+    updateStatusTable();
+    updateHourlyTable();
+    updateMachineButtonStates();
     syncToGoogleSheets();
   }
 };
@@ -1988,24 +1676,12 @@ window.deleteEntry = function(machine, ts) {
 window.editSuspensionTime = function(machine, ts, field) {
   let susp = suspensions.find(s => s.machineNumber === machine && s.entryTimestamp === ts);
   if (!susp) return;
-  
   let cur = field === 'suspendStart' ? susp.suspendStart : susp.suspendEnd;
-  if (field === 'suspendEnd' && !cur) cur = new Date().toLocaleTimeString('en-US', {
-    hour: '2-digit', 
-    minute: '2-digit', 
-    hour12: false,
-    timeZone: 'Asia/Hong_Kong'
-  }).replace("24:", "00:");
-  
+  if (field === 'suspendEnd' && !cur) cur = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Hong_Kong' }).replace("24:", "00:");
   let newTime = prompt(`New ${field === 'suspendStart' ? 'start' : 'end'} time (HH:MM):`, cur);
   if (!newTime) return;
-  
-  if (field === 'suspendStart') {
-    susp.suspendStart = newTime;
-  } else {
-    susp.suspendEnd = newTime;
-  }
-  
+  if (field === 'suspendStart') susp.suspendStart = newTime;
+  else susp.suspendEnd = newTime;
   susp.entryTimestamp = new Date().toISOString();
   saveSuspensions();
   updateSuspensionTable();
@@ -2029,28 +1705,21 @@ window.deleteSuspension = function(machine, ts) {
 };
 
 function clearAllData() {
-  if (log.length === 0 && suspensions.length === 0) { 
-    document.getElementById('error').textContent = 'No data to clear'; 
-    return; 
+  if (log.length === 0 && suspensions.length === 0) {
+    document.getElementById('error').textContent = 'No data to clear';
+    return;
   }
-  
-  actionHistory.push({ 
-    type: 'clear', 
-    previousState: { log: [...log], suspensions: [...suspensions] } 
-  });
-  
-  log = []; 
+  actionHistory.push({ type: 'clear', previousState: { log: [...log], suspensions: [...suspensions] } });
+  log = [];
   suspensions = [];
-  
-  localStorage.removeItem('compactorLog'); 
+  localStorage.removeItem('compactorLog');
   localStorage.removeItem('compactorSuspensions');
   localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-  
-  updateStatusTable(); 
-  updateHourlyTable(); 
+  updateStatusTable();
+  updateHourlyTable();
   updateSuspensionTable();
-  updateMachineButtonStates(); 
-  updateSuspensionButtonStates(); 
+  updateMachineButtonStates();
+  updateSuspensionButtonStates();
   updateActiveSuspensionsPreview();
   updateSuspensionCounts();
   syncToGoogleSheets();
@@ -2058,9 +1727,7 @@ function clearAllData() {
 
 function undoLastAction() {
   if (actionHistory.length === 0) return;
-  
   let last = actionHistory.pop();
-  
   switch (last.type) {
     case 'inTime':
       log = log.filter(e => !(e.machineNumber === last.machineNumber && e.entryTimestamp === last.timestamp));
@@ -2079,128 +1746,74 @@ function undoLastAction() {
       saveSuspensions();
       break;
   }
-  
   localStorage.setItem('compactorLog', JSON.stringify(log));
   localStorage.setItem('compactorActionHistory', JSON.stringify(actionHistory));
-  
-  updateStatusTable(); 
-  updateHourlyTable(); 
+  updateStatusTable();
+  updateHourlyTable();
   updateSuspensionTable();
-  updateMachineButtonStates(); 
+  updateMachineButtonStates();
   updateSuspensionButtonStates();
   updateActiveSuspensionsPreview();
   updateSuspensionCounts();
   syncToGoogleSheets();
 }
 
-function toggleRecords() { 
-  showAllRecords = !showAllRecords; 
-  updateStatusTable(); 
-}
-
-function toggleHourly() { 
-  showAllHourly = !showAllHourly; 
-  updateHourlyTable(); 
-}
-
-function toggleSuspensionRecords() { 
-  showAllSuspensions = !showAllSuspensions; 
-  updateSuspensionTable(); 
-}
-
-function toggleBlink() { 
-  isBlinkingEnabled = !isBlinkingEnabled; 
-  updateStatusTable(); 
-}
+function toggleRecords() { showAllRecords = !showAllRecords; updateStatusTable(); }
+function toggleHourly() { showAllHourly = !showAllHourly; updateHourlyTable(); }
+function toggleSuspensionRecords() { showAllSuspensions = !showAllSuspensions; updateSuspensionTable(); }
+function toggleBlink() { isBlinkingEnabled = !isBlinkingEnabled; updateStatusTable(); }
 
 // ========== EXPORT TO CSV ==========
 async function exportToCSV() {
-  // Status CSV
   const statusRows = [
     ['Timestamp', 'Container #', 'Compactor', 'In Time', 'Out Time', 'Duration'],
-    ...log.map((e, i) => [
-      e.entryTimestamp, 
-      log.length - i, 
-      e.machineNumber, 
-      e.inTime, 
-      e.outTime || '', 
-      calculateOvernightDuration(e.inTime, e.outTime).display
-    ])
+    ...log.map((e, i) => [e.entryTimestamp, log.length - i, e.machineNumber, e.inTime, e.outTime || '', calculateOvernightDuration(e.inTime, e.outTime).display])
   ];
-  
   const statusCsv = statusRows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
   const statusBlob = new Blob(["\uFEFF" + statusCsv], { type: 'text/csv;charset=utf-8;' });
   const statusLink = document.createElement('a');
   statusLink.href = URL.createObjectURL(statusBlob);
   statusLink.download = `CPT_SR_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}.csv`;
   statusLink.click();
-
-  // Suspension CSV
+  
   const suspensionRows = [
     ['Timestamp', 'Machine', 'Start Time', 'End Time', 'Duration', 'Reason', 'Status'],
-    ...suspensions.map(s => {
-      const duration = s.suspendEnd 
-        ? calculateOvernightDuration(s.suspendStart, s.suspendEnd).display 
-        : 'Active';
-      const status = s.suspendEnd ? 'Ended' : 'Active';
-      return [
-        s.entryTimestamp,
-        s.machineNumber,
-        s.suspendStart,
-        s.suspendEnd || '',
-        duration,
-        s.reason,
-        status
-      ];
-    })
+    ...suspensions.map(s => [s.entryTimestamp, s.machineNumber, s.suspendStart, s.suspendEnd || '', s.suspendEnd ? calculateOvernightDuration(s.suspendStart, s.suspendEnd).display : 'Active', s.reason, s.suspendEnd ? 'Ended' : 'Active'])
   ];
-  
   const suspensionCsv = suspensionRows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
   const suspensionBlob = new Blob(["\uFEFF" + suspensionCsv], { type: 'text/csv;charset=utf-8;' });
   const suspensionLink = document.createElement('a');
   suspensionLink.href = URL.createObjectURL(suspensionBlob);
   suspensionLink.download = `CPT_SUS_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}.csv`;
   suspensionLink.click();
-
-  // Hourly CSV
+  
   const slots = [];
   for (let i = 0; i < 24; i++) {
     const startTime = (4 * 60 + 30 + i * 60) % 1440;
     const endTime = (4 * 60 + 30 + (i + 1) * 60) % 1440;
-    const startHour = Math.floor(startTime / 60);
-    const startMin = startTime % 60;
-    const endHour = Math.floor(endTime / 60);
-    const endMin = endTime % 60;
-    slots.push(`${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}-${String(endHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`);
+    slots.push(`${String(Math.floor(startTime/60)).padStart(2,'0')}:${String(startTime%60).padStart(2,'0')}-${String(Math.floor(endTime/60)).padStart(2,'0')}:${String(endTime%60).padStart(2,'0')}`);
   }
-  
   const slotMap = {};
   slots.forEach(s => slotMap[s] = Array(machineOrder.length + 1).fill(0));
-  
   log.filter(e => e.outTime).forEach(e => {
     const targetSlot = getHourSlot(e.outTime);
     if (targetSlot && slotMap[targetSlot]) {
       let idx = machineOrder.indexOf(e.machineNumber) + 1;
-      if (idx > 0) slotMap[targetSlot][idx]++; 
+      if (idx > 0) slotMap[targetSlot][idx]++;
     }
   });
-  
   const hourlyRows = [['Time Slot', ...machineOrder, 'Total']];
   slots.forEach(s => {
-    let arr = slotMap[s];
-    let tot = arr.slice(1).reduce((a, b) => a + b, 0);
-    if (tot > 0) hourlyRows.push([s, ...arr.slice(1), tot]);
+    let tot = slotMap[s].slice(1).reduce((a, b) => a + b, 0);
+    if (tot > 0) hourlyRows.push([s, ...slotMap[s].slice(1), tot]);
   });
-  
   const cum = Array(machineOrder.length + 1).fill(0);
-  log.filter(e => e.outTime).forEach(e => { 
-    let idx = machineOrder.indexOf(e.machineNumber) + 1; 
-    if (idx > 0) cum[idx]++; 
+  log.filter(e => e.outTime).forEach(e => {
+    let idx = machineOrder.indexOf(e.machineNumber) + 1;
+    if (idx > 0) cum[idx]++;
   });
-  
   const cumTot = cum.slice(1).reduce((a, b) => a + b, 0);
   if (cumTot > 0) hourlyRows.unshift(['Cumulative Total', ...cum.slice(1), cumTot]);
-  
   const hourlyCsv = hourlyRows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
   const hourlyBlob = new Blob(["\uFEFF" + hourlyCsv], { type: 'text/csv;charset=utf-8;' });
   const hourlyLink = document.createElement('a');
@@ -2209,88 +1822,24 @@ async function exportToCSV() {
   hourlyLink.click();
   
   document.getElementById('error').textContent = 'CSV exported successfully (3 files).';
-  
-  // Also try to sync to Google Sheets if signed in
-  if (accessToken) {
-    try {
-      await deleteOldCsvWorksheets();
-      // Create new sheets for CSV data
-      const statusFileName = `CPT_SR_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}`;
-      const suspensionFileName = `CPT_SUS_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}`;
-      const hourlyFileName = `CPT_HR_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}`;
-      
-      await gapi.client.sheets.spreadsheets.batchUpdate({
-        spreadsheetId: SPREADSHEET_ID,
-        resource: {
-          requests: [
-            { addSheet: { properties: { title: statusFileName } } },
-            { addSheet: { properties: { title: suspensionFileName } } },
-            { addSheet: { properties: { title: hourlyFileName } } }
-          ]
-        }
-      });
-      
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${statusFileName}!A1`,
-        valueInputOption: 'RAW',
-        resource: { values: statusRows }
-      });
-      
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${suspensionFileName}!A1`,
-        valueInputOption: 'RAW',
-        resource: { values: suspensionRows }
-      });
-      
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${hourlyFileName}!A1`,
-        valueInputOption: 'RAW',
-        resource: { 
-          values: [
-            ['Time Slot', ...machineOrder, 'Total'],
-            ...hourlyRows.slice(1)
-          ] 
-        }
-      });
-      
-      document.getElementById('error').textContent += ' Also saved to Google Sheets.';
-    } catch (e) {
-      console.log('Google Sheets upload optional:', e);
-    }
-  }
 }
 
 // ========== EVENT LISTENERS ==========
 document.addEventListener('DOMContentLoaded', () => {
   initializeApp();
-  
   document.getElementById('exportButton').addEventListener('click', exportToCSV);
   document.getElementById('clearButton').addEventListener('click', clearAllData);
   document.getElementById('undoButton').addEventListener('click', undoLastAction);
-  
-  const toggleRecordsBtn = document.getElementById('toggleRecords');
-  if (toggleRecordsBtn) toggleRecordsBtn.addEventListener('click', toggleRecords);
-  
-  const toggleHourlyBtn = document.getElementById('toggleHourly');
-  if (toggleHourlyBtn) toggleHourlyBtn.addEventListener('click', toggleHourly);
-  
-  const toggleSuspensionBtn = document.getElementById('toggleSuspensionRecords');
-  if (toggleSuspensionBtn) toggleSuspensionBtn.addEventListener('click', toggleSuspensionRecords);
-  
-  const toggleBlinkBtn = document.getElementById('toggleBlink');
-  if (toggleBlinkBtn) toggleBlinkBtn.addEventListener('click', toggleBlink);
-  
-  const signInBtn = document.getElementById('signInBtn');
-  if (signInBtn) signInBtn.addEventListener('click', requestAccessToken);
+  document.getElementById('toggleRecords').addEventListener('click', toggleRecords);
+  document.getElementById('toggleHourly').addEventListener('click', toggleHourly);
+  document.getElementById('toggleSuspensionRecords').addEventListener('click', toggleSuspensionRecords);
+  document.getElementById('toggleBlink').addEventListener('click', toggleBlink);
+  document.getElementById('signInBtn').addEventListener('click', requestAccessToken);
 });
 
-// Cleanup on window unload
-window.addEventListener('unload', () => { 
-  if (updateInterval) clearInterval(updateInterval); 
-  if (syncInterval) clearInterval(syncInterval); 
+window.addEventListener('unload', () => {
+  if (updateInterval) clearInterval(updateInterval);
+  if (syncInterval) clearInterval(syncInterval);
 });
 </script>
 </body>
